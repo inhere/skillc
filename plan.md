@@ -265,3 +265,16 @@
 - [x] **Step 4: Run tests to verify they pass**
 - [x] **Step 5: Run internal regression tests**
 - [x] **Step 6: Commit**
+
+### Task 13: Add agent filesystem installer ✅ Completed
+
+**Files:**
+- Create: `internal/infra/agentfs/installer.go`
+- Test: `internal/infra/agentfs/installer_test.go`
+
+- [x] **Step 1: Write the failing tests**
+- [x] **Step 2: Run tests to verify they fail**
+- [x] **Step 3: Write minimal implementation**
+- [x] **Step 4: Run tests to verify they pass**
+- [x] **Step 5: Run internal regression tests**
+- [x] **Step 6: Commit**

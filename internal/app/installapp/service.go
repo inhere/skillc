@@ -1,6 +1,7 @@
 package installapp
 
 import (
+	"fmt"
 	"path/filepath"
 	"time"
 
@@ -48,4 +49,43 @@ func (s *Service) Install(item skill.Skill, agentName string, scope agent.Scope,
 		return lockpkg.Record{}, err
 	}
 	return record, nil
+}
+
+func (s *Service) Uninstall(skillID string, agentName string, scope agent.Scope) error {
+	records, err := s.store.Load(s.lockFile)
+	if err != nil {
+		return err
+	}
+
+	kept := make([]lockpkg.Record, 0, len(records))
+	for _, record := range records {
+		if record.SkillID == skillID && record.Agent == agentName && record.Scope == string(scope) {
+			if err := s.installer.Remove(record.InstalledPath); err != nil {
+				return err
+			}
+			continue
+		}
+		kept = append(kept, record)
+	}
+	return s.store.Save(s.lockFile, kept)
+}
+
+func (s *Service) Restore(sourcePaths map[string]string) ([]lockpkg.Record, error) {
+	records, err := s.store.Load(s.lockFile)
+	if err != nil {
+		return nil, err
+	}
+
+	restored := make([]lockpkg.Record, 0, len(records))
+	for _, record := range records {
+		sourcePath, ok := sourcePaths[record.SourceID]
+		if !ok {
+			return nil, fmt.Errorf("source not found for restore: %s", record.SourceID)
+		}
+		if err := s.installer.Install(sourcePath, record.InstalledPath); err != nil {
+			return nil, err
+		}
+		restored = append(restored, record)
+	}
+	return restored, nil
 }

@@ -7,11 +7,21 @@ import (
 	"time"
 
 	"github.com/inhere/skillc/internal/domain/agent"
+	cfg "github.com/inhere/skillc/internal/domain/config"
 	lockpkg "github.com/inhere/skillc/internal/domain/lock"
 	"github.com/inhere/skillc/internal/domain/skill"
 	"github.com/inhere/skillc/internal/infra/agentfs"
 	"github.com/inhere/skillc/internal/infra/lockstore"
 )
+
+type skillLookup interface {
+	Show(id string) (skill.Skill, error)
+}
+
+type CommandResult struct {
+	Installed *lockpkg.Record
+	Restored  []lockpkg.Record
+}
 
 type Service struct {
 	lockFile  string
@@ -27,6 +37,40 @@ func NewService(lockFile string) *Service {
 		installer: agentfs.NewInstaller(),
 		now:       time.Now,
 	}
+}
+
+func (s *Service) Run(config cfg.Config, workingDir string, args []string, lookup skillLookup) (CommandResult, error) {
+	if len(args) == 0 {
+		restored, err := s.Restore(sourcePathMap(config))
+		if err != nil {
+			return CommandResult{}, err
+		}
+		return CommandResult{Restored: restored}, nil
+	}
+	if len(args) < 3 {
+		return CommandResult{}, fmt.Errorf("skill id, agent, and scope are required")
+	}
+	if lookup == nil {
+		return CommandResult{}, fmt.Errorf("skill lookup is required")
+	}
+
+	scope, err := parseScope(args[2])
+	if err != nil {
+		return CommandResult{}, err
+	}
+	item, err := lookup.Show(args[0])
+	if err != nil {
+		return CommandResult{}, err
+	}
+	targetRoot, err := agent.ResolveInstallPath(config, workingDir, args[1], scope)
+	if err != nil {
+		return CommandResult{}, err
+	}
+	record, err := s.Install(item, args[1], scope, targetRoot)
+	if err != nil {
+		return CommandResult{}, err
+	}
+	return CommandResult{Installed: &record}, nil
 }
 
 func (s *Service) Install(item skill.Skill, agentName string, scope agent.Scope, targetRoot string) (lockpkg.Record, error) {
@@ -122,4 +166,25 @@ func upsertRecord(records []lockpkg.Record, next lockpkg.Record) []lockpkg.Recor
 		}
 	}
 	return append(records, next)
+}
+
+func sourcePathMap(config cfg.Config) map[string]string {
+	paths := make(map[string]string, len(config.Sources))
+	for _, src := range config.Sources {
+		if src.Path == "" {
+			continue
+		}
+		paths[src.ID] = src.Path
+	}
+	return paths
+}
+
+func parseScope(value string) (agent.Scope, error) {
+	scope := agent.Scope(value)
+	switch scope {
+	case agent.ScopeUser, agent.ScopeProject:
+		return scope, nil
+	default:
+		return "", fmt.Errorf("unsupported scope: %s", value)
+	}
 }

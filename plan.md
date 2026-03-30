@@ -305,7 +305,7 @@
 - [x] **Step 5: Run internal regression tests**
 - [x] **Step 6: Commit**
 
-### Task 16: Add uninstall and restore service flows ⏳ Verified, commit pending
+### Task 16: Add uninstall and restore service flows ✅ Completed
 
 **Files:**
 - Modify: `internal/app/installapp/service.go`
@@ -319,9 +319,9 @@
 - [x] **Step 3: Write minimal implementation**
 - [x] **Step 4: Run tests to verify they pass**
 - [x] **Step 5: Run internal regression tests**
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
-### Task 17: Wire install, list, and doctor CLI commands ⏳ Verified, commit pending
+### Task 17: Wire install, list, and doctor CLI commands ✅ Completed
 
 **Files:**
 - Modify: `internal/cli/app.go`
@@ -334,7 +334,7 @@
 - [x] **Step 3: Write minimal implementation**
 - [x] **Step 4: Run tests to verify they pass**
 - [x] **Step 5: Run internal regression tests**
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ### Task 18: Add install/list/restore e2e smoke test ✅ Completed
 

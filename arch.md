@@ -267,6 +267,7 @@ type LockRecord struct {
     Version       string
     SourceID      string
     SourceType    string
+    InstallEntry  string
     ResolvedRef   string
     InstalledPath string
     Checksum      string
@@ -349,9 +350,10 @@ type InstallPlan struct {
 
 1. 读取 lock file
 2. 遍历每条已安装记录
-3. 重新定位来源与版本
-4. 来源有效则重新安装
-5. 汇总成功/失败结果
+3. 基于 `SourceID` 重新定位来源路径
+4. 基于 `InstallEntry` 还原实际复制入口
+5. 来源有效则重新安装
+6. 汇总成功/失败结果
 
 ### 6.5 `skillc uninstall <skill-id>`
 

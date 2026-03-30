@@ -279,45 +279,20 @@ func buildInstallCommand() *gcli.Command {
 				return err
 			}
 
-			service := installapp.NewService(config.LockFile)
-			if len(args) == 0 {
-				restored, err := service.Restore(sourcePathMap(config))
-				if err != nil {
-					slog.Error(err)
+			result, err := installapp.NewService(config.LockFile).Run(config, cwd, args, newSearchService())
+			if err != nil {
+				slog.Error(err)
+				return err
+			}
+			if result.Installed != nil {
+				return WriteLine(os.Stdout, fmt.Sprintf("%s %s", result.Installed.SkillID, result.Installed.InstalledPath))
+			}
+			for _, record := range result.Restored {
+				if err := WriteLine(os.Stdout, fmt.Sprintf("%s %s %s", record.SkillID, record.Agent, record.Scope)); err != nil {
 					return err
 				}
-				for _, record := range restored {
-					if err := WriteLine(os.Stdout, fmt.Sprintf("%s %s %s", record.SkillID, record.Agent, record.Scope)); err != nil {
-						return err
-					}
-				}
-				return nil
 			}
-
-			if len(args) < 3 {
-				return fmt.Errorf("skill id, agent, and scope are required")
-			}
-
-			scope, err := parseScope(args[2])
-			if err != nil {
-				return err
-			}
-			item, err := newSearchService().Show(args[0])
-			if err != nil {
-				slog.Error(err)
-				return err
-			}
-			targetRoot, err := agent.ResolveInstallPath(config, cwd, args[1], scope)
-			if err != nil {
-				slog.Error(err)
-				return err
-			}
-			record, err := service.Install(item, args[1], scope, targetRoot)
-			if err != nil {
-				slog.Error(err)
-				return err
-			}
-			return WriteLine(os.Stdout, fmt.Sprintf("%s %s", record.SkillID, record.InstalledPath))
+			return nil
 		},
 	}
 }
@@ -438,17 +413,6 @@ func loadConfig() (cfg.Config, string, error) {
 		return cfg.Config{}, "", err
 	}
 	return config, cwd, nil
-}
-
-func sourcePathMap(config cfg.Config) map[string]string {
-	paths := make(map[string]string, len(config.Sources))
-	for _, src := range config.Sources {
-		if src.Path == "" {
-			continue
-		}
-		paths[src.ID] = src.Path
-	}
-	return paths
 }
 
 func parseScope(value string) (agent.Scope, error) {

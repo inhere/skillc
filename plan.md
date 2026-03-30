@@ -235,3 +235,19 @@
 - [x] **Step 4: Run tests to verify they pass**
 - [x] **Step 5: Run internal regression tests**
 - [x] **Step 6: Commit**
+
+### Task 11: Add install plan and conflict rules ✅ Completed
+
+**Files:**
+- Create: `internal/domain/install/model.go`
+- Create: `internal/domain/install/planner.go`
+- Create: `internal/domain/install/conflict.go`
+- Test: `internal/domain/install/planner_test.go`
+- Test: `internal/domain/install/conflict_test.go`
+
+- [x] **Step 1: Write the failing tests**
+- [x] **Step 2: Run tests to verify they fail**
+- [x] **Step 3: Write minimal implementation**
+- [x] **Step 4: Run tests to verify they pass**
+- [x] **Step 5: Run internal regression tests**
+- [x] **Step 6: Commit**

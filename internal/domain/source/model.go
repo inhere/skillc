@@ -3,6 +3,7 @@ package source
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 )
 
 type Type string
@@ -13,12 +14,14 @@ const (
 )
 
 type Source struct {
-	ID   string
-	Type Type
-	Name string
-	Path string
-	URL  string
-	Ref  string
+	ID           string
+	Type         Type
+	Name         string
+	Path         string
+	URL          string
+	Ref          string
+	Status       string
+	ErrorMessage string
 }
 
 func NewLocalSource(path string) (Source, error) {
@@ -32,5 +35,26 @@ func NewLocalSource(path string) (Source, error) {
 		Type: TypeLocal,
 		Name: name,
 		Path: clean,
+	}, nil
+}
+
+func NewGitSource(url, ref string) (Source, error) {
+	trimmed := strings.TrimSpace(url)
+	if trimmed == "" {
+		return Source{}, fmt.Errorf("invalid git source url")
+	}
+	name := strings.TrimSuffix(filepath.Base(trimmed), ".git")
+	if name == "." || name == "" || name == "/" {
+		return Source{}, fmt.Errorf("invalid git source url: %s", url)
+	}
+	if ref == "" {
+		ref = "HEAD"
+	}
+	return Source{
+		ID:   fmt.Sprintf("git-%s", name),
+		Type: TypeGit,
+		Name: name,
+		URL:  trimmed,
+		Ref:  ref,
 	}, nil
 }

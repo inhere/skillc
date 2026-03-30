@@ -175,3 +175,18 @@
 - [x] **Step 3: Write minimal implementation**
 - [x] **Step 4: Run tests to verify they pass**
 - [x] **Step 5: Commit**
+
+### Task 6: Add Git client and Git source sync flow ✅ Completed
+
+**Files:**
+- Create: `internal/infra/gitx/client.go`
+- Test: `internal/infra/gitx/client_test.go`
+- Modify: `internal/app/sourceapp/service.go`
+- Modify: `internal/cli/app.go`
+- Test: `internal/app/sourceapp/service_test.go`
+
+- [x] **Step 1: Write the failing tests**
+- [x] **Step 2: Run tests to verify they fail**
+- [x] **Step 3: Write minimal implementation**
+- [x] **Step 4: Run tests to verify they pass**
+- [x] **Step 5: Commit**

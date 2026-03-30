@@ -117,6 +117,26 @@ func buildSourceCommand() *gcli.Command {
 			return WriteLine(os.Stdout, fmt.Sprintf("%s %s", src.ID, src.Path))
 		},
 	})
+	add.Add(&gcli.Command{
+		Name: "git",
+		Desc: "Add a git source",
+		Func: func(c *gcli.Command, args []string) error {
+			if len(args) < 1 {
+				return fmt.Errorf("git source url is required")
+			}
+			ref := ""
+			if len(args) > 1 {
+				ref = args[1]
+			}
+			service := newSourceService()
+			src, err := service.AddGit(args[0], ref)
+			if err != nil {
+				slog.Error(err)
+				return err
+			}
+			return WriteLine(os.Stdout, fmt.Sprintf("%s %s %s", src.ID, src.URL, src.Ref))
+		},
+	})
 	cmd.Add(add)
 
 	cmd.Add(&gcli.Command{
@@ -130,7 +150,42 @@ func buildSourceCommand() *gcli.Command {
 				return err
 			}
 			for _, src := range list {
-				if err := WriteLine(os.Stdout, fmt.Sprintf("%s %s %s", src.ID, src.Type, src.Path)); err != nil {
+				if err := WriteLine(os.Stdout, fmt.Sprintf("%s %s %s %s", src.ID, src.Type, src.Status, src.Path)); err != nil {
+					return err
+				}
+			}
+			return nil
+		},
+	})
+
+	cmd.Add(&gcli.Command{
+		Name: "sync",
+		Desc: "Sync source by id",
+		Func: func(c *gcli.Command, args []string) error {
+			if len(args) < 1 {
+				return fmt.Errorf("source id is required")
+			}
+			service := newSourceService()
+			if err := service.Sync(args[0]); err != nil {
+				slog.Error(err)
+				return err
+			}
+			return WriteLine(os.Stdout, "ok")
+		},
+	})
+
+	cmd.Add(&gcli.Command{
+		Name: "status",
+		Desc: "Show source status",
+		Func: func(c *gcli.Command, args []string) error {
+			service := newSourceService()
+			list, err := service.List()
+			if err != nil {
+				slog.Error(err)
+				return err
+			}
+			for _, src := range list {
+				if err := WriteLine(os.Stdout, fmt.Sprintf("%s %s %s", src.ID, src.Status, src.ErrorMessage)); err != nil {
 					return err
 				}
 			}

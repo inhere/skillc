@@ -34,3 +34,12 @@ func ExistsByPath(config cfg.Config, path string) bool {
 	}
 	return false
 }
+
+func ExistsByID(config cfg.Config, id string) bool {
+	for _, src := range config.Sources {
+		if src.ID == id {
+			return true
+		}
+	}
+	return false
+}

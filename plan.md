@@ -144,7 +144,7 @@
 - [x] **Step 5: Run CLI smoke tests**
 - [x] **Step 6: Commit**
 
-### Task 4: Add shared atomic write, file lock, and checksum infra
+### Task 4: Add shared atomic write, file lock, and checksum infra ✅ Completed
 
 **Files:**
 - Create: `internal/infra/fsx/atomic.go`
@@ -154,8 +154,8 @@
 - Test: `internal/infra/filelock/lock_test.go`
 - Test: `internal/infra/hashx/sha256_test.go`
 
-- [ ] **Step 1: Write the failing tests**
-- [ ] **Step 2: Run tests to verify they fail**
-- [ ] **Step 3: Write minimal implementation**
-- [ ] **Step 4: Run tests to verify they pass**
-- [ ] **Step 5: Commit**
+- [x] **Step 1: Write the failing tests**
+- [x] **Step 2: Run tests to verify they fail**
+- [x] **Step 3: Write minimal implementation**
+- [x] **Step 4: Run tests to verify they pass**
+- [x] **Step 5: Commit**

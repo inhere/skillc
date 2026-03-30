@@ -191,3 +191,20 @@
 - [x] **Step 3: Write minimal implementation**
 - [x] **Step 4: Run tests to verify they pass**
 - [x] **Step 5: Commit**
+
+### Task 8: Implement search and show services ✅ Completed
+
+**Files:**
+- Create: `internal/infra/repoindex/search.go`
+- Create: `internal/app/searchapp/service.go`
+- Test: `internal/infra/repoindex/search_test.go`
+- Test: `internal/app/searchapp/service_test.go`
+- Modify: `internal/cli/app.go`
+- Test: `internal/cli/app_test.go`
+
+- [x] **Step 1: Write the failing tests**
+- [x] **Step 2: Run tests to verify they fail**
+- [x] **Step 3: Write minimal implementation**
+- [x] **Step 4: Run tests to verify they pass**
+- [x] **Step 5: Run CLI and internal regression tests**
+- [x] **Step 6: Commit**

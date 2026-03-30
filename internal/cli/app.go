@@ -8,7 +8,9 @@ import (
 	"github.com/gookit/gcli/v3"
 	"github.com/gookit/slog"
 	"github.com/inhere/skillc/internal/app/configapp"
+	"github.com/inhere/skillc/internal/app/searchapp"
 	"github.com/inhere/skillc/internal/app/sourceapp"
+	"github.com/inhere/skillc/internal/domain/skill"
 )
 
 func NewApp() *gcli.App {
@@ -18,6 +20,8 @@ func NewApp() *gcli.App {
 	app.Version = "dev"
 	app.Add(buildConfigCommand())
 	app.Add(buildSourceCommand())
+	app.Add(buildSearchCommand())
+	app.Add(buildShowCommand())
 	return app
 }
 
@@ -212,12 +216,68 @@ func buildSourceCommand() *gcli.Command {
 	return cmd
 }
 
+func buildSearchCommand() *gcli.Command {
+	return &gcli.Command{
+		Name: "search",
+		Desc: "Search indexed skills",
+		Func: func(c *gcli.Command, args []string) error {
+			keyword := ""
+			if len(args) > 0 {
+				keyword = args[0]
+			}
+			service := newSearchService()
+			items, err := service.Search(keyword, "", "")
+			if err != nil {
+				slog.Error(err)
+				return err
+			}
+			for _, item := range items {
+				if err := WriteLine(os.Stdout, formatSkillLine(item)); err != nil {
+					return err
+				}
+			}
+			return nil
+		},
+	}
+}
+
+func buildShowCommand() *gcli.Command {
+	return &gcli.Command{
+		Name: "show",
+		Desc: "Show indexed skill details",
+		Func: func(c *gcli.Command, args []string) error {
+			if len(args) < 1 {
+				return fmt.Errorf("skill id is required")
+			}
+			service := newSearchService()
+			item, err := service.Show(args[0])
+			if err != nil {
+				slog.Error(err)
+				return err
+			}
+			return WriteLine(os.Stdout, formatSkillLine(item))
+		},
+	}
+}
+
+func formatSkillLine(item skill.Skill) string {
+	return fmt.Sprintf("%s %s %s", item.ID, item.Name, item.Version)
+}
+
 func newConfigService() *configapp.Service {
 	cwd, err := os.Getwd()
 	if err != nil {
 		cwd = "."
 	}
 	return configapp.NewService(defaultConfigFile(cwd), cwd)
+}
+
+func newSearchService() *searchapp.Service {
+	cwd, err := os.Getwd()
+	if err != nil {
+		cwd = "."
+	}
+	return searchapp.NewService(filepath.Join(cwd, "skillc-index.json"))
 }
 
 func newSourceService() *sourceapp.Service {

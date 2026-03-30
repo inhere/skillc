@@ -18,8 +18,12 @@ import (
 	"github.com/inhere/skillc/internal/infra/repoindex"
 )
 
+func newTestApp() *gcli.App {
+	return NewApp("dev", "unknown", "unknown")
+}
+
 func TestNewApp_RegistersSearchCommand(t *testing.T) {
-	app := NewApp()
+	app := newTestApp()
 
 	search := findCommandByName(app, "search")
 	assert.NotNil(t, search)
@@ -31,7 +35,7 @@ func TestNewApp_RegistersSearchCommand(t *testing.T) {
 }
 
 func TestNewApp_RegistersInstallListAndDoctorCommands(t *testing.T) {
-	app := NewApp()
+	app := newTestApp()
 
 	install := findCommandByName(app, "install")
 	assert.NotNil(t, install)
@@ -69,7 +73,7 @@ func TestInstallCommand_InstallsIndexedSkill(t *testing.T) {
 	}}))
 
 	output := runInDirWithStdout(t, baseDir, func() error {
-		return findCommandByName(NewApp(), "install").Func(nil, []string{"hello-skill", "claude-code", "project"})
+		return findCommandByName(newTestApp(), "install").Func(nil, []string{"hello-skill", "claude-code", "project"})
 	})
 
 	assert.Contains(t, output, "hello-skill")
@@ -103,7 +107,7 @@ func TestInstallCommand_RestoresFromLockFileWhenNoArgs(t *testing.T) {
 	}}))
 
 	output := runInDirWithStdout(t, baseDir, func() error {
-		return findCommandByName(NewApp(), "install").Func(nil, nil)
+		return findCommandByName(newTestApp(), "install").Func(nil, nil)
 	})
 
 	assert.Contains(t, output, "hello-skill claude-code project")
@@ -131,7 +135,7 @@ func TestListCommand_ListsInstalledSkills(t *testing.T) {
 	}}))
 
 	output := runInDirWithStdout(t, baseDir, func() error {
-		return findCommandByName(NewApp(), "list").Func(nil, []string{"claude-code", "project"})
+		return findCommandByName(newTestApp(), "list").Func(nil, []string{"claude-code", "project"})
 	})
 
 	assert.Contains(t, output, "hello-skill claude-code project installed")
@@ -146,7 +150,7 @@ func TestDoctorCommand_ReportsHealth(t *testing.T) {
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
 
 	output := runInDirWithStdout(t, baseDir, func() error {
-		return findCommandByName(NewApp(), "doctor").Func(nil, nil)
+		return findCommandByName(newTestApp(), "doctor").Func(nil, nil)
 	})
 
 	assert.Contains(t, output, "git_available=")

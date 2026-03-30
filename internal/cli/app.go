@@ -18,11 +18,11 @@ import (
 	"github.com/inhere/skillc/internal/domain/skill"
 )
 
-func NewApp() *gcli.App {
+func NewApp(version, gitHash, buildTime string) *gcli.App {
 	app := gcli.NewApp()
 	app.Name = "skillc"
 	app.Desc = "Skill manager for multi-agent ecosystems"
-	app.Version = "dev"
+	app.Version = fmt.Sprintf("%s (Git Hash: %s, Build Time: %s)", version, gitHash, buildTime)
 	app.Add(buildConfigCommand())
 	app.Add(buildSourceCommand())
 	app.Add(buildSearchCommand())

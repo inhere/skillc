@@ -7,7 +7,7 @@ import (
 )
 
 func TestNewApp_HasRootCommandName(t *testing.T) {
-	app := cli.NewApp()
+	app := cli.NewApp("dev", "unknown", "unknown")
 	if app == nil {
 		t.Fatal("expected app")
 	}

@@ -1,3 +1,4 @@
 .omc/
 .agents/
 .claude/
+*.exe

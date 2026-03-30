@@ -48,7 +48,7 @@ func TestInstallListAndRestoreFlow(t *testing.T) {
 	assert.Len(t, listed, 1)
 	assert.Eq(t, "missing", listed[0].Status)
 
-	restored, err := installer.Restore(map[string]string{"local-demo": commandsDir})
+	restored, err := installer.Restore(map[string]string{"local-demo": sourceDir})
 	assert.NoErr(t, err)
 	assert.Len(t, restored, 1)
 

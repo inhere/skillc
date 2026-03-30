@@ -2,6 +2,7 @@ package installapp
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -41,11 +42,18 @@ func (s *Service) Install(item skill.Skill, agentName string, scope agent.Scope,
 		Version:       item.Version,
 		SourceID:      item.SourceID,
 		SourceType:    string(item.SourceType),
+		InstallEntry:  item.InstallEntry,
 		InstalledPath: targetPath,
 		InstalledAt:   now,
 		UpdatedAt:     now,
 	}
-	if err := s.store.Save(s.lockFile, []lockpkg.Record{record}); err != nil {
+
+	records, err := s.loadRecords()
+	if err != nil {
+		return lockpkg.Record{}, err
+	}
+	records = upsertRecord(records, record)
+	if err := s.store.Save(s.lockFile, records); err != nil {
 		return lockpkg.Record{}, err
 	}
 	return record, nil
@@ -82,10 +90,36 @@ func (s *Service) Restore(sourcePaths map[string]string) ([]lockpkg.Record, erro
 		if !ok {
 			return nil, fmt.Errorf("source not found for restore: %s", record.SourceID)
 		}
-		if err := s.installer.Install(sourcePath, record.InstalledPath); err != nil {
+		installSourcePath := sourcePath
+		if record.InstallEntry != "" {
+			installSourcePath = filepath.Join(sourcePath, record.InstallEntry)
+		}
+		if err := s.installer.Install(installSourcePath, record.InstalledPath); err != nil {
 			return nil, err
 		}
 		restored = append(restored, record)
 	}
 	return restored, nil
+}
+
+func (s *Service) loadRecords() ([]lockpkg.Record, error) {
+	records, err := s.store.Load(s.lockFile)
+	if err == nil {
+		return records, nil
+	}
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	return nil, err
+}
+
+func upsertRecord(records []lockpkg.Record, next lockpkg.Record) []lockpkg.Record {
+	for i, record := range records {
+		if record.SkillID == next.SkillID && record.Agent == next.Agent && record.Scope == next.Scope {
+			next.InstalledAt = record.InstalledAt
+			records[i] = next
+			return records
+		}
+	}
+	return append(records, next)
 }

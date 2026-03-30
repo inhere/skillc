@@ -305,31 +305,36 @@
 - [x] **Step 5: Run internal regression tests**
 - [x] **Step 6: Commit**
 
-### Task 16: Add uninstall and restore service flows ✅ Completed
+### Task 16: Add uninstall and restore service flows ⏳ Verified, commit pending
 
 **Files:**
 - Modify: `internal/app/installapp/service.go`
 - Test: `internal/app/installapp/service_test.go`
+- Modify: `internal/domain/lock/model.go`
+
+**Verification note (2026-03-30):** Follow-up fixes verified that installs append/update lock records instead of overwriting them, persist `install_entry`, and restore from the recorded install entry path.
 
 - [x] **Step 1: Write the failing tests**
 - [x] **Step 2: Run tests to verify they fail**
 - [x] **Step 3: Write minimal implementation**
 - [x] **Step 4: Run tests to verify they pass**
 - [x] **Step 5: Run internal regression tests**
-- [x] **Step 6: Commit**
+- [ ] **Step 6: Commit**
 
-### Task 17: Wire install and list CLI commands ✅ Completed
+### Task 17: Wire install, list, and doctor CLI commands ⏳ Verified, commit pending
 
 **Files:**
 - Modify: `internal/cli/app.go`
 - Test: `internal/cli/app_test.go`
 
+**Verification note (2026-03-30):** Behavior-level command tests now cover indexed install, lock-based restore, installed list output, and doctor health output.
+
 - [x] **Step 1: Write the failing tests**
 - [x] **Step 2: Run tests to verify they fail**
 - [x] **Step 3: Write minimal implementation**
 - [x] **Step 4: Run tests to verify they pass**
 - [x] **Step 5: Run internal regression tests**
-- [x] **Step 6: Commit**
+- [ ] **Step 6: Commit**
 
 ### Task 18: Add install/list/restore e2e smoke test ✅ Completed
 

@@ -9,6 +9,7 @@ type Record struct {
 	Version       string    `json:"version"`
 	SourceID      string    `json:"source_id"`
 	SourceType    string    `json:"source_type"`
+	InstallEntry  string    `json:"install_entry"`
 	InstalledPath string    `json:"installed_path"`
 	Checksum      string    `json:"checksum"`
 	InstalledAt   time.Time `json:"installed_at"`

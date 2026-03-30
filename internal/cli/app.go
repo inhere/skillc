@@ -8,8 +8,13 @@ import (
 	"github.com/gookit/gcli/v3"
 	"github.com/gookit/slog"
 	"github.com/inhere/skillc/internal/app/configapp"
+	"github.com/inhere/skillc/internal/app/doctorapp"
+	"github.com/inhere/skillc/internal/app/installapp"
+	"github.com/inhere/skillc/internal/app/listapp"
 	"github.com/inhere/skillc/internal/app/searchapp"
 	"github.com/inhere/skillc/internal/app/sourceapp"
+	"github.com/inhere/skillc/internal/domain/agent"
+	cfg "github.com/inhere/skillc/internal/domain/config"
 	"github.com/inhere/skillc/internal/domain/skill"
 )
 
@@ -24,6 +29,7 @@ func NewApp() *gcli.App {
 	app.Add(buildShowCommand())
 	app.Add(buildInstallCommand())
 	app.Add(buildListCommand())
+	app.Add(buildDoctorCommand())
 	return app
 }
 
@@ -267,7 +273,51 @@ func buildInstallCommand() *gcli.Command {
 		Name: "install",
 		Desc: "Install skills",
 		Func: func(c *gcli.Command, args []string) error {
-			return WriteLine(os.Stdout, "install not implemented")
+			config, cwd, err := loadConfig()
+			if err != nil {
+				slog.Error(err)
+				return err
+			}
+
+			service := installapp.NewService(config.LockFile)
+			if len(args) == 0 {
+				restored, err := service.Restore(sourcePathMap(config))
+				if err != nil {
+					slog.Error(err)
+					return err
+				}
+				for _, record := range restored {
+					if err := WriteLine(os.Stdout, fmt.Sprintf("%s %s %s", record.SkillID, record.Agent, record.Scope)); err != nil {
+						return err
+					}
+				}
+				return nil
+			}
+
+			if len(args) < 3 {
+				return fmt.Errorf("skill id, agent, and scope are required")
+			}
+
+			scope, err := parseScope(args[2])
+			if err != nil {
+				return err
+			}
+			item, err := newSearchService().Show(args[0])
+			if err != nil {
+				slog.Error(err)
+				return err
+			}
+			targetRoot, err := agent.ResolveInstallPath(config, cwd, args[1], scope)
+			if err != nil {
+				slog.Error(err)
+				return err
+			}
+			record, err := service.Install(item, args[1], scope, targetRoot)
+			if err != nil {
+				slog.Error(err)
+				return err
+			}
+			return WriteLine(os.Stdout, fmt.Sprintf("%s %s", record.SkillID, record.InstalledPath))
 		},
 	}
 }
@@ -277,7 +327,67 @@ func buildListCommand() *gcli.Command {
 		Name: "list",
 		Desc: "List installed skills",
 		Func: func(c *gcli.Command, args []string) error {
-			return WriteLine(os.Stdout, "list not implemented")
+			config, _, err := loadConfig()
+			if err != nil {
+				slog.Error(err)
+				return err
+			}
+
+			agentName := ""
+			scope := ""
+			if len(args) > 0 {
+				agentName = args[0]
+			}
+			if len(args) > 1 {
+				scope = args[1]
+			}
+			if len(args) > 2 {
+				return fmt.Errorf("too many arguments")
+			}
+			if scope != "" {
+				if _, err := parseScope(scope); err != nil {
+					return err
+				}
+			}
+
+			items, err := listapp.NewService(config.LockFile).List(agentName, scope)
+			if err != nil {
+				slog.Error(err)
+				return err
+			}
+			for _, item := range items {
+				if err := WriteLine(os.Stdout, fmt.Sprintf("%s %s %s %s", item.SkillID, item.Agent, item.Scope, item.Status)); err != nil {
+					return err
+				}
+			}
+			return nil
+		},
+	}
+}
+
+func buildDoctorCommand() *gcli.Command {
+	return &gcli.Command{
+		Name: "doctor",
+		Desc: "Check environment health",
+		Func: func(c *gcli.Command, args []string) error {
+			service := newDoctorService()
+			result, err := service.Check()
+			if err != nil {
+				slog.Error(err)
+				return err
+			}
+			lines := []string{
+				fmt.Sprintf("git_available=%t", result.GitAvailable),
+				fmt.Sprintf("config_ok=%t", result.ConfigOK),
+				fmt.Sprintf("lock_file=%s", result.LockFile),
+				fmt.Sprintf("repo_cache_dir=%s", result.RepoCacheDir),
+			}
+			for _, line := range lines {
+				if err := WriteLine(os.Stdout, line); err != nil {
+					return err
+				}
+			}
+			return nil
 		},
 	}
 }
@@ -310,10 +420,56 @@ func newSourceService() *sourceapp.Service {
 	return sourceapp.NewService(defaultConfigFile(cwd), cwd)
 }
 
+func newDoctorService() *doctorapp.Service {
+	cwd, err := os.Getwd()
+	if err != nil {
+		cwd = "."
+	}
+	return doctorapp.NewService(defaultConfigFile(cwd), cwd)
+}
+
+func loadConfig() (cfg.Config, string, error) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return cfg.Config{}, "", err
+	}
+	config, err := configapp.NewService(defaultConfigFile(cwd), cwd).Show()
+	if err != nil {
+		return cfg.Config{}, "", err
+	}
+	return config, cwd, nil
+}
+
+func sourcePathMap(config cfg.Config) map[string]string {
+	paths := make(map[string]string, len(config.Sources))
+	for _, src := range config.Sources {
+		if src.Path == "" {
+			continue
+		}
+		paths[src.ID] = src.Path
+	}
+	return paths
+}
+
+func parseScope(value string) (agent.Scope, error) {
+	scope := agent.Scope(value)
+	switch scope {
+	case agent.ScopeUser, agent.ScopeProject:
+		return scope, nil
+	default:
+		return "", fmt.Errorf("unsupported scope: %s", value)
+	}
+}
+
 func defaultConfigFile(baseDir string) string {
+	localPath := filepath.Join(baseDir, "skillc.yaml")
+	if _, err := os.Stat(localPath); err == nil {
+		return localPath
+	}
+
 	home, err := os.UserHomeDir()
 	if err != nil || home == "" {
-		return filepath.Join(baseDir, "skillc.yaml")
+		return localPath
 	}
 	return filepath.Join(home, ".config", "skillc", "config.yaml")
 }

@@ -291,3 +291,16 @@
 - [x] **Step 4: Run tests to verify they pass**
 - [x] **Step 5: Run internal regression tests**
 - [x] **Step 6: Commit**
+
+### Task 15: Add installed list service ✅ Completed
+
+**Files:**
+- Create: `internal/app/listapp/service.go`
+- Test: `internal/app/listapp/service_test.go`
+
+- [x] **Step 1: Write the failing tests**
+- [x] **Step 2: Run tests to verify they fail**
+- [x] **Step 3: Write minimal implementation**
+- [x] **Step 4: Run tests to verify they pass**
+- [x] **Step 5: Run internal regression tests**
+- [x] **Step 6: Commit**

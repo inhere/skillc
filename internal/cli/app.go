@@ -22,6 +22,8 @@ func NewApp() *gcli.App {
 	app.Add(buildSourceCommand())
 	app.Add(buildSearchCommand())
 	app.Add(buildShowCommand())
+	app.Add(buildInstallCommand())
+	app.Add(buildListCommand())
 	return app
 }
 
@@ -256,6 +258,26 @@ func buildShowCommand() *gcli.Command {
 				return err
 			}
 			return WriteLine(os.Stdout, formatSkillLine(item))
+		},
+	}
+}
+
+func buildInstallCommand() *gcli.Command {
+	return &gcli.Command{
+		Name: "install",
+		Desc: "Install skills",
+		Func: func(c *gcli.Command, args []string) error {
+			return WriteLine(os.Stdout, "install not implemented")
+		},
+	}
+}
+
+func buildListCommand() *gcli.Command {
+	return &gcli.Command{
+		Name: "list",
+		Desc: "List installed skills",
+		Func: func(c *gcli.Command, args []string) error {
+			return WriteLine(os.Stdout, "list not implemented")
 		},
 	}
 }

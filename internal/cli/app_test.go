@@ -19,6 +19,18 @@ func TestNewApp_RegistersSearchCommand(t *testing.T) {
 	assert.Eq(t, "Show indexed skill details", show.Desc)
 }
 
+func TestNewApp_RegistersInstallAndListCommands(t *testing.T) {
+	app := NewApp()
+
+	install := findCommandByName(app, "install")
+	assert.NotNil(t, install)
+	assert.Eq(t, "Install skills", install.Desc)
+
+	list := findCommandByName(app, "list")
+	assert.NotNil(t, list)
+	assert.Eq(t, "List installed skills", list.Desc)
+}
+
 func findCommandByName(app *gcli.App, name string) *gcli.Command {
 	for _, cmd := range app.Commands() {
 		if cmd.Name == name {

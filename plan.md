@@ -342,3 +342,15 @@
 - [x] **Step 4: Run tests to verify they pass**
 - [x] **Step 5: Run full regression tests**
 - [x] **Step 6: Commit**
+
+### Task 19: Add source/search e2e smoke test ✅ Completed
+
+**Files:**
+- Create: `tests/e2e/source_search_test.go`
+
+- [x] **Step 1: Write the test scenario**
+- [x] **Step 2: Run test to verify current behavior**
+- [x] **Step 3: Keep minimal implementation unchanged because flow already passes**
+- [x] **Step 4: Re-run test to verify it passes**
+- [x] **Step 5: Run full regression tests**
+- [x] **Step 6: Commit**

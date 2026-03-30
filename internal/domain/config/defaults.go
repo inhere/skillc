@@ -1,5 +1,7 @@
 package config
 
+import domainsource "github.com/inhere/skillc/internal/domain/source"
+
 func DefaultConfig() Config {
 	return Config{
 		AgentTools: map[string]AgentToolConfig{
@@ -23,5 +25,6 @@ func DefaultConfig() Config {
 		RepoCacheDir:     "~/.cache/skillc/repos",
 		SkillCacheDir:    "~/.cache/skillc/skills",
 		RegistryCacheDir: "~/.cache/skillc/registry",
+		Sources:          []domainsource.Source{},
 	}
 }

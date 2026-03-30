@@ -159,3 +159,19 @@
 - [x] **Step 3: Write minimal implementation**
 - [x] **Step 4: Run tests to verify they pass**
 - [x] **Step 5: Commit**
+
+### Task 5: Add source domain model and local source management ✅ Completed
+
+**Files:**
+- Create: `internal/domain/source/model.go`
+- Create: `internal/infra/sourcestore/config_sources.go`
+- Create: `internal/app/sourceapp/service.go`
+- Test: `internal/domain/source/model_test.go`
+- Test: `internal/app/sourceapp/service_test.go`
+- Modify: `internal/cli/app.go`
+
+- [x] **Step 1: Write the failing tests**
+- [x] **Step 2: Run tests to verify they fail**
+- [x] **Step 3: Write minimal implementation**
+- [x] **Step 4: Run tests to verify they pass**
+- [x] **Step 5: Commit**

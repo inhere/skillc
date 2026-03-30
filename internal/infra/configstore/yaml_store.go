@@ -56,6 +56,7 @@ func (s *YAMLStore) Save(path string, data cfg.Config) error {
 		"repo_cache_dir":     data.RepoCacheDir,
 		"skill_cache_dir":    data.SkillCacheDir,
 		"registry_cache_dir": data.RegistryCacheDir,
+		"sources":            data.Sources,
 	})
 	return loader.DumpToFile(path, gkconfig.Yaml)
 }
@@ -75,5 +76,8 @@ func mergeDefaults(dst *cfg.Config, defaults cfg.Config) {
 	}
 	if dst.RegistryCacheDir == "" {
 		dst.RegistryCacheDir = defaults.RegistryCacheDir
+	}
+	if dst.Sources == nil {
+		dst.Sources = defaults.Sources
 	}
 }

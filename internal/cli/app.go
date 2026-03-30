@@ -8,6 +8,7 @@ import (
 	"github.com/gookit/gcli/v3"
 	"github.com/gookit/slog"
 	"github.com/inhere/skillc/internal/app/configapp"
+	"github.com/inhere/skillc/internal/app/sourceapp"
 )
 
 func NewApp() *gcli.App {
@@ -16,6 +17,7 @@ func NewApp() *gcli.App {
 	app.Desc = "Skill manager for multi-agent ecosystems"
 	app.Version = "dev"
 	app.Add(buildConfigCommand())
+	app.Add(buildSourceCommand())
 	return app
 }
 
@@ -89,12 +91,86 @@ func buildConfigCommand() *gcli.Command {
 	return cmd
 }
 
+func buildSourceCommand() *gcli.Command {
+	cmd := &gcli.Command{
+		Name: "source",
+		Desc: "Manage Skillc sources",
+	}
+
+	add := &gcli.Command{
+		Name: "add",
+		Desc: "Add a source",
+	}
+	add.Add(&gcli.Command{
+		Name: "local",
+		Desc: "Add a local source",
+		Func: func(c *gcli.Command, args []string) error {
+			if len(args) < 1 {
+				return fmt.Errorf("local source path is required")
+			}
+			service := newSourceService()
+			src, err := service.AddLocal(args[0])
+			if err != nil {
+				slog.Error(err)
+				return err
+			}
+			return WriteLine(os.Stdout, fmt.Sprintf("%s %s", src.ID, src.Path))
+		},
+	})
+	cmd.Add(add)
+
+	cmd.Add(&gcli.Command{
+		Name: "list",
+		Desc: "List sources",
+		Func: func(c *gcli.Command, args []string) error {
+			service := newSourceService()
+			list, err := service.List()
+			if err != nil {
+				slog.Error(err)
+				return err
+			}
+			for _, src := range list {
+				if err := WriteLine(os.Stdout, fmt.Sprintf("%s %s %s", src.ID, src.Type, src.Path)); err != nil {
+					return err
+				}
+			}
+			return nil
+		},
+	})
+
+	cmd.Add(&gcli.Command{
+		Name: "remove",
+		Desc: "Remove source by id",
+		Func: func(c *gcli.Command, args []string) error {
+			if len(args) < 1 {
+				return fmt.Errorf("source id is required")
+			}
+			service := newSourceService()
+			if err := service.Remove(args[0]); err != nil {
+				slog.Error(err)
+				return err
+			}
+			return WriteLine(os.Stdout, "ok")
+		},
+	})
+
+	return cmd
+}
+
 func newConfigService() *configapp.Service {
 	cwd, err := os.Getwd()
 	if err != nil {
 		cwd = "."
 	}
 	return configapp.NewService(defaultConfigFile(cwd), cwd)
+}
+
+func newSourceService() *sourceapp.Service {
+	cwd, err := os.Getwd()
+	if err != nil {
+		cwd = "."
+	}
+	return sourceapp.NewService(defaultConfigFile(cwd), cwd)
 }
 
 func defaultConfigFile(baseDir string) string {

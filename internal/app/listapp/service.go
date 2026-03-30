@@ -36,6 +36,9 @@ func NewService(lockFile string) *Service {
 func (s *Service) List(agentName string, scope string) ([]Item, error) {
 	records, err := s.store.Load(s.lockFile)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return []Item{}, nil
+		}
 		return nil, err
 	}
 

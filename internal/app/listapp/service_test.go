@@ -11,6 +11,16 @@ import (
 	"github.com/inhere/skillc/internal/infra/lockstore"
 )
 
+func TestService_ListReturnsEmptyWhenLockFileMissing(t *testing.T) {
+	baseDir := t.TempDir()
+	lockFile := filepath.Join(baseDir, "skillc-install.lock")
+
+	service := NewService(lockFile)
+	items, err := service.List("claude-code", "project")
+	assert.NoErr(t, err)
+	assert.Len(t, items, 0)
+}
+
 func TestService_ListProjectsInstalledAndMissingStatus(t *testing.T) {
 	baseDir := t.TempDir()
 	lockFile := filepath.Join(baseDir, "skillc-install.lock")

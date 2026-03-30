@@ -7,6 +7,7 @@ import (
 	gkconfig "github.com/gookit/config/v2"
 	gkyaml "github.com/gookit/config/v2/yaml"
 	cfg "github.com/inhere/skillc/internal/domain/config"
+	"github.com/inhere/skillc/internal/infra/fsx"
 )
 
 type YAMLStore struct{}
@@ -17,11 +18,13 @@ func NewYAMLStore() *YAMLStore {
 
 func (s *YAMLStore) Load(path string, baseDir string) (cfg.Config, error) {
 	if path == "" {
-		return cfg.DefaultConfig(), nil
+		data := cfg.DefaultConfig()
+		return expandRuntimePaths(data, baseDir)
 	}
 
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return cfg.DefaultConfig(), nil
+		data := cfg.DefaultConfig()
+		return expandRuntimePaths(data, baseDir)
 	} else if err != nil {
 		return cfg.Config{}, err
 	}
@@ -39,7 +42,7 @@ func (s *YAMLStore) Load(path string, baseDir string) (cfg.Config, error) {
 
 	defaults := cfg.DefaultConfig()
 	mergeDefaults(&out, defaults)
-	return out, nil
+	return expandRuntimePaths(out, baseDir)
 }
 
 func (s *YAMLStore) Save(path string, data cfg.Config) error {
@@ -80,4 +83,53 @@ func mergeDefaults(dst *cfg.Config, defaults cfg.Config) {
 	if dst.Sources == nil {
 		dst.Sources = defaults.Sources
 	}
+}
+
+func expandRuntimePaths(data cfg.Config, baseDir string) (cfg.Config, error) {
+	var err error
+	data.LockFile, err = fsx.ExpandPath(data.LockFile, baseDir)
+	if err != nil {
+		return cfg.Config{}, err
+	}
+	data.RepoCacheDir, err = fsx.ExpandPath(data.RepoCacheDir, baseDir)
+	if err != nil {
+		return cfg.Config{}, err
+	}
+	data.SkillCacheDir, err = fsx.ExpandPath(data.SkillCacheDir, baseDir)
+	if err != nil {
+		return cfg.Config{}, err
+	}
+	data.RegistryCacheDir, err = fsx.ExpandPath(data.RegistryCacheDir, baseDir)
+	if err != nil {
+		return cfg.Config{}, err
+	}
+
+	for name, tool := range data.AgentTools {
+		if tool.UserDir != "" {
+			tool.UserDir, err = fsx.ExpandPath(tool.UserDir, baseDir)
+			if err != nil {
+				return cfg.Config{}, err
+			}
+		}
+		if tool.ProjectDir != "" {
+			tool.ProjectDir, err = fsx.ExpandPath(tool.ProjectDir, baseDir)
+			if err != nil {
+				return cfg.Config{}, err
+			}
+		}
+		data.AgentTools[name] = tool
+	}
+
+	for i, src := range data.Sources {
+		if src.Path == "" {
+			continue
+		}
+		src.Path, err = fsx.ExpandPath(src.Path, baseDir)
+		if err != nil {
+			return cfg.Config{}, err
+		}
+		data.Sources[i] = src
+	}
+
+	return data, nil
 }

@@ -117,6 +117,20 @@ func TestInstallCommand_RestoresFromLockFileWhenNoArgs(t *testing.T) {
 }
 
 
+func TestListCommand_ReturnsEmptyWhenLockFileMissing(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	config := cfg.DefaultConfig()
+	config.LockFile = filepath.Join(baseDir, "skillc-install.lock")
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
+
+	output := runInDirWithStdout(t, baseDir, func() error {
+		return findCommandByName(newTestApp(), "list").Func(nil, []string{"claude-code", "project"})
+	})
+
+	assert.Eq(t, "", output)
+}
+
 func TestListCommand_ListsInstalledSkills(t *testing.T) {
 	baseDir := t.TempDir()
 	configFile := filepath.Join(baseDir, "skillc.yaml")

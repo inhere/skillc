@@ -323,8 +323,9 @@ type InstallPlan struct {
 2. `sourceapp` 校验路径与去重
 3. 生成或确认 source id / name
 4. 写回配置
-5. 等待后续 `source sync <source-id>` 执行扫描、重建共享 index，并更新 `status` / `last_sync_at`
-6. 输出 source 信息
+5. 若指定 `--sync`，立即执行 `source sync <source-id>` 的同步与索引重建流程
+6. 若未指定 `--sync`，输出下一步提示：`skillc source sync <source-id>`
+7. 输出 source 信息
 
 ### 6.2 `skillc search <keyword>`
 
@@ -628,8 +629,8 @@ skillc install   # 无参数 restore
 
 建议使用临时目录开展集成测试，覆盖以下关键链路：
 
-- `source add local` -> `source sync` -> 扫描 -> `search`
-- `source add git` -> sync -> 扫描 -> `search`
+- `source add local` -> 输出下一步 sync 提示，或 `--sync` -> 扫描 -> `search`
+- `source add git` -> 输出下一步 sync 提示，或 `--sync` -> 扫描 -> `search`
 - `install` -> 文件落地 -> lock 写入
 - `uninstall` -> 文件删除 -> lock 删除
 - `install` 无参数 -> restore

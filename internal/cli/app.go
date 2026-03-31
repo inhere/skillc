@@ -114,53 +114,8 @@ func buildSourceCommand() *gcli.Command {
 		Name: "add",
 		Desc: "Add a source",
 	}
-	add.Add(&gcli.Command{
-		Name: "local",
-		Desc: "Add a local source",
-		Config: func(c *gcli.Command) {
-			c.AddArg("path", "local source path", true)
-		},
-		Func: func(c *gcli.Command, args []string) error {
-			if len(args) < 1 {
-				return fmt.Errorf("local source path is required")
-			}
-			pathArg := args[0]
-			if pathArg == "" {
-				pathArg = c.Arg("path").String()
-			}
-			service := newSourceService()
-			src, err := service.AddLocal(pathArg)
-			if err != nil {
-				slog.Error(err)
-				return err
-			}
-			return WriteLine(os.Stdout, fmt.Sprintf("%s %s", src.ID, src.Path))
-		},
-	})
-	add.Add(&gcli.Command{
-		Name: "git",
-		Desc: "Add a git source",
-		Config: func(c *gcli.Command) {
-			c.AddArg("url", "git source url", true)
-			c.AddArg("ref", "git ref", false)
-		},
-		Func: func(c *gcli.Command, args []string) error {
-			if len(args) < 1 {
-				return fmt.Errorf("git source url is required")
-			}
-			ref := ""
-			if len(args) > 1 {
-				ref = args[1]
-			}
-			service := newSourceService()
-			src, err := service.AddGit(args[0], ref)
-			if err != nil {
-				slog.Error(err)
-				return err
-			}
-			return WriteLine(os.Stdout, fmt.Sprintf("%s %s %s", src.ID, src.URL, src.Ref))
-		},
-	})
+	add.Add(buildSourceAddLocalCommand())
+	add.Add(buildSourceAddGitCommand())
 	cmd.Add(add)
 
 	cmd.Add(&gcli.Command{
@@ -237,6 +192,102 @@ func buildSourceCommand() *gcli.Command {
 	})
 
 	return cmd
+}
+
+func buildSourceAddLocalCommand() *gcli.Command {
+	var syncNow bool
+	return &gcli.Command{
+		Name: "local",
+		Desc: "Add a local source",
+		Config: func(c *gcli.Command) {
+			c.AddArg("path", "local source path", true)
+			c.BoolOpt(&syncNow, "sync", "", false, "sync source after adding")
+		},
+		Func: func(c *gcli.Command, args []string) error {
+			pathArg := c.Arg("path").String()
+			parsedSync := syncNow
+			for _, arg := range args {
+				if arg == "--sync" {
+					parsedSync = true
+					continue
+				}
+				if pathArg == "" {
+					pathArg = arg
+				}
+			}
+			if pathArg == "" {
+				return fmt.Errorf("local source path is required")
+			}
+			service := newSourceService()
+			src, err := service.AddLocal(pathArg)
+			if err != nil {
+				slog.Error(err)
+				return err
+			}
+			if err := WriteLine(os.Stdout, fmt.Sprintf("%s %s", src.ID, src.Path)); err != nil {
+				return err
+			}
+			if parsedSync {
+				if err := service.Sync(src.ID); err != nil {
+					slog.Error(err)
+					return err
+				}
+				return nil
+			}
+			return WriteLine(os.Stdout, fmt.Sprintf("next: skillc source sync %s", src.ID))
+		},
+	}
+}
+
+func buildSourceAddGitCommand() *gcli.Command {
+	var syncNow bool
+	return &gcli.Command{
+		Name: "git",
+		Desc: "Add a git source",
+		Config: func(c *gcli.Command) {
+			c.AddArg("url", "git source url", true)
+			c.AddArg("ref", "git ref", false)
+			c.BoolOpt(&syncNow, "sync", "", false, "sync source after adding")
+		},
+		Func: func(c *gcli.Command, args []string) error {
+			urlArg := c.Arg("url").String()
+			ref := c.Arg("ref").String()
+			parsedSync := syncNow
+			for _, arg := range args {
+				if arg == "--sync" {
+					parsedSync = true
+					continue
+				}
+				if urlArg == "" {
+					urlArg = arg
+					continue
+				}
+				if ref == "" {
+					ref = arg
+				}
+			}
+			if urlArg == "" {
+				return fmt.Errorf("git source url is required")
+			}
+			service := newSourceService()
+			src, err := service.AddGit(urlArg, ref)
+			if err != nil {
+				slog.Error(err)
+				return err
+			}
+			if err := WriteLine(os.Stdout, fmt.Sprintf("%s %s %s", src.ID, src.URL, src.Ref)); err != nil {
+				return err
+			}
+			if parsedSync {
+				if err := service.Sync(src.ID); err != nil {
+					slog.Error(err)
+					return err
+				}
+				return nil
+			}
+			return WriteLine(os.Stdout, fmt.Sprintf("next: skillc source sync %s", src.ID))
+		},
+	}
 }
 
 func buildSearchCommand() *gcli.Command {

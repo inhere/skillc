@@ -9,7 +9,6 @@ import (
 
 	"github.com/gookit/gcli/v3"
 	"github.com/gookit/goutil/testutil/assert"
-	"github.com/inhere/skillc/internal/app/sourceapp"
 	cfg "github.com/inhere/skillc/internal/domain/config"
 	lockpkg "github.com/inhere/skillc/internal/domain/lock"
 	"github.com/inhere/skillc/internal/domain/skill"
@@ -151,7 +150,23 @@ func TestSearchCommand_ReturnsEmptyWhenIndexMissing(t *testing.T) {
 	assert.Eq(t, "", output)
 }
 
-func TestSourceSyncCommand_RebuildsIndexForSearch(t *testing.T) {
+func TestSourceAddLocalCommand_PrintsNextSyncHint(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	config := cfg.DefaultConfig()
+	config.IndexFile = filepath.Join(baseDir, "cache", "index.json")
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
+
+	sourceRoot := filepath.Join(baseDir, "skills")
+	assert.NoErr(t, os.MkdirAll(sourceRoot, 0o755))
+
+	output := runAppInDirWithStdout(t, baseDir, []string{"source", "add", "local", sourceRoot})
+
+	assert.Contains(t, output, "local-skills "+sourceRoot)
+	assert.Contains(t, output, "next: skillc source sync local-skills")
+}
+
+func TestSourceAddLocalCommand_WithSyncRebuildsIndexForSearch(t *testing.T) {
 	baseDir := t.TempDir()
 	configFile := filepath.Join(baseDir, "skillc.yaml")
 	indexPath := filepath.Join(baseDir, "cache", "index.json")
@@ -170,13 +185,25 @@ description: Friendly greeting helper
 	config.IndexFile = indexPath
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
 
-	service := sourceapp.NewService(configFile, baseDir)
-	src, err := service.AddLocal(sourceRoot)
-	assert.NoErr(t, err)
-	assert.NoErr(t, service.Sync(src.ID))
+	output := runAppInDirWithStdout(t, baseDir, []string{"source", "add", "local", sourceRoot, "--sync"})
+	assert.Contains(t, output, "local-skills "+sourceRoot)
+	assert.NotContains(t, output, "next: skillc source sync")
 
 	searchOutput := runAppInDirWithStdout(t, baseDir, []string{"search", "greeting"})
 	assert.Contains(t, searchOutput, "hello-skill Hello Skill")
+}
+
+func TestSourceAddGitCommand_PrintsNextSyncHint(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	config := cfg.DefaultConfig()
+	config.IndexFile = filepath.Join(baseDir, "cache", "index.json")
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
+
+	output := runAppInDirWithStdout(t, baseDir, []string{"source", "add", "git", "https://example.com/repo.git"})
+
+	assert.Contains(t, output, "git-repo https://example.com/repo.git")
+	assert.Contains(t, output, "next: skillc source sync git-repo")
 }
 
 func TestListCommand_ReturnsEmptyWhenLockFileMissing(t *testing.T) {

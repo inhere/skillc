@@ -381,3 +381,20 @@
 - [x] **Step 4: Run tests to verify they pass**
 - [x] **Step 5: Run full regression tests**
 - [x] **Step 6: Commit**
+
+### Task 21: Add `source add --sync` UX ✅ Completed
+
+**Files:**
+- Modify: `internal/cli/app.go`
+- Test: `internal/cli/app_test.go`
+- Modify: `arch.md`
+- Modify: `plan.md`
+
+**Verification note (2026-03-31):** `source add local|git` now accepts `--sync`; when omitted, the CLI prints `next: skillc source sync <id>` so users know the required next step.
+
+- [x] **Step 1: Write the failing tests**
+- [x] **Step 2: Run tests to verify they fail**
+- [x] **Step 3: Write minimal implementation**
+- [x] **Step 4: Run tests to verify they pass**
+- [x] **Step 5: Run full regression tests**
+- [x] **Step 6: Commit**

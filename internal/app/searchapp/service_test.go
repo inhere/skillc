@@ -10,6 +10,14 @@ import (
 	"github.com/inhere/skillc/internal/infra/repoindex"
 )
 
+func TestService_SearchReturnsEmptyWhenIndexMissing(t *testing.T) {
+	service := NewService(filepath.Join(t.TempDir(), "missing.json"))
+
+	results, err := service.Search("design", "", "")
+	assert.NoErr(t, err)
+	assert.Len(t, results, 0)
+}
+
 func TestService_SearchAndShow(t *testing.T) {
 	baseDir := t.TempDir()
 	indexPath := filepath.Join(baseDir, "index.json")

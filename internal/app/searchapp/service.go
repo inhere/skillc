@@ -2,6 +2,7 @@ package searchapp
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/inhere/skillc/internal/domain/skill"
 	sourcepkg "github.com/inhere/skillc/internal/domain/source"
@@ -23,6 +24,9 @@ func NewService(indexPath string) *Service {
 func (s *Service) Search(keyword string, agent string, sourceType sourcepkg.Type) ([]skill.Skill, error) {
 	items, err := s.store.Load(s.indexPath)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return []skill.Skill{}, nil
+		}
 		return nil, err
 	}
 	return repoindex.Filter(items, repoindex.Query{

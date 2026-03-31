@@ -228,6 +228,9 @@ func buildSearchCommand() *gcli.Command {
 	return &gcli.Command{
 		Name: "search",
 		Desc: "Search indexed skills",
+		Config: func(c *gcli.Command) {
+			c.AddArg("keyword", "search keyword", false)
+		},
 		Func: func(c *gcli.Command, args []string) error {
 			keyword := ""
 			if len(args) > 0 {

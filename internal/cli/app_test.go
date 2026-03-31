@@ -116,6 +116,25 @@ func TestInstallCommand_RestoresFromLockFileWhenNoArgs(t *testing.T) {
 	assert.Eq(t, "restored", string(data))
 }
 
+func TestSearchCommand_ReturnsMatchesForQueryArgument(t *testing.T) {
+	baseDir := t.TempDir()
+	indexPath := filepath.Join(baseDir, "skillc-index.json")
+	assert.NoErr(t, repoindex.NewStore().Save(indexPath, []skill.Skill{{
+		ID:          "design-helper",
+		Name:        "Design Helper",
+		Description: "design prompts",
+	}}))
+
+	output := runAppInDirWithStdout(t, baseDir, []string{"search", "design"})
+
+	assert.Contains(t, output, "design-helper Design Helper")
+}
+
+func TestSearchCommand_ReturnsEmptyWhenIndexMissing(t *testing.T) {
+	output := runAppInDirWithStdout(t, t.TempDir(), []string{"search", "design"})
+
+	assert.Eq(t, "", output)
+}
 
 func TestListCommand_ReturnsEmptyWhenLockFileMissing(t *testing.T) {
 	baseDir := t.TempDir()
@@ -180,6 +199,13 @@ func findCommandByName(app *gcli.App, name string) *gcli.Command {
 		}
 	}
 	return nil
+}
+
+func runAppInDirWithStdout(t *testing.T, dir string, args []string) string {
+	return runInDirWithStdout(t, dir, func() error {
+		newTestApp().Run(args)
+		return nil
+	})
 }
 
 func runInDirWithStdout(t *testing.T, dir string, fn func() error) string {

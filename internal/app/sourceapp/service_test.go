@@ -2,11 +2,24 @@ package sourceapp
 
 import (
 	"errors"
+	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/gookit/goutil/testutil/assert"
+	"github.com/inhere/skillc/internal/app/configapp"
+	"github.com/inhere/skillc/internal/app/searchapp"
+	sourcepkg "github.com/inhere/skillc/internal/domain/source"
 )
+
+type gitRunnerStub struct {
+	syncFn func(url, dir, ref string) (string, error)
+}
+
+func (s gitRunnerStub) Sync(url, dir, ref string) (string, error) {
+	return s.syncFn(url, dir, ref)
+}
 
 func TestService_AddListRemoveLocalSource(t *testing.T) {
 	baseDir := t.TempDir()
@@ -34,13 +47,49 @@ func TestService_AddListRemoveLocalSource(t *testing.T) {
 	assert.Len(t, list, 0)
 }
 
+func TestService_SyncLocalRebuildsIndex(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	sourceRoot := filepath.Join(baseDir, "skills")
+	skillDir := filepath.Join(sourceRoot, "hello-skill")
+	assert.NoErr(t, os.MkdirAll(skillDir, 0o755))
+	assert.NoErr(t, os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(`---
+id: hello-skill
+name: Hello Skill
+description: Friendly greeting helper
+supported_agents:
+  - claude-code
+install_entry: .
+---
+# Hello Skill
+`), 0o644))
+
+	cfg, err := configapp.NewService(configFile, baseDir).Init()
+	assert.NoErr(t, err)
+
+	service := NewService(configFile, baseDir)
+	src, err := service.AddLocal(sourceRoot)
+	assert.NoErr(t, err)
+
+	err = service.Sync(src.ID)
+	assert.NoErr(t, err)
+
+	results, err := searchapp.NewService(cfg.IndexFile).Search("greeting", "claude-code", sourcepkg.TypeLocal)
+	assert.NoErr(t, err)
+	assert.Len(t, results, 1)
+	assert.Eq(t, "hello-skill", results[0].ID)
+}
+
 func TestService_AddGitAndSyncStatus(t *testing.T) {
 	baseDir := t.TempDir()
 	configFile := filepath.Join(baseDir, "skillc.yaml")
+	cfg, err := configapp.NewService(configFile, baseDir).Show()
+	assert.NoErr(t, err)
 	service := NewService(configFile, baseDir)
-	service.git = gitRunnerFunc(func(url, dir, ref string) error {
-		return nil
-	})
+	service.git = gitRunnerStub{syncFn: func(url, dir, ref string) (string, error) {
+		assert.Eq(t, filepath.Join(cfg.RepoCacheDir, "git-repo"), dir)
+		return "deadbeefcafebabe", os.MkdirAll(dir, 0o755)
+	}}
 
 	src, err := service.AddGit("https://example.com/repo.git", "main")
 	assert.NoErr(t, err)
@@ -54,15 +103,83 @@ func TestService_AddGitAndSyncStatus(t *testing.T) {
 	assert.Len(t, list, 1)
 	assert.Eq(t, "ready", list[0].Status)
 	assert.NotEmpty(t, list[0].Path)
+	assert.Eq(t, "deadbeefcafebabe", list[0].ResolvedRef)
+	assert.NotEmpty(t, list[0].LastSyncAt)
+}
+
+func TestService_AddGitWithoutRefSyncsDefaultBranch(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	service := NewService(configFile, baseDir)
+
+	calledRef := "unexpected"
+	service.git = gitRunnerStub{syncFn: func(url, dir, ref string) (string, error) {
+		calledRef = ref
+		return "deadbeefcafebabe", os.MkdirAll(dir, 0o755)
+	}}
+
+	src, err := service.AddGit("https://example.com/repo.git", "")
+	assert.NoErr(t, err)
+	assert.Eq(t, "", src.Ref)
+
+	err = service.Sync(src.ID)
+	assert.NoErr(t, err)
+	assert.Eq(t, "", calledRef)
+}
+
+func TestService_SyncGitSourceReusesExistingCacheDir(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	service := NewService(configFile, baseDir)
+	cloneCalls := 0
+	service.git = gitRunnerStub{syncFn: func(url, dir, ref string) (string, error) {
+		cloneCalls++
+		_, err := os.Stat(filepath.Join(dir, "stale.txt"))
+		assert.True(t, os.IsNotExist(err))
+		return "deadbeefcafebabe", os.MkdirAll(dir, 0o755)
+	}}
+
+	src, err := service.AddGit("https://example.com/repo.git", "main")
+	assert.NoErr(t, err)
+
+	err = service.Sync(src.ID)
+	assert.NoErr(t, err)
+	list, err := service.List()
+	assert.NoErr(t, err)
+	assert.NoErr(t, os.WriteFile(filepath.Join(list[0].Path, "stale.txt"), []byte("old"), 0o644))
+
+	err = service.Sync(src.ID)
+	assert.NoErr(t, err)
+	assert.Eq(t, 2, cloneCalls)
+	_, err = os.Stat(filepath.Join(list[0].Path, "stale.txt"))
+	assert.True(t, os.IsNotExist(err))
+}
+
+func TestService_SyncGitUpdatesLastSyncAt(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	service := NewService(configFile, baseDir)
+	service.now = func() time.Time { return time.Unix(1710000000, 0).UTC() }
+	service.git = gitRunnerStub{syncFn: func(url, dir, ref string) (string, error) {
+		return "0123456789abcdef", os.MkdirAll(dir, 0o755)
+	}}
+
+	src, err := service.AddGit("https://example.com/repo.git", "main")
+	assert.NoErr(t, err)
+	assert.NoErr(t, service.Sync(src.ID))
+
+	list, err := service.List()
+	assert.NoErr(t, err)
+	assert.Eq(t, "2024-03-09T16:00:00Z", list[0].LastSyncAt)
 }
 
 func TestService_SyncMissingGitSetsSourceError(t *testing.T) {
 	baseDir := t.TempDir()
 	configFile := filepath.Join(baseDir, "skillc.yaml")
 	service := NewService(configFile, baseDir)
-	service.git = gitRunnerFunc(func(url, dir, ref string) error {
-		return errors.New("git executable not found")
-	})
+	service.git = gitRunnerStub{syncFn: func(url, dir, ref string) (string, error) {
+		return "", errors.New("git executable not found")
+	}}
 
 	src, err := service.AddGit("https://example.com/repo.git", "main")
 	assert.NoErr(t, err)

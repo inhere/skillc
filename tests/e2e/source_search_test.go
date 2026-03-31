@@ -6,17 +6,16 @@ import (
 	"testing"
 
 	"github.com/gookit/goutil/testutil/assert"
+	"github.com/inhere/skillc/internal/app/configapp"
 	"github.com/inhere/skillc/internal/app/searchapp"
 	"github.com/inhere/skillc/internal/app/sourceapp"
 	skillpkg "github.com/inhere/skillc/internal/domain/skill"
 	sourcepkg "github.com/inhere/skillc/internal/domain/source"
-	"github.com/inhere/skillc/internal/infra/repoindex"
 )
 
 func TestLocalSourceToSearchFlow(t *testing.T) {
 	baseDir := t.TempDir()
 	configFile := filepath.Join(baseDir, "skillc.yaml")
-	indexPath := filepath.Join(baseDir, "skillc-index.json")
 	sourceRoot := filepath.Join(baseDir, "skills")
 	skillDir := filepath.Join(sourceRoot, "hello-skill")
 	assert.NoErr(t, os.MkdirAll(skillDir, 0o755))
@@ -31,6 +30,12 @@ install_entry: .
 # Hello Skill
 `), 0o644))
 
+	configService := configapp.NewService(configFile, baseDir)
+	_, err := configService.Init()
+	assert.NoErr(t, err)
+	cfg, err := configService.Show()
+	assert.NoErr(t, err)
+
 	sourceService := sourceapp.NewService(configFile, baseDir)
 	src, err := sourceService.AddLocal(sourceRoot)
 	assert.NoErr(t, err)
@@ -41,12 +46,7 @@ install_entry: .
 	assert.Len(t, listedSources, 1)
 	assert.Eq(t, "ready", listedSources[0].Status)
 
-	skills, err := repoindex.NewScanner().Scan(listedSources[0])
-	assert.NoErr(t, err)
-	assert.Len(t, skills, 1)
-	assert.NoErr(t, repoindex.NewStore().Save(indexPath, skills))
-
-	searchService := searchapp.NewService(indexPath)
+	searchService := searchapp.NewService(cfg.IndexFile)
 	results, err := searchService.Search("greeting", "claude-code", sourcepkg.TypeLocal)
 	assert.NoErr(t, err)
 	assert.Len(t, results, 1)

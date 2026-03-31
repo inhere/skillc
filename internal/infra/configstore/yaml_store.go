@@ -7,10 +7,35 @@ import (
 	gkconfig "github.com/gookit/config/v2"
 	gkyaml "github.com/gookit/config/v2/yaml"
 	cfg "github.com/inhere/skillc/internal/domain/config"
+	domainsource "github.com/inhere/skillc/internal/domain/source"
 	"github.com/inhere/skillc/internal/infra/fsx"
 )
 
 type YAMLStore struct{}
+
+type sourceRecord struct {
+	ID           string             `yaml:"id" mapstructure:"id"`
+	Type         domainsource.Type  `yaml:"type" mapstructure:"type"`
+	Name         string             `yaml:"name" mapstructure:"name"`
+	Path         string             `yaml:"path" mapstructure:"path"`
+	URL          string             `yaml:"url" mapstructure:"url"`
+	Ref          string             `yaml:"ref" mapstructure:"ref"`
+	ResolvedRef  string             `yaml:"resolved_ref" mapstructure:"resolved_ref"`
+	LastSyncAt   string             `yaml:"last_sync_at" mapstructure:"last_sync_at"`
+	Status       string             `yaml:"status" mapstructure:"status"`
+	ErrorMessage string             `yaml:"error_message" mapstructure:"error_message"`
+}
+
+type rawConfig struct {
+	ProxyURL         string                `mapstructure:"proxy_url"`
+	AgentTools       map[string]cfg.AgentToolConfig `mapstructure:"agent_tools"`
+	LockFile         string                `mapstructure:"lock_file"`
+	RepoCacheDir     string                `mapstructure:"repo_cache_dir"`
+	SkillCacheDir    string                `mapstructure:"skill_cache_dir"`
+	RegistryCacheDir string                `mapstructure:"registry_cache_dir"`
+	IndexFile        string                `mapstructure:"index_file"`
+	Sources          []sourceRecord        `mapstructure:"sources"`
+}
 
 func NewYAMLStore() *YAMLStore {
 	return &YAMLStore{}
@@ -35,11 +60,15 @@ func (s *YAMLStore) Load(path string, baseDir string) (cfg.Config, error) {
 		return cfg.Config{}, err
 	}
 
-	var out cfg.Config
-	if err := loader.Decode(&out); err != nil {
+	var raw rawConfig
+	if err := loader.Decode(&raw); err != nil {
 		return cfg.Config{}, err
 	}
 
+	out, err := fromRawConfig(raw)
+	if err != nil {
+		return cfg.Config{}, err
+	}
 	defaults := cfg.DefaultConfig()
 	mergeDefaults(&out, defaults)
 	return expandRuntimePaths(out, baseDir)
@@ -59,7 +88,8 @@ func (s *YAMLStore) Save(path string, data cfg.Config) error {
 		"repo_cache_dir":     data.RepoCacheDir,
 		"skill_cache_dir":    data.SkillCacheDir,
 		"registry_cache_dir": data.RegistryCacheDir,
-		"sources":            data.Sources,
+		"index_file":         data.IndexFile,
+		"sources":            toSourceRecords(data.Sources),
 	})
 	return loader.DumpToFile(path, gkconfig.Yaml)
 }
@@ -79,6 +109,9 @@ func mergeDefaults(dst *cfg.Config, defaults cfg.Config) {
 	}
 	if dst.RegistryCacheDir == "" {
 		dst.RegistryCacheDir = defaults.RegistryCacheDir
+	}
+	if dst.IndexFile == "" {
+		dst.IndexFile = defaults.IndexFile
 	}
 	if dst.Sources == nil {
 		dst.Sources = defaults.Sources
@@ -100,6 +133,10 @@ func expandRuntimePaths(data cfg.Config, baseDir string) (cfg.Config, error) {
 		return cfg.Config{}, err
 	}
 	data.RegistryCacheDir, err = fsx.ExpandPath(data.RegistryCacheDir, baseDir)
+	if err != nil {
+		return cfg.Config{}, err
+	}
+	data.IndexFile, err = fsx.ExpandPath(data.IndexFile, baseDir)
 	if err != nil {
 		return cfg.Config{}, err
 	}
@@ -132,4 +169,56 @@ func expandRuntimePaths(data cfg.Config, baseDir string) (cfg.Config, error) {
 	}
 
 	return data, nil
+}
+
+func toSourceRecords(sources []domainsource.Source) []sourceRecord {
+	if len(sources) == 0 {
+		return []sourceRecord{}
+	}
+	records := make([]sourceRecord, 0, len(sources))
+	for _, src := range sources {
+		record := sourceRecord{
+			ID:           src.ID,
+			Type:         src.Type,
+			Name:         src.Name,
+			Path:         src.Path,
+			URL:          src.URL,
+			Ref:          src.Ref,
+			ResolvedRef:  src.ResolvedRef,
+			LastSyncAt:   src.LastSyncAt,
+			Status:       src.Status,
+			ErrorMessage: src.ErrorMessage,
+		}
+		records = append(records, record)
+	}
+	return records
+}
+
+func fromRawConfig(raw rawConfig) (cfg.Config, error) {
+	sources := make([]domainsource.Source, 0, len(raw.Sources))
+	for _, src := range raw.Sources {
+		item := domainsource.Source{
+			ID:           src.ID,
+			Type:         src.Type,
+			Name:         src.Name,
+			Path:         src.Path,
+			URL:          src.URL,
+			Ref:          src.Ref,
+			ResolvedRef:  src.ResolvedRef,
+			LastSyncAt:   src.LastSyncAt,
+			Status:       src.Status,
+			ErrorMessage: src.ErrorMessage,
+		}
+		sources = append(sources, item)
+	}
+	return cfg.Config{
+		ProxyURL:         raw.ProxyURL,
+		AgentTools:       raw.AgentTools,
+		LockFile:         raw.LockFile,
+		RepoCacheDir:     raw.RepoCacheDir,
+		SkillCacheDir:    raw.SkillCacheDir,
+		RegistryCacheDir: raw.RegistryCacheDir,
+		IndexFile:        raw.IndexFile,
+		Sources:          sources,
+	}, nil
 }

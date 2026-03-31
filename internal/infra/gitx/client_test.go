@@ -7,9 +7,9 @@ import (
 	"github.com/gookit/goutil/testutil/assert"
 )
 
-func TestClient_CloneWithoutGitBinaryReturnsActionableError(t *testing.T) {
+func TestClient_SyncWithoutGitBinaryReturnsActionableError(t *testing.T) {
 	client := New("__missing_git__")
-	err := client.Clone("https://example.com/repo.git", filepath.Join(t.TempDir(), "repo"), "main")
+	_, err := client.Sync("https://example.com/repo.git", filepath.Join(t.TempDir(), "repo"), "main")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "git executable not found")
 }

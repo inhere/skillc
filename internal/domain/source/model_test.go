@@ -15,3 +15,10 @@ func TestNewLocalSource_AssignsIDAndName(t *testing.T) {
 	assert.Eq(t, "skills", src.Name)
 	assert.NotEmpty(t, src.ID)
 }
+
+func TestNewGitSource_PreservesEmptyRefForDefaultBranch(t *testing.T) {
+	src, err := NewGitSource("https://example.com/repo.git", "")
+	assert.NoErr(t, err)
+	assert.Eq(t, TypeGit, src.Type)
+	assert.Eq(t, "", src.Ref)
+}

@@ -321,13 +321,13 @@
 - [x] **Step 5: Run internal regression tests**
 - [x] **Step 6: Commit**
 
-### Task 17: Wire install, list, and doctor CLI commands ✅ Completed
+### Task 17: Wire install, list, doctor, and uninstall CLI commands ✅ Completed
 
 **Files:**
 - Modify: `internal/cli/app.go`
 - Test: `internal/cli/app_test.go`
 
-**Verification note (2026-03-30):** Behavior-level command tests now cover indexed install, lock-based restore, installed list output, and doctor health output.
+**Verification note (2026-03-31):** Command-level tests now cover indexed install, lock-based restore, installed list output, source sync rebuilding the shared index for `search`, uninstall removal, and doctor health output.
 
 - [x] **Step 1: Write the failing tests**
 - [x] **Step 2: Run tests to verify they fail**
@@ -357,5 +357,27 @@
 - [x] **Step 2: Run test to verify current behavior**
 - [x] **Step 3: Keep minimal implementation unchanged because flow already passes**
 - [x] **Step 4: Re-run test to verify it passes**
+- [x] **Step 5: Run full regression tests**
+- [x] **Step 6: Commit**
+
+### Task 20: Persist git sync metadata ✅ Completed
+
+**Files:**
+- Modify: `internal/domain/source/model.go`
+- Modify: `internal/domain/skill/parser.go`
+- Modify: `internal/infra/gitx/client.go`
+- Modify: `internal/infra/configstore/yaml_store.go`
+- Modify: `internal/app/sourceapp/service.go`
+- Test: `internal/domain/skill/parser_test.go`
+- Test: `internal/infra/gitx/client_test.go`
+- Test: `internal/infra/configstore/yaml_store_test.go`
+- Test: `internal/app/sourceapp/service_test.go`
+
+**Verification note (2026-03-31):** Git sync now resolves and persists the synced commit SHA, records `last_sync_at` as RFC3339, preserves empty ref as default-branch sync, and keeps repeated sync working with full `go test ./...` coverage.
+
+- [x] **Step 1: Write the failing tests**
+- [x] **Step 2: Run tests to verify they fail**
+- [x] **Step 3: Write minimal implementation**
+- [x] **Step 4: Run tests to verify they pass**
 - [x] **Step 5: Run full regression tests**
 - [x] **Step 6: Commit**

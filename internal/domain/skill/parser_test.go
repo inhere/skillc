@@ -43,3 +43,16 @@ name: Hello Skill
 	assert.NotEmpty(t, got.Version)
 	assert.Eq(t, 8, len(got.Version))
 }
+
+func TestParseSkillMarkdown_FallsBackToResolvedGitRef(t *testing.T) {
+	content := `---
+id: hello-skill
+name: Hello Skill
+---
+
+# Hello`
+
+	got, err := ParseSkillMarkdown(content, source.Source{ID: "git-demo", Type: source.TypeGit, Path: "/skills/hello", Ref: "main", ResolvedRef: "1234567890abcdef"})
+	assert.NoErr(t, err)
+	assert.Eq(t, "12345678", got.Version)
+}

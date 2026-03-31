@@ -62,8 +62,13 @@ func ParseSkillMarkdown(content string, src sourcepkg.Source) (Skill, error) {
 }
 
 func fallbackVersion(content string, src sourcepkg.Source) string {
-	if src.Type == sourcepkg.TypeGit && src.Ref != "" {
-		return shortVersion(src.Ref)
+	if src.Type == sourcepkg.TypeGit {
+		if src.ResolvedRef != "" {
+			return shortVersion(src.ResolvedRef)
+		}
+		if src.Ref != "" {
+			return shortVersion(src.Ref)
+		}
 	}
 	return shortVersion(hashx.SumString(content))
 }

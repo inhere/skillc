@@ -41,6 +41,16 @@ func TestInstallListAndRestoreFlow(t *testing.T) {
 	assert.Len(t, listed, 1)
 	assert.Eq(t, "installed", listed[0].Status)
 
+	assert.NoErr(t, installer.Uninstall("hello-skill", "claude-code", agent.ScopeProject))
+	_, err = os.Stat(filepath.Join(targetRoot, "hello-skill"))
+	assert.True(t, os.IsNotExist(err))
+
+	listed, err = listapp.NewService(lockFile).List("claude-code", "project")
+	assert.NoErr(t, err)
+	assert.Len(t, listed, 0)
+
+	_, err = installer.Install(item, "claude-code", agent.ScopeProject, targetRoot)
+	assert.NoErr(t, err)
 	assert.NoErr(t, os.RemoveAll(filepath.Join(targetRoot, "hello-skill")))
 
 	listed, err = listapp.NewService(lockFile).List("claude-code", "project")

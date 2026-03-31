@@ -232,7 +232,8 @@ type Source struct {
     Path         string
     URL          string
     Ref          string
-    LastSyncAt   time.Time
+    ResolvedRef  string
+    LastSyncAt   string // RFC3339
     Status       string
     ErrorMessage string
 }
@@ -322,8 +323,8 @@ type InstallPlan struct {
 2. `sourceapp` 校验路径与去重
 3. 生成或确认 source id / name
 4. 写回配置
-5. 触发索引构建
-6. 输出 source 状态
+5. 等待后续 `source sync <source-id>` 执行扫描、重建共享 index，并更新 `status` / `last_sync_at`
+6. 输出 source 信息
 
 ### 6.2 `skillc search <keyword>`
 
@@ -627,7 +628,7 @@ skillc install   # 无参数 restore
 
 建议使用临时目录开展集成测试，覆盖以下关键链路：
 
-- `source add local` -> 扫描 -> `search`
+- `source add local` -> `source sync` -> 扫描 -> `search`
 - `source add git` -> sync -> 扫描 -> `search`
 - `install` -> 文件落地 -> lock 写入
 - `uninstall` -> 文件删除 -> lock 删除

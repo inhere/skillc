@@ -14,14 +14,16 @@ const (
 )
 
 type Source struct {
-	ID           string
-	Type         Type
-	Name         string
-	Path         string
-	URL          string
-	Ref          string
-	Status       string
-	ErrorMessage string
+	ID           string `yaml:"id" mapstructure:"id"`
+	Type         Type   `yaml:"type" mapstructure:"type"`
+	Name         string `yaml:"name" mapstructure:"name"`
+	Path         string `yaml:"path" mapstructure:"path"`
+	URL          string `yaml:"url" mapstructure:"url"`
+	Ref          string `yaml:"ref" mapstructure:"ref"`
+	ResolvedRef  string `yaml:"resolved_ref" mapstructure:"resolved_ref"`
+	LastSyncAt   string `yaml:"last_sync_at" mapstructure:"last_sync_at"`
+	Status       string `yaml:"status" mapstructure:"status"`
+	ErrorMessage string `yaml:"error_message" mapstructure:"error_message"`
 }
 
 func NewLocalSource(path string) (Source, error) {
@@ -47,14 +49,11 @@ func NewGitSource(url, ref string) (Source, error) {
 	if name == "." || name == "" || name == "/" {
 		return Source{}, fmt.Errorf("invalid git source url: %s", url)
 	}
-	if ref == "" {
-		ref = "HEAD"
-	}
 	return Source{
 		ID:   fmt.Sprintf("git-%s", name),
 		Type: TypeGit,
 		Name: name,
 		URL:  trimmed,
-		Ref:  ref,
+		Ref:  strings.TrimSpace(ref),
 	}, nil
 }

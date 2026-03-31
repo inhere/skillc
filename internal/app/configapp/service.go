@@ -26,7 +26,7 @@ func (s *Service) Init() (cfg.Config, error) {
 	if err := s.store.Save(s.configFile, data); err != nil {
 		return cfg.Config{}, err
 	}
-	return data, nil
+	return s.Show()
 }
 
 func (s *Service) Show() (cfg.Config, error) {
@@ -50,6 +50,8 @@ func (s *Service) Get(key string) (string, error) {
 		return data.SkillCacheDir, nil
 	case "registry_cache_dir":
 		return data.RegistryCacheDir, nil
+	case "index_file":
+		return data.IndexFile, nil
 	default:
 		return "", errors.New("unsupported config key: " + key)
 	}
@@ -72,6 +74,8 @@ func (s *Service) Set(key string, value string) error {
 		data.SkillCacheDir = value
 	case "registry_cache_dir":
 		data.RegistryCacheDir = value
+	case "index_file":
+		data.IndexFile = value
 	default:
 		return errors.New("unsupported config key: " + key)
 	}

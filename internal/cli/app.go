@@ -28,6 +28,7 @@ func NewApp(version, gitHash, buildTime string) *gcli.App {
 	app.Add(buildSearchCommand())
 	app.Add(buildShowCommand())
 	app.Add(buildInstallCommand())
+	app.Add(buildUninstallCommand())
 	app.Add(buildListCommand())
 	app.Add(buildDoctorCommand())
 	return app
@@ -116,12 +117,19 @@ func buildSourceCommand() *gcli.Command {
 	add.Add(&gcli.Command{
 		Name: "local",
 		Desc: "Add a local source",
+		Config: func(c *gcli.Command) {
+			c.AddArg("path", "local source path", true)
+		},
 		Func: func(c *gcli.Command, args []string) error {
 			if len(args) < 1 {
 				return fmt.Errorf("local source path is required")
 			}
+			pathArg := args[0]
+			if pathArg == "" {
+				pathArg = c.Arg("path").String()
+			}
 			service := newSourceService()
-			src, err := service.AddLocal(args[0])
+			src, err := service.AddLocal(pathArg)
 			if err != nil {
 				slog.Error(err)
 				return err
@@ -132,6 +140,10 @@ func buildSourceCommand() *gcli.Command {
 	add.Add(&gcli.Command{
 		Name: "git",
 		Desc: "Add a git source",
+		Config: func(c *gcli.Command) {
+			c.AddArg("url", "git source url", true)
+			c.AddArg("ref", "git ref", false)
+		},
 		Func: func(c *gcli.Command, args []string) error {
 			if len(args) < 1 {
 				return fmt.Errorf("git source url is required")
@@ -173,6 +185,9 @@ func buildSourceCommand() *gcli.Command {
 	cmd.Add(&gcli.Command{
 		Name: "sync",
 		Desc: "Sync source by id",
+		Config: func(c *gcli.Command) {
+			c.AddArg("id", "source id", true)
+		},
 		Func: func(c *gcli.Command, args []string) error {
 			if len(args) < 1 {
 				return fmt.Errorf("source id is required")
@@ -300,6 +315,38 @@ func buildInstallCommand() *gcli.Command {
 	}
 }
 
+
+func buildUninstallCommand() *gcli.Command {
+	return &gcli.Command{
+		Name: "uninstall",
+		Desc: "Uninstall skills",
+		Config: func(c *gcli.Command) {
+			c.AddArg("skill-id", "skill id", true)
+			c.AddArg("agent", "agent name", true)
+			c.AddArg("scope", "install scope", true)
+		},
+		Func: func(c *gcli.Command, args []string) error {
+			if len(args) < 3 {
+				return fmt.Errorf("skill id, agent, and scope are required")
+			}
+			config, _, err := loadConfig()
+			if err != nil {
+				slog.Error(err)
+				return err
+			}
+			scope, err := parseScope(args[2])
+			if err != nil {
+				return err
+			}
+			if err := installapp.NewService(config.LockFile).Uninstall(args[0], args[1], scope); err != nil {
+				slog.Error(err)
+				return err
+			}
+			return WriteLine(os.Stdout, "ok")
+		},
+	}
+}
+
 func buildListCommand() *gcli.Command {
 	return &gcli.Command{
 		Name: "list",
@@ -383,11 +430,15 @@ func newConfigService() *configapp.Service {
 }
 
 func newSearchService() *searchapp.Service {
-	cwd, err := os.Getwd()
+	config, _, err := loadConfig()
 	if err != nil {
-		cwd = "."
+		cwd, getwdErr := os.Getwd()
+		if getwdErr != nil {
+			cwd = "."
+		}
+		return searchapp.NewService(filepath.Join(cwd, "skillc-index.json"))
 	}
-	return searchapp.NewService(filepath.Join(cwd, "skillc-index.json"))
+	return searchapp.NewService(config.IndexFile)
 }
 
 func newSourceService() *sourceapp.Service {

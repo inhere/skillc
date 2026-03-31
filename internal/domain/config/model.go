@@ -9,6 +9,7 @@ type Config struct {
 	RepoCacheDir     string                `yaml:"repo_cache_dir" mapstructure:"repo_cache_dir"`
 	SkillCacheDir    string                `yaml:"skill_cache_dir" mapstructure:"skill_cache_dir"`
 	RegistryCacheDir string                `yaml:"registry_cache_dir" mapstructure:"registry_cache_dir"`
+	IndexFile        string                `yaml:"index_file" mapstructure:"index_file"`
 	Sources          []domainsource.Source `yaml:"sources" mapstructure:"sources"`
 }
 

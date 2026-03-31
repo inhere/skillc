@@ -9,6 +9,7 @@ import (
 
 	"github.com/gookit/gcli/v3"
 	"github.com/gookit/goutil/testutil/assert"
+	"github.com/inhere/skillc/internal/app/sourceapp"
 	cfg "github.com/inhere/skillc/internal/domain/config"
 	lockpkg "github.com/inhere/skillc/internal/domain/lock"
 	"github.com/inhere/skillc/internal/domain/skill"
@@ -41,6 +42,10 @@ func TestNewApp_RegistersInstallListAndDoctorCommands(t *testing.T) {
 	assert.NotNil(t, install)
 	assert.Eq(t, "Install skills", install.Desc)
 
+	uninstall := findCommandByName(app, "uninstall")
+	assert.NotNil(t, uninstall)
+	assert.Eq(t, "Uninstall skills", uninstall.Desc)
+
 	list := findCommandByName(app, "list")
 	assert.NotNil(t, list)
 	assert.Eq(t, "List installed skills", list.Desc)
@@ -53,13 +58,14 @@ func TestNewApp_RegistersInstallListAndDoctorCommands(t *testing.T) {
 func TestInstallCommand_InstallsIndexedSkill(t *testing.T) {
 	baseDir := t.TempDir()
 	configFile := filepath.Join(baseDir, "skillc.yaml")
-	indexPath := filepath.Join(baseDir, "skillc-index.json")
+	indexPath := filepath.Join(baseDir, "cache", "index.json")
 	sourceDir := filepath.Join(baseDir, "source", "hello-skill")
 	assert.NoErr(t, os.MkdirAll(filepath.Join(sourceDir, "commands"), 0o755))
 	assert.NoErr(t, os.WriteFile(filepath.Join(sourceDir, "commands", "hello.txt"), []byte("hello"), 0o644))
 
 	config := cfg.DefaultConfig()
 	config.LockFile = filepath.Join(baseDir, "skillc-install.lock")
+	config.IndexFile = indexPath
 	config.AgentTools["claude-code"] = cfg.AgentToolConfig{Dirname: ".claude", UserDir: filepath.Join(baseDir, "user-claude"), ProjectDir: filepath.Join(baseDir, "project-claude")}
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
 	assert.NoErr(t, repoindex.NewStore().Save(indexPath, []skill.Skill{{
@@ -118,7 +124,11 @@ func TestInstallCommand_RestoresFromLockFileWhenNoArgs(t *testing.T) {
 
 func TestSearchCommand_ReturnsMatchesForQueryArgument(t *testing.T) {
 	baseDir := t.TempDir()
-	indexPath := filepath.Join(baseDir, "skillc-index.json")
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	indexPath := filepath.Join(baseDir, "cache", "index.json")
+	config := cfg.DefaultConfig()
+	config.IndexFile = indexPath
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
 	assert.NoErr(t, repoindex.NewStore().Save(indexPath, []skill.Skill{{
 		ID:          "design-helper",
 		Name:        "Design Helper",
@@ -131,9 +141,42 @@ func TestSearchCommand_ReturnsMatchesForQueryArgument(t *testing.T) {
 }
 
 func TestSearchCommand_ReturnsEmptyWhenIndexMissing(t *testing.T) {
-	output := runAppInDirWithStdout(t, t.TempDir(), []string{"search", "design"})
+	baseDir := t.TempDir()
+	config := cfg.DefaultConfig()
+	config.IndexFile = filepath.Join(baseDir, "cache", "index.json")
+	assert.NoErr(t, configstore.NewYAMLStore().Save(filepath.Join(baseDir, "skillc.yaml"), config))
+
+	output := runAppInDirWithStdout(t, baseDir, []string{"search", "design"})
 
 	assert.Eq(t, "", output)
+}
+
+func TestSourceSyncCommand_RebuildsIndexForSearch(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	indexPath := filepath.Join(baseDir, "cache", "index.json")
+	sourceRoot := filepath.Join(baseDir, "skills")
+	skillDir := filepath.Join(sourceRoot, "hello-skill")
+	assert.NoErr(t, os.MkdirAll(skillDir, 0o755))
+	assert.NoErr(t, os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(`---
+id: hello-skill
+name: Hello Skill
+description: Friendly greeting helper
+---
+# Hello Skill
+`), 0o644))
+
+	config := cfg.DefaultConfig()
+	config.IndexFile = indexPath
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
+
+	service := sourceapp.NewService(configFile, baseDir)
+	src, err := service.AddLocal(sourceRoot)
+	assert.NoErr(t, err)
+	assert.NoErr(t, service.Sync(src.ID))
+
+	searchOutput := runAppInDirWithStdout(t, baseDir, []string{"search", "greeting"})
+	assert.Contains(t, searchOutput, "hello-skill Hello Skill")
 }
 
 func TestListCommand_ReturnsEmptyWhenLockFileMissing(t *testing.T) {
@@ -172,6 +215,37 @@ func TestListCommand_ListsInstalledSkills(t *testing.T) {
 	})
 
 	assert.Contains(t, output, "hello-skill claude-code project installed")
+}
+
+func TestUninstallCommand_RemovesInstalledSkill(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	lockFile := filepath.Join(baseDir, "skillc-install.lock")
+	installedPath := filepath.Join(baseDir, "project-claude", "skills", "hello-skill")
+	assert.NoErr(t, os.MkdirAll(installedPath, 0o755))
+	assert.NoErr(t, os.WriteFile(filepath.Join(installedPath, "hello.txt"), []byte("hello"), 0o644))
+
+	config := cfg.DefaultConfig()
+	config.LockFile = lockFile
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
+	assert.NoErr(t, lockstore.NewStore().Save(lockFile, []lockpkg.Record{{
+		SkillID:       "hello-skill",
+		Agent:         "claude-code",
+		Scope:         "project",
+		InstalledPath: installedPath,
+	}}))
+
+	output := runInDirWithStdout(t, baseDir, func() error {
+		return findCommandByName(newTestApp(), "uninstall").Func(nil, []string{"hello-skill", "claude-code", "project"})
+	})
+	assert.Contains(t, output, "ok")
+
+	_, err := os.Stat(installedPath)
+	assert.True(t, os.IsNotExist(err))
+
+	locks, err := lockstore.NewStore().Load(lockFile)
+	assert.NoErr(t, err)
+	assert.Len(t, locks, 0)
 }
 
 func TestDoctorCommand_ReportsHealth(t *testing.T) {

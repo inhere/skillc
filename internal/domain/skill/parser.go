@@ -11,12 +11,12 @@ import (
 )
 
 type frontMatter struct {
-	ID              string   `mapstructure:"id"`
-	Name            string   `mapstructure:"name"`
-	Description     string   `mapstructure:"description"`
-	Version         string   `mapstructure:"version"`
-	SupportedAgents []string `mapstructure:"supported_agents"`
-	InstallEntry    string   `mapstructure:"install_entry"`
+	ID              string   `yaml:"id"`
+	Name            string   `yaml:"name"`
+	Description     string   `yaml:"description"`
+	Version         string   `yaml:"version"`
+	SupportedAgents []string `yaml:"supported_agents"`
+	InstallEntry    string   `yaml:"install_entry"`
 }
 
 func ParseSkillMarkdown(content string, src sourcepkg.Source) (Skill, error) {
@@ -25,7 +25,7 @@ func ParseSkillMarkdown(content string, src sourcepkg.Source) (Skill, error) {
 		return Skill{}, fmt.Errorf("missing front matter")
 	}
 
-	loader := gkconfig.NewEmpty("skill")
+	loader := gkconfig.NewEmpty("skill", gkconfig.WithTagName("yaml"))
 	loader.AddDriver(gkyaml.Driver)
 	if err := loader.LoadStrings(gkconfig.Yaml, parts[1]); err != nil {
 		return Skill{}, err

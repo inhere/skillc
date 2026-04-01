@@ -14,31 +14,39 @@ import (
 type YAMLStore struct{}
 
 type sourceRecord struct {
-	ID           string             `yaml:"id" mapstructure:"id"`
-	Type         domainsource.Type  `yaml:"type" mapstructure:"type"`
-	Name         string             `yaml:"name" mapstructure:"name"`
-	Path         string             `yaml:"path" mapstructure:"path"`
-	URL          string             `yaml:"url" mapstructure:"url"`
-	Ref          string             `yaml:"ref" mapstructure:"ref"`
-	ResolvedRef  string             `yaml:"resolved_ref" mapstructure:"resolved_ref"`
-	LastSyncAt   string             `yaml:"last_sync_at" mapstructure:"last_sync_at"`
-	Status       string             `yaml:"status" mapstructure:"status"`
-	ErrorMessage string             `yaml:"error_message" mapstructure:"error_message"`
+	ID           string            `yaml:"id"`
+	Type         domainsource.Type `yaml:"type"`
+	Name         string            `yaml:"name"`
+	Path         string            `yaml:"path,omitempty"`
+	URL          string            `yaml:"url,omitempty"`
+	Ref          string            `yaml:"ref,omitempty"`
+	ResolvedRef  string            `yaml:"resolved_ref,omitempty"`
+	LastSyncAt   string            `yaml:"last_sync_at,omitempty"`
+	Status       string            `yaml:"status,omitempty"`
+	ErrorMessage string            `yaml:"error_message,omitempty"`
 }
 
 type rawConfig struct {
-	ProxyURL         string                `mapstructure:"proxy_url"`
-	AgentTools       map[string]cfg.AgentToolConfig `mapstructure:"agent_tools"`
-	LockFile         string                `mapstructure:"lock_file"`
-	RepoCacheDir     string                `mapstructure:"repo_cache_dir"`
-	SkillCacheDir    string                `mapstructure:"skill_cache_dir"`
-	RegistryCacheDir string                `mapstructure:"registry_cache_dir"`
-	IndexFile        string                `mapstructure:"index_file"`
-	Sources          []sourceRecord        `mapstructure:"sources"`
+	ProxyURL string `yaml:"proxy_url"`
+	// AgentTools is the agent tools config.
+	AgentTools map[string]cfg.AgentToolConfig `yaml:"agent_tools"`
+	// LockFile is the lock file path.
+	LockFile         string         `yaml:"lock_file"`
+	RepoCacheDir     string         `yaml:"repo_cache_dir"`
+	SkillCacheDir    string         `yaml:"skill_cache_dir"`
+	RegistryCacheDir string         `yaml:"registry_cache_dir"`
+	IndexFile        string         `yaml:"index_file"`
+	Sources          []sourceRecord `yaml:"sources"`
 }
 
 func NewYAMLStore() *YAMLStore {
 	return &YAMLStore{}
+}
+
+func newYamlLoader() *gkconfig.Config {
+	loader := gkconfig.NewEmpty("skillc", gkconfig.ParseEnv, gkconfig.WithTagName("yaml"))
+	loader.AddDriver(gkyaml.Driver)
+	return loader
 }
 
 func (s *YAMLStore) Load(path string, baseDir string) (cfg.Config, error) {
@@ -54,8 +62,7 @@ func (s *YAMLStore) Load(path string, baseDir string) (cfg.Config, error) {
 		return cfg.Config{}, err
 	}
 
-	loader := gkconfig.NewEmpty("skillc", gkconfig.ParseEnv)
-	loader.AddDriver(gkyaml.Driver)
+	loader := newYamlLoader()
 	if err := loader.LoadFiles(path); err != nil {
 		return cfg.Config{}, err
 	}
@@ -79,8 +86,7 @@ func (s *YAMLStore) Save(path string, data cfg.Config) error {
 		return err
 	}
 
-	loader := gkconfig.NewEmpty("skillc")
-	loader.AddDriver(gkyaml.Driver)
+	loader := newYamlLoader()
 	loader.SetData(map[string]any{
 		"proxy_url":          data.ProxyURL,
 		"agent_tools":        data.AgentTools,

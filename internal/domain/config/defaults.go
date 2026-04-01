@@ -12,7 +12,7 @@ func DefaultConfig() Config {
 			},
 			"opencode": {
 				Dirname:    ".opencode",
-				UserDir:    "~/.opencode",
+				UserDir:    "~/.config/opencode",
 				ProjectDir: "./.opencode",
 			},
 			"codex": {

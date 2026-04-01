@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/gookit/gcli/v3"
+	"github.com/gookit/goutil/x/ccolor"
 	"github.com/gookit/slog"
 	"github.com/inhere/skillc/internal/app/configapp"
 	"github.com/inhere/skillc/internal/app/doctorapp"
@@ -219,38 +220,29 @@ func buildSourceAddLocalCommand() *gcli.Command {
 			c.BoolOpt(&syncNow, "sync", "", false, "sync source after adding")
 			c.AddArg("path", "local source path", true)
 		},
-		Func: func(c *gcli.Command, args []string) error {
+		Func: func(c *gcli.Command, _ []string) error {
 			pathArg := c.Arg("path").String()
-			parsedSync := syncNow
-			for _, arg := range args {
-				if arg == "--sync" {
-					parsedSync = true
-					continue
-				}
-				if pathArg == "" {
-					pathArg = arg
-				}
-			}
 			if pathArg == "" {
 				return fmt.Errorf("local source path is required")
 			}
+
 			service := newSourceService()
 			src, err := service.AddLocal(pathArg)
 			if err != nil {
 				slog.Error(err)
 				return err
 			}
-			if err := WriteLine(os.Stdout, fmt.Sprintf("%s %s", src.ID, src.Path)); err != nil {
-				return err
-			}
-			if parsedSync {
+			ccolor.Infof("%s path=%s added", src.ID, src.Path)
+
+			if syncNow {
 				if err := service.Sync(src.ID); err != nil {
 					slog.Error(err)
 					return err
 				}
 				return nil
 			}
-			return WriteLine(os.Stdout, fmt.Sprintf("next: skillc source sync %s", src.ID))
+			ccolor.Infof("Next, please run > skillc source sync %s", src.ID)
+			return nil
 		},
 	}
 }

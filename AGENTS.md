@@ -5,4 +5,4 @@
 - CLI 层尽量只做参数解析、输出格式、错误返回；业务编排优先下沉到 `internal/app/*` service。
 - install/restore 相关逻辑必须保持 `InstallEntry` 语义一致：写入 lock，restore 时基于 `SourceID + InstallEntry` 还原实际复制入口。
 - 完成涉及 MVP 主链路的改动后，至少运行 `go test ./...` 再宣称完成。
-
+- 如果有设计或开发方案，需要整理输出到 docs 目录下

@@ -26,6 +26,7 @@ func (c *Client) Sync(url, dir, ref string) (string, error) {
 		args = []string{"clone", "--branch", ref, url, dir}
 	}
 	cmd := exec.Command(c.bin, args...)
+
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return "", fmt.Errorf("git clone failed: %s", string(out))
 	}

@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/gookit/goutil/x/ccolor"
 	cfg "github.com/inhere/skillc/internal/domain/config"
 	"github.com/inhere/skillc/internal/domain/skill"
 	domainsource "github.com/inhere/skillc/internal/domain/source"
@@ -137,6 +138,7 @@ func (s *Service) Sync(id string) error {
 		if src.ID != id {
 			continue
 		}
+		// 本地源直接返回
 		if src.Type != domainsource.TypeGit {
 			data.Sources[i].Status = "ready"
 			data.Sources[i].ErrorMessage = ""
@@ -147,6 +149,7 @@ func (s *Service) Sync(id string) error {
 			return s.rebuildIndex(data)
 		}
 
+		// Git 源同步
 		targetDir := filepath.Join(data.RepoCacheDir, src.ID)
 		if err := os.RemoveAll(targetDir); err != nil {
 			data.Sources[i].Status = "error"
@@ -154,6 +157,8 @@ func (s *Service) Sync(id string) error {
 			_ = s.store.Save(s.configFile, data)
 			return err
 		}
+
+		ccolor.Infof("Syncing Git source %s to %s", src.ID, targetDir)
 		resolvedRef, err := s.git.Sync(src.URL, targetDir, src.Ref)
 		if err != nil {
 			data.Sources[i].Status = "error"
@@ -161,6 +166,7 @@ func (s *Service) Sync(id string) error {
 			_ = s.store.Save(s.configFile, data)
 			return err
 		}
+
 		data.Sources[i].Path = targetDir
 		data.Sources[i].ResolvedRef = resolvedRef
 		data.Sources[i].LastSyncAt = s.now().UTC().Format(time.RFC3339)

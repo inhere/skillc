@@ -12,7 +12,6 @@ import (
 	"github.com/inhere/skillc/internal/app/sourceapp"
 	"github.com/inhere/skillc/internal/domain/agent"
 	cfg "github.com/inhere/skillc/internal/domain/config"
-	"github.com/inhere/skillc/internal/domain/skill"
 )
 
 func NewApp(version, gitHash, buildTime string) *gcli.App {
@@ -30,14 +29,6 @@ func NewApp(version, gitHash, buildTime string) *gcli.App {
 	app.Add(buildListCommand())
 	app.Add(buildDoctorCommand())
 	return app
-}
-
-func formatSkillLine(item skill.Skill) string {
-	name := item.ID
-	if item.QualifiedName != "" {
-		name = item.QualifiedName
-	}
-	return fmt.Sprintf("%s %s %s", name, item.Name, item.Version)
 }
 
 func newConfigService() *configapp.Service {

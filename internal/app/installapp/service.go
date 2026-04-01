@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/inhere/skillc/internal/domain/agent"
@@ -15,11 +16,11 @@ import (
 )
 
 type skillLookup interface {
-	Show(id string) (skill.Skill, error)
+	Resolve(target string) ([]skill.Skill, error)
 }
 
 type CommandResult struct {
-	Installed *lockpkg.Record
+	Installed []lockpkg.Record
 	Restored  []lockpkg.Record
 }
 
@@ -58,7 +59,7 @@ func (s *Service) Run(config cfg.Config, workingDir string, args []string, looku
 	if err != nil {
 		return CommandResult{}, err
 	}
-	item, err := lookup.Show(args[0])
+	items, err := lookup.Resolve(args[0])
 	if err != nil {
 		return CommandResult{}, err
 	}
@@ -66,11 +67,15 @@ func (s *Service) Run(config cfg.Config, workingDir string, args []string, looku
 	if err != nil {
 		return CommandResult{}, err
 	}
-	record, err := s.Install(item, args[1], scope, targetRoot)
-	if err != nil {
-		return CommandResult{}, err
+	installed := make([]lockpkg.Record, 0, len(items))
+	for _, item := range items {
+		record, err := s.Install(item, args[1], scope, targetRoot)
+		if err != nil {
+			return CommandResult{}, err
+		}
+		installed = append(installed, record)
 	}
-	return CommandResult{Installed: &record}, nil
+	return CommandResult{Installed: installed}, nil
 }
 
 func (s *Service) Install(item skill.Skill, agentName string, scope agent.Scope, targetRoot string) (lockpkg.Record, error) {
@@ -80,16 +85,18 @@ func (s *Service) Install(item skill.Skill, agentName string, scope agent.Scope,
 	}
 	now := s.now()
 	record := lockpkg.Record{
-		SkillID:       item.ID,
-		Agent:         agentName,
-		Scope:         string(scope),
-		Version:       item.Version,
-		SourceID:      item.SourceID,
-		SourceType:    string(item.SourceType),
-		InstallEntry:  item.InstallEntry,
-		InstalledPath: targetPath,
-		InstalledAt:   now,
-		UpdatedAt:     now,
+		SkillID:             item.ID,
+		QualifiedName:       item.QualifiedName,
+		SourceQualifiedName: item.SourceQualifiedName,
+		Agent:               agentName,
+		Scope:               string(scope),
+		Version:             item.Version,
+		SourceID:            item.SourceID,
+		SourceType:          string(item.SourceType),
+		InstallEntry:        item.InstallEntry,
+		InstalledPath:       targetPath,
+		InstalledAt:         now,
+		UpdatedAt:           now,
 	}
 
 	records, err := s.loadRecords()
@@ -109,9 +116,14 @@ func (s *Service) Uninstall(skillID string, agentName string, scope agent.Scope)
 		return err
 	}
 
+	matches, err := matchingRecords(records, skillID, agentName, string(scope))
+	if err != nil {
+		return err
+	}
+
 	kept := make([]lockpkg.Record, 0, len(records))
-	for _, record := range records {
-		if record.SkillID == skillID && record.Agent == agentName && record.Scope == string(scope) {
+	for i, record := range records {
+		if _, ok := matches[i]; ok {
 			if err := s.installer.Remove(record.InstalledPath); err != nil {
 				return err
 			}
@@ -166,6 +178,56 @@ func upsertRecord(records []lockpkg.Record, next lockpkg.Record) []lockpkg.Recor
 		}
 	}
 	return append(records, next)
+}
+
+func matchingRecords(records []lockpkg.Record, target string, agentName string, scope string) (map[int]struct{}, error) {
+	exact := make(map[int]struct{})
+	for i, record := range records {
+		if record.Agent != agentName || record.Scope != scope {
+			continue
+		}
+		if record.SkillID == target || record.QualifiedName == target || record.SourceQualifiedName == target {
+			exact[i] = struct{}{}
+		}
+	}
+	if len(exact) > 0 {
+		return exact, nil
+	}
+
+	matches := make(map[int]struct{})
+	if strings.Contains(target, "/") {
+		prefix := target + "/"
+		for i, record := range records {
+			if record.Agent != agentName || record.Scope != scope {
+				continue
+			}
+			if strings.HasPrefix(record.SourceQualifiedName, prefix) {
+				matches[i] = struct{}{}
+			}
+		}
+	} else {
+		sources := make(map[string]struct{})
+		for i, record := range records {
+			if record.Agent != agentName || record.Scope != scope {
+				continue
+			}
+			if strings.HasPrefix(record.QualifiedName, target+"/") {
+				matches[i] = struct{}{}
+				sourceKey := record.SourceID
+				if sourceKey == "" && record.SourceQualifiedName != "" {
+					sourceKey = strings.SplitN(record.SourceQualifiedName, "/", 2)[0]
+				}
+				sources[sourceKey] = struct{}{}
+			}
+		}
+		if len(matches) > 0 && len(sources) > 1 {
+			return nil, fmt.Errorf("ambiguous collection target: %s; use source/collection", target)
+		}
+	}
+	if len(matches) == 0 {
+		return nil, fmt.Errorf("skill not found: %s", target)
+	}
+	return matches, nil
 }
 
 func sourcePathMap(config cfg.Config) map[string]string {

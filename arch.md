@@ -139,12 +139,14 @@ MVP 先打通 `source -> index -> install -> lock` 主链路，再扩展 `regist
 
 职责：
 - 扫描本地源或 Git 缓存目录
+- 识别顶级 Skill 与 collection 边界
 - 发现 Skill 子目录
 - 解析 `SKILL.md` YAML front matter
-- 生成标准化 Skill 索引
+- 生成标准化 Skill 索引与限定名
 
 边界：
 - 负责把来源转换为可搜索的 Skill 列表
+- 负责建立 `skill` / `collection/skill` / `source/...` 的命名语义
 - 不负责安装目标推导与 lock 维护
 
 ### 4.4 cache
@@ -175,6 +177,8 @@ MVP 先打通 `source -> index -> install -> lock` 主链路，再扩展 `regist
 - 生成安装计划
 - 做冲突检测
 - 执行复制安装
+- 支持 skill 级与 collection 级安装/卸载
+- 支持 source 限定的歧义消解
 - 支持卸载与批量恢复
 - 驱动写入 lock file
 
@@ -186,11 +190,13 @@ MVP 先打通 `source -> index -> install -> lock` 主链路，再扩展 `regist
 
 职责：
 - 维护已安装 Skill 记录
+- 记录用户可见的限定名与恢复所需来源信息
 - 提供查询、追加、删除、批量恢复输入
 - 原子写入与并发保护
 
 边界：
 - 只记录“安装事实”
+- restore 继续基于 `SourceID + InstallEntry` 还原实际复制入口
 - 不负责重新解析来源数据
 
 ---
@@ -243,18 +249,22 @@ type Source struct {
 
 ```go
 type Skill struct {
-    ID              string
-    Name            string
-    Description     string
-    Version         string
-    Tags            []string
-    SupportedAgents []string
-    SourceID        string
-    SourceType      SourceType
-    InstallEntry    string
-    Homepage        string
-    Author          string
-    License         string
+    ID                  string
+    Name                string
+    Description         string
+    Version             string
+    Tags                []string
+    SupportedAgents     []string
+    SourceID            string
+    SourceName          string
+    SourceType          SourceType
+    Collection          string
+    QualifiedName       string // collection/skill or skill
+    SourceQualifiedName string // source/collection/skill or source/skill
+    InstallEntry        string
+    Homepage            string
+    Author              string
+    License             string
 }
 ```
 
@@ -262,19 +272,21 @@ type Skill struct {
 
 ```go
 type LockRecord struct {
-    SkillID       string
-    Agent         string
-    Scope         string // global | project
-    Version       string
-    SourceID      string
-    SourceType    string
-    InstallEntry  string
-    ResolvedRef   string
-    InstalledPath string
-    Checksum      string
-    InstalledAt   time.Time
-    UpdatedAt     time.Time
-    Pinned        bool
+    SkillID             string
+    QualifiedName       string
+    SourceQualifiedName string
+    Agent               string
+    Scope               string // global | project
+    Version             string
+    SourceID            string
+    SourceType          string
+    InstallEntry        string
+    ResolvedRef         string
+    InstalledPath       string
+    Checksum            string
+    InstalledAt         time.Time
+    UpdatedAt           time.Time
+    Pinned              bool
 }
 ```
 
@@ -306,8 +318,8 @@ type InstallPlan struct {
    - 下游 install/list/update 只依赖统一 Skill 模型
 
 3. **LockRecord 是安装事实最小闭包**
-   - 只保留恢复安装所必需的信息
-   - 不复制整份 metadata，避免锁文件膨胀与漂移
+   - 既保留用户可见限定名，也保留恢复安装所必需的信息
+   - restore 仍以 `SourceID + InstallEntry` 为准，避免展示名称漂移影响恢复语义
 
 4. **路径解析统一收口**
    - 所有 Agent 目录推导必须经过 resolver
@@ -332,21 +344,31 @@ type InstallPlan struct {
 1. 读取配置与来源列表
 2. 检查本地索引缓存
 3. 从 index 中查询 Skill
-4. 关联 lock 记录补充安装状态
-5. 以 table 或 JSON 输出结果
+4. 优先展示 `QualifiedName`，在歧义场景补充 `SourceName`
+5. collection 场景允许用户后续使用 `collection/skill`；仅当同名结果跨 source 冲突时，才要求显式使用 `source/collection/skill`
+6. 关联 lock 记录补充安装状态
+7. 以 table 或 JSON 输出结果
 
-### 6.3 `skillc install <skill-id>[@<version>]`
+### 6.3 `skillc install <target>`
+
+`<target>` 支持以下形式：
+- `skill`
+- `collection/skill`
+- `source/collection/skill`
+- `collection`
+- `source/collection`
 
 1. 读取配置
-2. 根据 skill-id 从索引定位 Skill
-3. 若缓存过期，先同步相关来源
-4. 通过 agent adapter 解析目标目录
-5. 生成 `InstallPlan`
-6. 检测路径冲突
-7. 执行复制安装
-8. 计算 checksum
-9. 原子写 lock file
-10. 输出安装结果
+2. 根据 target 从索引定位一个 Skill 或一个 collection 下的多个 Skill
+3. 若 target 有歧义，提示补全 source 限定名
+4. 若缓存过期，先同步相关来源
+5. 通过 agent adapter 解析目标目录
+6. 生成 `InstallPlan`
+7. 检测路径冲突
+8. 执行复制安装
+9. 计算 checksum
+10. 原子写 lock file
+11. 输出安装结果
 
 ### 6.4 `skillc install`（无参数，批量恢复）
 
@@ -357,13 +379,17 @@ type InstallPlan struct {
 5. 来源有效则重新安装
 6. 汇总成功/失败结果
 
-### 6.5 `skillc uninstall <skill-id>`
+### 6.5 `skillc uninstall <target>`
+
+`<target>` 与 install 使用同一套命名语义，可卸载单个 skill 或整个 collection。
 
 1. 查询 lock 记录
-2. 定位安装路径
-3. 删除目标产物
-4. 删除对应 lock 记录
-5. 返回幂等结果
+2. 根据 target 解析要删除的一条或多条安装记录
+3. 若 target 有歧义，提示补全 source 限定名
+4. 定位安装路径
+5. 删除目标产物
+6. 删除对应 lock 记录
+7. 返回幂等结果
 
 ---
 
@@ -444,7 +470,7 @@ internal/
 - `domain/skill/parser.go`
   - 只负责解析 `SKILL.md` front matter
 - `infra/repoindex/scanner.go`
-  - 负责扫描来源目录并发现 Skill 根目录
+  - 负责扫描来源目录、识别顶级 Skill 与 collection 边界，并生成标准化限定名
 - `domain/install/planner.go`
   - 负责安装计划生成与目标路径规划
 - `domain/install/conflict.go`

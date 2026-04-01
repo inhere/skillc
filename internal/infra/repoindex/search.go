@@ -1,6 +1,7 @@
 package repoindex
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 
@@ -34,13 +35,83 @@ func Filter(items []skill.Skill, query Query) []skill.Skill {
 	return filtered
 }
 
-func FindByID(items []skill.Skill, id string) (skill.Skill, bool) {
+func ResolveSkills(items []skill.Skill, target string) ([]skill.Skill, error) {
+	exact := make([]skill.Skill, 0)
 	for _, item := range items {
-		if item.ID == id {
-			return item, true
+		if item.SourceQualifiedName == target || item.QualifiedName == target {
+			exact = append(exact, item)
+			continue
+		}
+		if !strings.Contains(target, "/") && item.ID == target && (item.Collection == "" || item.QualifiedName == "" || item.QualifiedName == item.ID) {
+			exact = append(exact, item)
 		}
 	}
-	return skill.Skill{}, false
+	if len(exact) > 1 {
+		return nil, fmt.Errorf("ambiguous skill target: %s; use source/collection/skill", target)
+	}
+	if len(exact) == 1 {
+		return exact, nil
+	}
+
+	collectionMatches := make([]skill.Skill, 0)
+	if strings.Contains(target, "/") {
+		prefix := target + "/"
+		for _, item := range items {
+			if strings.HasPrefix(item.SourceQualifiedName, prefix) {
+				collectionMatches = append(collectionMatches, item)
+			}
+		}
+	} else {
+		for _, item := range items {
+			if item.Collection == target || strings.HasPrefix(item.QualifiedName, target+"/") {
+				collectionMatches = append(collectionMatches, item)
+			}
+		}
+		if len(collectionMatches) > 0 && hasMultipleSources(collectionMatches) {
+			return nil, fmt.Errorf("ambiguous collection target: %s; use source/collection", target)
+		}
+	}
+	if len(collectionMatches) == 0 {
+		return nil, fmt.Errorf("skill not found: %s", target)
+	}
+	return collectionMatches, nil
+}
+
+func ResolveSkill(items []skill.Skill, target string) (skill.Skill, error) {
+	matches, err := ResolveSkills(items, target)
+	if err != nil {
+		return skill.Skill{}, err
+	}
+	if len(matches) != 1 {
+		return skill.Skill{}, fmt.Errorf("target resolves multiple skills: %s; use a specific skill name", target)
+	}
+	return matches[0], nil
+}
+
+func FindByID(items []skill.Skill, id string) (skill.Skill, bool) {
+	item, err := ResolveSkill(items, id)
+	if err != nil {
+		return skill.Skill{}, false
+	}
+	return item, true
+}
+
+func hasMultipleSources(items []skill.Skill) bool {
+	sources := make(map[string]struct{})
+	for _, item := range items {
+		key := item.SourceName
+		if key == "" && item.SourceQualifiedName != "" {
+			key = strings.SplitN(item.SourceQualifiedName, "/", 2)[0]
+		}
+		if key == "" {
+			key = item.SourceID
+		}
+		sources[key] = struct{}{}
+		if len(sources) > 1 {
+			return true
+		}
+	}
+	return false
 }
 
 func contains(items []string, want string) bool {

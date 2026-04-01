@@ -24,13 +24,15 @@ func TestInstallListAndRestoreFlow(t *testing.T) {
 
 	installer := installapp.NewService(lockFile)
 	item := skill.Skill{
-		ID:           "hello-skill",
-		Name:         "Hello Skill",
-		Version:      "1.0.0",
-		SourceID:     "local-demo",
-		SourceType:   sourcepkg.TypeLocal,
-		InstallEntry: "commands",
-		Path:         sourceDir,
+		ID:                  "hello-skill",
+		Name:                "Hello Skill",
+		QualifiedName:       "marketplaces/hello-skill",
+		SourceQualifiedName: "workflow-repo/marketplaces/hello-skill",
+		Version:             "1.0.0",
+		SourceID:            "local-demo",
+		SourceType:          sourcepkg.TypeLocal,
+		InstallEntry:        "commands",
+		Path:                sourceDir,
 	}
 
 	_, err := installer.Install(item, "claude-code", agent.ScopeProject, targetRoot)
@@ -39,9 +41,10 @@ func TestInstallListAndRestoreFlow(t *testing.T) {
 	listed, err := listapp.NewService(lockFile).List("claude-code", "project")
 	assert.NoErr(t, err)
 	assert.Len(t, listed, 1)
+	assert.Eq(t, "marketplaces/hello-skill", listed[0].QualifiedName)
 	assert.Eq(t, "installed", listed[0].Status)
 
-	assert.NoErr(t, installer.Uninstall("hello-skill", "claude-code", agent.ScopeProject))
+	assert.NoErr(t, installer.Uninstall("marketplaces/hello-skill", "claude-code", agent.ScopeProject))
 	_, err = os.Stat(filepath.Join(targetRoot, "hello-skill"))
 	assert.True(t, os.IsNotExist(err))
 
@@ -61,6 +64,7 @@ func TestInstallListAndRestoreFlow(t *testing.T) {
 	restored, err := installer.Restore(map[string]string{"local-demo": sourceDir})
 	assert.NoErr(t, err)
 	assert.Len(t, restored, 1)
+	assert.Eq(t, "workflow-repo/marketplaces/hello-skill", restored[0].SourceQualifiedName)
 
 	data, err := os.ReadFile(filepath.Join(targetRoot, "hello-skill", "hello.txt"))
 	assert.NoErr(t, err)

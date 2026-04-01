@@ -14,17 +14,20 @@ func TestStore_SaveAndLoadRoundTrip(t *testing.T) {
 	store := NewStore()
 	now := time.Unix(1710000000, 0).UTC()
 	want := []lockpkg.Record{{
-		SkillID:       "hello-skill",
-		Agent:         "claude-code",
-		Scope:         "global",
-		Version:       "1.0.0",
-		SourceID:      "local-demo",
-		SourceType:    "local",
-		InstalledPath: "/tmp/.claude/skills/hello-skill",
-		Checksum:      "abc123",
-		InstalledAt:   now,
-		UpdatedAt:     now,
-		Pinned:        true,
+		SkillID:             "hello-skill",
+		QualifiedName:       "marketplaces/hello-skill",
+		SourceQualifiedName: "workflow-repo/marketplaces/hello-skill",
+		Agent:               "claude-code",
+		Scope:               "global",
+		Version:             "1.0.0",
+		SourceID:            "local-demo",
+		SourceType:          "local",
+		InstallEntry:        "commands",
+		InstalledPath:       "/tmp/.claude/skills/hello-skill",
+		Checksum:            "abc123",
+		InstalledAt:         now,
+		UpdatedAt:           now,
+		Pinned:              true,
 	}}
 
 	assert.NoErr(t, store.Save(path, want))

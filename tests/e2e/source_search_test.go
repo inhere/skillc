@@ -51,8 +51,10 @@ install_entry: .
 	assert.NoErr(t, err)
 	assert.Len(t, results, 1)
 	assert.Eq(t, "hello-skill", results[0].ID)
+	assert.Eq(t, "hello-skill", results[0].QualifiedName)
+	assert.Eq(t, src.Name+"/hello-skill", results[0].SourceQualifiedName)
 
 	item, err := searchService.Show("hello-skill")
 	assert.NoErr(t, err)
-	assert.Eq(t, skillpkg.Skill{ID: "hello-skill", Name: "Hello Skill", Description: "Friendly greeting helper", Version: results[0].Version, SupportedAgents: []string{"claude-code"}, SourceID: listedSources[0].ID, SourceType: sourcepkg.TypeLocal, InstallEntry: ".", Path: skillDir}, item)
+	assert.Eq(t, skillpkg.Skill{ID: "hello-skill", Name: "Hello Skill", Description: "Friendly greeting helper", Version: results[0].Version, SupportedAgents: []string{"claude-code"}, SourceID: listedSources[0].ID, SourceName: listedSources[0].Name, SourceType: sourcepkg.TypeLocal, QualifiedName: "hello-skill", SourceQualifiedName: src.Name + "/hello-skill", InstallEntry: ".", Path: skillDir}, item)
 }

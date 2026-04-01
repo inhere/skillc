@@ -398,3 +398,68 @@
 - [x] **Step 4: Run tests to verify they pass**
 - [x] **Step 5: Run full regression tests**
 - [x] **Step 6: Commit**
+
+### Task 22: Add collection-aware source scanning and qualified skill identity ✅ Completed
+
+**Files:**
+- Modify: `internal/domain/skill/model.go`
+- Modify: `internal/domain/lock/model.go`
+- Modify: `internal/infra/repoindex/scanner.go`
+- Test: `internal/infra/repoindex/scanner_test.go`
+- Test: `internal/infra/lockstore/json_store_test.go`
+
+**Design note (2026-04-01):** Source scanning must now support collection semantics. Rules: if no `skills` dir exists and exactly one skill is found, treat it as a top-level skill with no collection; if no `skills` dir exists and multiple skills are found, use `source.Name` as the collection; if exactly one `skills` dir exists anywhere under the source, use `source.Name` as the collection; if multiple `skills` dirs exist, use each `skills` parent directory name as the collection. `Skill` and lock records must persist `QualifiedName` and source-qualified names, while restore semantics remain based on `SourceID + InstallEntry`.
+
+**Verification note (2026-04-01):** Scanner now emits collection-aware `QualifiedName` / `SourceQualifiedName`, search/install/uninstall resolve `skill` / `collection/skill` / `source/collection/skill` targets correctly with ambiguity errors, and e2e coverage verifies top-level sources, collection sources, source-qualified disambiguation, and restore via `SourceID + InstallEntry` with full `go test ./...` coverage.
+
+- [x] **Step 1: Write the failing tests**
+- [x] **Step 2: Run tests to verify they fail**
+- [x] **Step 3: Write minimal implementation**
+- [x] **Step 4: Run tests to verify they pass**
+- [x] **Step 5: Run focused regression tests**
+- [x] **Step 6: Commit**
+
+### Task 23: Add collection-aware search, show, install, and uninstall target resolution ✅ Completed
+
+**Files:**
+- Modify: `internal/infra/repoindex/search.go`
+- Modify: `internal/app/searchapp/service.go`
+- Modify: `internal/app/installapp/service.go`
+- Modify: `internal/domain/install/planner.go`
+- Modify: `internal/app/listapp/service.go`
+- Modify: `internal/cli/app.go`
+- Test: `internal/app/searchapp/service_test.go`
+- Test: `internal/app/installapp/service_test.go`
+- Test: `internal/domain/install/planner_test.go`
+- Test: `internal/app/listapp/service_test.go`
+- Test: `internal/cli/app_test.go`
+
+**Design note (2026-04-01):** User-facing targets must support `skill`, `collection/skill`, `source/collection/skill`, `collection`, and `source/collection`. Primary display key is `collection/skill`; top-level skills remain bare `skill`; source qualification is only required for ambiguity. Collection-level install/uninstall must expand to all skills in the resolved collection. Ambiguous targets must fail with actionable hints rather than picking a source implicitly.
+
+**Verification note (2026-04-01):** CLI and service resolution now prefer `QualifiedName`, keep bare top-level skill names, expand collection install/uninstall targets across matching skills, and require source qualification when names are ambiguous.
+
+- [x] **Step 1: Write the failing tests**
+- [x] **Step 2: Run tests to verify they fail**
+- [x] **Step 3: Write minimal implementation**
+- [x] **Step 4: Run tests to verify they pass**
+- [x] **Step 5: Run focused regression tests**
+- [x] **Step 6: Commit**
+
+### Task 24: Add collection-aware restore and e2e regression coverage ✅ Completed
+
+**Files:**
+- Modify: `tests/e2e/source_search_test.go`
+- Modify: `tests/e2e/install_restore_test.go`
+- Modify: `arch.md`
+- Modify: `plan.md`
+
+**Design note (2026-04-01):** E2E coverage must prove top-level single-skill sources still work, collection sources can be searched and installed by collection-aware names, ambiguous names require source qualification, and restore continues to copy from the path derived by `SourceID + InstallEntry` even after qualified naming is introduced.
+
+**Verification note (2026-04-01):** E2E coverage now verifies top-level single-skill sources, collection-aware search/install flows, source-qualified ambiguity handling, `source add local --sync`, and restore continuing to copy from the path derived by `SourceID + InstallEntry`.
+
+- [x] **Step 1: Write the failing tests**
+- [x] **Step 2: Run tests to verify they fail**
+- [x] **Step 3: Write minimal implementation**
+- [x] **Step 4: Run tests to verify they pass**
+- [x] **Step 5: Run `go test ./...`**
+- [x] **Step 6: Commit**

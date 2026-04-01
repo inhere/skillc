@@ -15,9 +15,9 @@ import (
 	sourcepkg "github.com/inhere/skillc/internal/domain/source"
 )
 
-type skillLookupFunc func(id string) (skill.Skill, error)
+type skillLookupFunc func(id string) ([]skill.Skill, error)
 
-func (f skillLookupFunc) Show(id string) (skill.Skill, error) {
+func (f skillLookupFunc) Resolve(id string) ([]skill.Skill, error) {
 	return f(id)
 }
 
@@ -34,24 +34,52 @@ func TestService_RunInstallsIndexedSkill(t *testing.T) {
 		AgentTools: map[string]cfg.AgentToolConfig{
 			"claude-code": {ProjectDir: filepath.Join(baseDir, ".claude")},
 		},
-	}, baseDir, []string{"hello-skill", "claude-code", "project"}, skillLookupFunc(func(id string) (skill.Skill, error) {
-		return skill.Skill{
-			ID:           "hello-skill",
-			Version:      "1.0.0",
-			SourceID:     "local-demo",
-			SourceType:   sourcepkg.TypeLocal,
-			InstallEntry: "commands",
-			Path:         sourceDir,
-		}, nil
+	}, baseDir, []string{"hello-skill", "claude-code", "project"}, skillLookupFunc(func(id string) ([]skill.Skill, error) {
+		return []skill.Skill{{
+			ID:                  "hello-skill",
+			QualifiedName:       "marketplaces/hello-skill",
+			SourceQualifiedName: "repo-a/marketplaces/hello-skill",
+			Version:             "1.0.0",
+			SourceID:            "local-demo",
+			SourceType:          sourcepkg.TypeLocal,
+			InstallEntry:        "commands",
+			Path:                sourceDir,
+		}}, nil
 	}))
 	assert.NoErr(t, err)
-	assert.NotNil(t, result.Installed)
-	assert.Eq(t, "hello-skill", result.Installed.SkillID)
+	assert.Len(t, result.Installed, 1)
+	assert.Eq(t, "hello-skill", result.Installed[0].SkillID)
+	assert.Eq(t, "marketplaces/hello-skill", result.Installed[0].QualifiedName)
 	assert.Len(t, result.Restored, 0)
 
 	data, err := os.ReadFile(filepath.Join(baseDir, ".claude", "skills", "hello-skill", "hello.txt"))
 	assert.NoErr(t, err)
 	assert.Eq(t, "hello", string(data))
+}
+
+func TestService_RunInstallsCollectionTarget(t *testing.T) {
+	baseDir := t.TempDir()
+	lockFile := filepath.Join(baseDir, "skillc-install.lock")
+	firstSourceDir := filepath.Join(baseDir, "source", "hello-skill")
+	secondSourceDir := filepath.Join(baseDir, "source", "world-skill")
+	assert.NoErr(t, os.MkdirAll(filepath.Join(firstSourceDir, "commands"), 0o755))
+	assert.NoErr(t, os.MkdirAll(filepath.Join(secondSourceDir, "commands"), 0o755))
+	assert.NoErr(t, os.WriteFile(filepath.Join(firstSourceDir, "commands", "hello.txt"), []byte("hello"), 0o644))
+	assert.NoErr(t, os.WriteFile(filepath.Join(secondSourceDir, "commands", "world.txt"), []byte("world"), 0o644))
+
+	service := NewService(lockFile)
+	result, err := service.Run(cfg.Config{
+		AgentTools: map[string]cfg.AgentToolConfig{
+			"claude-code": {ProjectDir: filepath.Join(baseDir, ".claude")},
+		},
+	}, baseDir, []string{"repo-a/marketplaces", "claude-code", "project"}, skillLookupFunc(func(id string) ([]skill.Skill, error) {
+		return []skill.Skill{
+			{ID: "hello-skill", QualifiedName: "marketplaces/hello-skill", SourceQualifiedName: "repo-a/marketplaces/hello-skill", Collection: "marketplaces", Version: "1.0.0", SourceID: "local-demo", SourceType: sourcepkg.TypeLocal, InstallEntry: "commands", Path: firstSourceDir},
+			{ID: "world-skill", QualifiedName: "marketplaces/world-skill", SourceQualifiedName: "repo-a/marketplaces/world-skill", Collection: "marketplaces", Version: "1.0.0", SourceID: "local-demo", SourceType: sourcepkg.TypeLocal, InstallEntry: "commands", Path: secondSourceDir},
+		}, nil
+	}))
+	assert.NoErr(t, err)
+	assert.Len(t, result.Installed, 2)
 }
 
 func TestService_RunRestoresWhenNoArgs(t *testing.T) {
@@ -63,19 +91,21 @@ func TestService_RunRestoresWhenNoArgs(t *testing.T) {
 	assert.NoErr(t, os.MkdirAll(commandsDir, 0o755))
 	assert.NoErr(t, os.WriteFile(filepath.Join(commandsDir, "hello.txt"), []byte("restored"), 0o644))
 	assert.NoErr(t, NewService(lockFile).store.Save(lockFile, []lockpkg.Record{{
-		SkillID:       "hello-skill",
-		Agent:         "claude-code",
-		Scope:         "project",
-		InstalledPath: installedPath,
-		SourceID:      "local-demo",
-		SourceType:    "local",
-		InstallEntry:  "commands",
+		SkillID:             "hello-skill",
+		QualifiedName:       "marketplaces/hello-skill",
+		SourceQualifiedName: "repo-a/marketplaces/hello-skill",
+		Agent:               "claude-code",
+		Scope:               "project",
+		InstalledPath:       installedPath,
+		SourceID:            "local-demo",
+		SourceType:          "local",
+		InstallEntry:        "commands",
 	}}))
 
 	service := NewService(lockFile)
 	result, err := service.Run(cfg.Config{Sources: []sourcepkg.Source{{ID: "local-demo", Path: sourceDir}}}, baseDir, nil, nil)
 	assert.NoErr(t, err)
-	assert.Nil(t, result.Installed)
+	assert.Len(t, result.Installed, 0)
 	assert.Len(t, result.Restored, 1)
 	assert.Eq(t, "hello-skill", result.Restored[0].SkillID)
 
@@ -93,8 +123,8 @@ func TestService_RunRequiresSkillLookupForInstall(t *testing.T) {
 
 func TestService_RunReturnsLookupErrors(t *testing.T) {
 	service := NewService(filepath.Join(t.TempDir(), "skillc-install.lock"))
-	_, err := service.Run(cfg.Config{}, t.TempDir(), []string{"missing", "claude-code", "project"}, skillLookupFunc(func(id string) (skill.Skill, error) {
-		return skill.Skill{}, fmt.Errorf("skill not found: %s", id)
+	_, err := service.Run(cfg.Config{}, t.TempDir(), []string{"missing", "claude-code", "project"}, skillLookupFunc(func(id string) ([]skill.Skill, error) {
+		return nil, fmt.Errorf("skill not found: %s", id)
 	}))
 	assert.Err(t, err)
 	assert.Contains(t, err.Error(), "skill not found")
@@ -109,13 +139,15 @@ func TestService_InstallCopiesFilesAndWritesLock(t *testing.T) {
 	assert.NoErr(t, os.WriteFile(filepath.Join(sourceDir, "commands", "hello.txt"), []byte("hello"), 0o644))
 
 	item := skill.Skill{
-		ID:           "hello-skill",
-		Name:         "Hello Skill",
-		Version:      "1.0.0",
-		SourceID:     "local-demo",
-		SourceType:   sourcepkg.TypeLocal,
-		InstallEntry: "commands",
-		Path:         sourceDir,
+		ID:                  "hello-skill",
+		Name:                "Hello Skill",
+		QualifiedName:       "marketplaces/hello-skill",
+		SourceQualifiedName: "repo-a/marketplaces/hello-skill",
+		Version:             "1.0.0",
+		SourceID:            "local-demo",
+		SourceType:          sourcepkg.TypeLocal,
+		InstallEntry:        "commands",
+		Path:                sourceDir,
 	}
 
 	service := NewService(lockFile)
@@ -124,6 +156,7 @@ func TestService_InstallCopiesFilesAndWritesLock(t *testing.T) {
 	record, err := service.Install(item, "claude-code", agent.ScopeProject, targetRoot)
 	assert.NoErr(t, err)
 	assert.Eq(t, "hello-skill", record.SkillID)
+	assert.Eq(t, "marketplaces/hello-skill", record.QualifiedName)
 	assert.Eq(t, "commands", record.InstallEntry)
 	assert.Eq(t, filepath.Join(targetRoot, "hello-skill"), record.InstalledPath)
 
@@ -135,6 +168,7 @@ func TestService_InstallCopiesFilesAndWritesLock(t *testing.T) {
 	assert.NoErr(t, err)
 	assert.Len(t, locks, 1)
 	assert.Eq(t, record.SkillID, locks[0].SkillID)
+	assert.Eq(t, "marketplaces/hello-skill", locks[0].QualifiedName)
 	assert.Eq(t, "commands", locks[0].InstallEntry)
 }
 
@@ -148,9 +182,9 @@ func TestService_InstallAppendsLockRecords(t *testing.T) {
 	assert.NoErr(t, os.WriteFile(filepath.Join(sourceDir, "commands", "world.txt"), []byte("world"), 0o644))
 
 	service := NewService(lockFile)
-	_, err := service.Install(skill.Skill{ID: "hello-skill", Version: "1.0.0", SourceID: "local-demo", SourceType: sourcepkg.TypeLocal, InstallEntry: "commands", Path: sourceDir}, "claude-code", agent.ScopeProject, targetRoot)
+	_, err := service.Install(skill.Skill{ID: "hello-skill", QualifiedName: "marketplaces/hello-skill", SourceQualifiedName: "repo-a/marketplaces/hello-skill", Version: "1.0.0", SourceID: "local-demo", SourceType: sourcepkg.TypeLocal, InstallEntry: "commands", Path: sourceDir}, "claude-code", agent.ScopeProject, targetRoot)
 	assert.NoErr(t, err)
-	_, err = service.Install(skill.Skill{ID: "world-skill", Version: "1.0.0", SourceID: "local-demo", SourceType: sourcepkg.TypeLocal, InstallEntry: "commands", Path: sourceDir}, "codex", agent.ScopeProject, targetRoot)
+	_, err = service.Install(skill.Skill{ID: "world-skill", QualifiedName: "marketplaces/world-skill", SourceQualifiedName: "repo-a/marketplaces/world-skill", Version: "1.0.0", SourceID: "local-demo", SourceType: sourcepkg.TypeLocal, InstallEntry: "commands", Path: sourceDir}, "codex", agent.ScopeProject, targetRoot)
 	assert.NoErr(t, err)
 
 	locks, err := service.store.Load(lockFile)
@@ -165,10 +199,12 @@ func TestService_UninstallRemovesFilesAndLockRecord(t *testing.T) {
 	assert.NoErr(t, os.MkdirAll(installedPath, 0o755))
 	assert.NoErr(t, os.WriteFile(filepath.Join(installedPath, "hello.txt"), []byte("hello"), 0o644))
 	assert.NoErr(t, NewService(lockFile).store.Save(lockFile, []lockpkg.Record{{
-		SkillID:       "hello-skill",
-		Agent:         "claude-code",
-		Scope:         "project",
-		InstalledPath: installedPath,
+		SkillID:             "hello-skill",
+		QualifiedName:       "marketplaces/hello-skill",
+		SourceQualifiedName: "repo-a/marketplaces/hello-skill",
+		Agent:               "claude-code",
+		Scope:               "project",
+		InstalledPath:       installedPath,
 	}}))
 
 	service := NewService(lockFile)
@@ -192,13 +228,15 @@ func TestService_RestoreUsesRecordedInstallEntry(t *testing.T) {
 	assert.NoErr(t, os.MkdirAll(commandsDir, 0o755))
 	assert.NoErr(t, os.WriteFile(filepath.Join(commandsDir, "hello.txt"), []byte("restored"), 0o644))
 	assert.NoErr(t, NewService(lockFile).store.Save(lockFile, []lockpkg.Record{{
-		SkillID:       "hello-skill",
-		Agent:         "claude-code",
-		Scope:         "project",
-		InstalledPath: installedPath,
-		SourceID:      "local-demo",
-		SourceType:    "local",
-		InstallEntry:  "commands",
+		SkillID:             "hello-skill",
+		QualifiedName:       "marketplaces/hello-skill",
+		SourceQualifiedName: "repo-a/marketplaces/hello-skill",
+		Agent:               "claude-code",
+		Scope:               "project",
+		InstalledPath:       installedPath,
+		SourceID:            "local-demo",
+		SourceType:          "local",
+		InstallEntry:        "commands",
 	}}))
 
 	service := NewService(lockFile)

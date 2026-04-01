@@ -31,10 +31,18 @@ func TestFilter_MatchesNameDescriptionAgentAndSourceType(t *testing.T) {
 	assert.Eq(t, "hello-skill", got[0].ID)
 }
 
-func TestFindByID_ReturnsExactMatch(t *testing.T) {
-	items := []skill.Skill{{ID: "hello-skill"}, {ID: "git-only"}}
+func TestResolveSkills_SupportsCollectionTargetsAndDisambiguation(t *testing.T) {
+	items := []skill.Skill{
+		{ID: "hello-skill", Collection: "marketplaces", QualifiedName: "marketplaces/hello-skill", SourceQualifiedName: "repo-a/marketplaces/hello-skill"},
+		{ID: "world-skill", Collection: "marketplaces", QualifiedName: "marketplaces/world-skill", SourceQualifiedName: "repo-a/marketplaces/world-skill"},
+		{ID: "hello-skill", Collection: "marketplaces", QualifiedName: "marketplaces/hello-skill", SourceQualifiedName: "repo-b/marketplaces/hello-skill"},
+	}
 
-	got, ok := FindByID(items, "git-only")
-	assert.True(t, ok)
-	assert.Eq(t, "git-only", got.ID)
+	matches, err := ResolveSkills(items, "repo-a/marketplaces")
+	assert.NoErr(t, err)
+	assert.Len(t, matches, 2)
+
+	_, err = ResolveSkills(items, "marketplaces")
+	assert.Err(t, err)
+	assert.Contains(t, err.Error(), "ambiguous collection target")
 }

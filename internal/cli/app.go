@@ -222,6 +222,15 @@ func buildSourceAddLocalCommand() *gcli.Command {
 		Func: func(c *gcli.Command, args []string) error {
 			pathArg := c.Arg("path").String()
 			parsedSync := syncNow
+			for _, arg := range args {
+				if arg == "--sync" {
+					parsedSync = true
+					continue
+				}
+				if pathArg == "" {
+					pathArg = arg
+				}
+			}
 			if pathArg == "" {
 				return fmt.Errorf("local source path is required")
 			}
@@ -363,8 +372,10 @@ func buildInstallCommand() *gcli.Command {
 				slog.Error(err)
 				return err
 			}
-			if result.Installed != nil {
-				return WriteLine(os.Stdout, fmt.Sprintf("%s %s", result.Installed.SkillID, result.Installed.InstalledPath))
+			for _, record := range result.Installed {
+				if err := WriteLine(os.Stdout, fmt.Sprintf("%s %s", record.SkillID, record.InstalledPath)); err != nil {
+					return err
+				}
 			}
 			for _, record := range result.Restored {
 				if err := WriteLine(os.Stdout, fmt.Sprintf("%s %s %s", record.SkillID, record.Agent, record.Scope)); err != nil {
@@ -375,7 +386,6 @@ func buildInstallCommand() *gcli.Command {
 		},
 	}
 }
-
 
 func buildUninstallCommand() *gcli.Command {
 	return &gcli.Command{
@@ -479,7 +489,11 @@ func buildDoctorCommand() *gcli.Command {
 }
 
 func formatSkillLine(item skill.Skill) string {
-	return fmt.Sprintf("%s %s %s", item.ID, item.Name, item.Version)
+	name := item.ID
+	if item.QualifiedName != "" {
+		name = item.QualifiedName
+	}
+	return fmt.Sprintf("%s %s %s", name, item.Name, item.Version)
 }
 
 func newConfigService() *configapp.Service {

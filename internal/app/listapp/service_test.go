@@ -32,26 +32,30 @@ func TestService_ListProjectsInstalledAndMissingStatus(t *testing.T) {
 	store := lockstore.NewStore()
 	assert.NoErr(t, store.Save(lockFile, []lockpkg.Record{
 		{
-			SkillID:       "hello-skill",
-			Agent:         "claude-code",
-			Scope:         "project",
-			Version:       "1.0.0",
-			SourceID:      "local-demo",
-			SourceType:    "local",
-			InstalledPath: installedPath,
-			Checksum:      "abc123",
-			UpdatedAt:     now,
+			SkillID:             "hello-skill",
+			QualifiedName:       "marketplaces/hello-skill",
+			SourceQualifiedName: "repo-a/marketplaces/hello-skill",
+			Agent:               "claude-code",
+			Scope:               "project",
+			Version:             "1.0.0",
+			SourceID:            "local-demo",
+			SourceType:          "local",
+			InstalledPath:       installedPath,
+			Checksum:            "abc123",
+			UpdatedAt:           now,
 		},
 		{
-			SkillID:       "gone-skill",
-			Agent:         "claude-code",
-			Scope:         "project",
-			Version:       "1.1.0",
-			SourceID:      "local-demo",
-			SourceType:    "local",
-			InstalledPath: missingPath,
-			Checksum:      "def456",
-			UpdatedAt:     now,
+			SkillID:             "gone-skill",
+			QualifiedName:       "gone-skill",
+			SourceQualifiedName: "repo-a/gone-skill",
+			Agent:               "claude-code",
+			Scope:               "project",
+			Version:             "1.1.0",
+			SourceID:            "local-demo",
+			SourceType:          "local",
+			InstalledPath:       missingPath,
+			Checksum:            "def456",
+			UpdatedAt:           now,
 		},
 	}))
 
@@ -59,8 +63,8 @@ func TestService_ListProjectsInstalledAndMissingStatus(t *testing.T) {
 	items, err := service.List("claude-code", "project")
 	assert.NoErr(t, err)
 	assert.Len(t, items, 2)
-	assert.Eq(t, "gone-skill", items[0].SkillID)
+	assert.Eq(t, "gone-skill", items[0].QualifiedName)
 	assert.Eq(t, "missing", items[0].Status)
-	assert.Eq(t, "hello-skill", items[1].SkillID)
+	assert.Eq(t, "marketplaces/hello-skill", items[1].QualifiedName)
 	assert.Eq(t, "installed", items[1].Status)
 }

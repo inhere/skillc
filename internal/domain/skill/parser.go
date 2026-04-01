@@ -58,6 +58,7 @@ func ParseSkillMarkdown(content string, src sourcepkg.Source) (Skill, error) {
 		Version:         meta.Version,
 		SupportedAgents: meta.SupportedAgents,
 		SourceID:        src.ID,
+		SourceName:      src.Name,
 		SourceType:      src.Type,
 		InstallEntry:    meta.InstallEntry,
 		Path:            src.Path,

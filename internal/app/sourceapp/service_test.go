@@ -25,11 +25,14 @@ func TestService_AddListRemoveLocalSource(t *testing.T) {
 	baseDir := t.TempDir()
 	configFile := filepath.Join(baseDir, "skillc.yaml")
 	service := NewService(configFile, baseDir)
+	want, err := sourcepkg.NewLocalSource(filepath.Join(baseDir, "skills"))
+	assert.NoErr(t, err)
 
 	src, err := service.AddLocal(filepath.Join(baseDir, "skills"))
 	assert.NoErr(t, err)
-	assert.NotEmpty(t, src.ID)
-	assert.Eq(t, "skills", src.Name)
+	assert.Eq(t, want.ID, src.ID)
+	assert.Eq(t, want.Name, src.Name)
+	assert.Eq(t, want.Path, src.Path)
 
 	_, err = service.AddLocal(filepath.Join(baseDir, "skills"))
 	assert.Error(t, err)

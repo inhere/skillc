@@ -6,7 +6,6 @@ import (
 
 	"github.com/gookit/gcli/v3"
 	"github.com/gookit/gcli/v3/show/table"
-	"github.com/gookit/goutil/x/ccolor"
 	"github.com/gookit/slog"
 )
 
@@ -108,8 +107,7 @@ func buildSourceSyncCommand() *gcli.Command {
 					slog.Error(err)
 					return err
 				}
-				ccolor.Successln("ok")
-				return nil
+				return WriteLine(os.Stdout, "ok")
 			}
 
 			if err := service.Sync(sourceID); err != nil {
@@ -123,12 +121,10 @@ func buildSourceSyncCommand() *gcli.Command {
 			}
 			for _, src := range list {
 				if src.ID == sourceID {
-					ccolor.Infof("synced %s %s\n", src.ID, src.Status)
-					return nil
+					return WriteLine(os.Stdout, fmt.Sprintf("synced %s %s", src.ID, src.Status))
 				}
 			}
-			ccolor.Infof("synced %s\n", sourceID)
-			return nil
+			return WriteLine(os.Stdout, fmt.Sprintf("synced %s", sourceID))
 		},
 	}
 }
@@ -154,7 +150,9 @@ func buildSourceAddLocalCommand() *gcli.Command {
 				slog.Error(err)
 				return err
 			}
-			ccolor.Infof("%s added.\n - path=%s\n", src.ID, src.Path)
+			if _, err := fmt.Fprintf(os.Stdout, "%s added.\n - path=%s\n", src.ID, src.Path); err != nil {
+				return err
+			}
 
 			if syncNow {
 				if err := service.Sync(src.ID); err != nil {
@@ -163,8 +161,7 @@ func buildSourceAddLocalCommand() *gcli.Command {
 				}
 				return nil
 			}
-			ccolor.Infof("Next, please run: skillc source sync %s\n", src.ID)
-			return nil
+			return WriteLine(os.Stdout, fmt.Sprintf("Next, please run: skillc source sync %s", src.ID))
 		},
 	}
 }
@@ -193,7 +190,9 @@ func buildSourceAddGitCommand() *gcli.Command {
 				return err
 			}
 
-			ccolor.Infof("%s added.\n - url=%s, ref=%s\n", src.ID, src.URL, src.Ref)
+			if _, err := fmt.Fprintf(os.Stdout, "%s added.\n - url=%s, ref=%s\n", src.ID, src.URL, src.Ref); err != nil {
+				return err
+			}
 
 			if syncNow {
 				if err := service.Sync(src.ID); err != nil {
@@ -202,8 +201,7 @@ func buildSourceAddGitCommand() *gcli.Command {
 				}
 				return nil
 			}
-			ccolor.Infof("Next, please run: skillc source sync %s\n", src.ID)
-			return nil
+			return WriteLine(os.Stdout, fmt.Sprintf("Next, please run: skillc source sync %s", src.ID))
 		},
 	}
 }

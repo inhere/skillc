@@ -129,16 +129,15 @@ func buildSearchCommand() *gcli.Command {
 				return err
 			}
 			if len(items) == 0 {
-				ccolor.Warnln("no skills found")
-				return nil
+				return WriteLine(os.Stdout, "no skills found")
 			}
 
 			tb := table.New("Search Result").SetHeads("Name", "Version", "Collection")
 			for _, item := range items {
 				tb.AddRow(item.Name, item.Version, item.Collection)
 			}
-			tb.Println()
-			return nil
+			_, err = fmt.Fprint(os.Stdout, tb.Render())
+			return err
 		},
 	}
 }

@@ -175,7 +175,9 @@ func TestSearchCommand_ReturnsMatchesForQueryArgument(t *testing.T) {
 
 	output := runAppInDirWithStdout(t, baseDir, []string{"search", "design"})
 
-	assert.Contains(t, output, "design-helper Design Helper")
+	assert.Contains(t, output, "Search Result")
+	assert.Contains(t, output, "Design Helper")
+	assert.Contains(t, output, "Name")
 }
 
 func TestSearchCommand_ReturnsHelpfulMessageWhenNoMatches(t *testing.T) {
@@ -201,8 +203,9 @@ func TestSourceAddLocalCommand_PrintsNextSyncHint(t *testing.T) {
 
 	output := runAppInDirWithStdout(t, baseDir, []string{"source", "add", "local", sourceRoot})
 
-	assert.Contains(t, output, "local-skills "+sourceRoot)
-	assert.Contains(t, output, "next: skillc source sync local-skills")
+	assert.Contains(t, output, "added.")
+	assert.Contains(t, output, "path=")
+	assert.Contains(t, output, "Next, please run: skillc source sync ")
 }
 
 func TestSourceAddLocalCommand_WithSyncRebuildsIndexForSearch(t *testing.T) {
@@ -224,12 +227,16 @@ description: Friendly greeting helper
 	config.IndexFile = indexPath
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
 
-	output := runAppInDirWithStdout(t, baseDir, []string{"source", "add", "local", sourceRoot, "--sync"})
-	assert.Contains(t, output, "local-skills "+sourceRoot)
-	assert.NotContains(t, output, "next: skillc source sync")
+	output := runAppInDirWithStdout(t, baseDir, []string{"source", "add", "local", "--sync", sourceRoot})
+	assert.Contains(t, output, "added.")
+	assert.Contains(t, output, "path=")
+	assert.NotContains(t, output, "Next, please run: skillc source sync")
 
-	searchOutput := runAppInDirWithStdout(t, baseDir, []string{"search", "greeting"})
-	assert.Contains(t, searchOutput, "hello-skill Hello Skill")
+	items, err := repoindex.NewStore().Load(indexPath)
+	assert.NoErr(t, err)
+	assert.Len(t, items, 1)
+	assert.Eq(t, "hello-skill", items[0].ID)
+	assert.Eq(t, "Hello Skill", items[0].Name)
 }
 
 func TestSourceAddGitCommand_PrintsNextSyncHint(t *testing.T) {
@@ -241,8 +248,9 @@ func TestSourceAddGitCommand_PrintsNextSyncHint(t *testing.T) {
 
 	output := runAppInDirWithStdout(t, baseDir, []string{"source", "add", "git", "https://example.com/repo.git"})
 
-	assert.Contains(t, output, "git-repo https://example.com/repo.git")
-	assert.Contains(t, output, "next: skillc source sync git-repo")
+	assert.Contains(t, output, "added.")
+	assert.Contains(t, output, "url=https://example.com/repo.git")
+	assert.Contains(t, output, "Next, please run: skillc source sync git-repo")
 }
 
 func TestSourceSyncCommand_PrintsSourceStatusAfterSync(t *testing.T) {
@@ -259,16 +267,18 @@ description: Friendly greeting helper
 ---
 # Hello Skill
 `), 0o644))
+	localSource, err := sourcepkg.NewLocalSource(sourceRoot)
+	assert.NoErr(t, err)
 
 	config := cfg.DefaultConfig()
 	config.IndexFile = indexPath
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
 
 	addOutput := runAppInDirWithStdout(t, baseDir, []string{"source", "add", "local", sourceRoot})
-	assert.Contains(t, addOutput, "next: skillc source sync local-skills")
+	assert.Contains(t, addOutput, "Next, please run: skillc source sync ")
 
-	syncOutput := runAppInDirWithStdout(t, baseDir, []string{"source", "sync", "local-skills"})
-	assert.Contains(t, syncOutput, "local-skills")
+	syncOutput := runAppInDirWithStdout(t, baseDir, []string{"source", "sync", localSource.ID})
+	assert.Contains(t, syncOutput, "synced ")
 	assert.Contains(t, syncOutput, "ready")
 }
 

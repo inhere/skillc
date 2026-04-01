@@ -89,6 +89,7 @@ func (s *Service) AddGit(url string, ref string) (domainsource.Source, error) {
 	return src, nil
 }
 
+// List 列出
 func (s *Service) List() ([]domainsource.Source, error) {
 	data, err := s.load()
 	if err != nil {
@@ -111,6 +112,21 @@ func (s *Service) Remove(id string) error {
 	return s.rebuildIndex(data)
 }
 
+// SyncAll 同步所有源
+func (s *Service) SyncAll() error {
+	list, err := s.List()
+	if err != nil {
+		return err
+	}
+	for _, src := range list {
+		if err := s.Sync(src.ID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Sync 同步源
 func (s *Service) Sync(id string) error {
 	data, err := s.load()
 	if err != nil {

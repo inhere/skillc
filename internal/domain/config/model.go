@@ -17,6 +17,6 @@ type Config struct {
 
 type AgentToolConfig struct {
 	Dirname    string `yaml:"dirname"`
-	UserDir    string `yaml:"user"`
-	ProjectDir string `yaml:"project"`
+	UserDir    string `yaml:"user_dir,omitempty"`
+	ProjectDir string `yaml:"project_dir,omitempty"`
 }

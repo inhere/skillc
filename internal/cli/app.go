@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/gookit/gcli/v3/show"
 	"github.com/gookit/gcli/v3"
 	"github.com/gookit/goutil/x/ccolor"
 	"github.com/gookit/slog"
@@ -65,7 +66,10 @@ func buildConfigCommand() *gcli.Command {
 				slog.Error(err)
 				return err
 			}
-			return WriteLine(os.Stdout, fmt.Sprintf("lock_file=%s", cfg.LockFile))
+
+			cfg.Sources = nil
+			show.AList("config", cfg)
+			return nil
 		},
 	})
 
@@ -82,7 +86,8 @@ func buildConfigCommand() *gcli.Command {
 				slog.Error(err)
 				return err
 			}
-			return WriteLine(os.Stdout, value)
+			ccolor.Infof("%s=%s\n", args[0], value)
+			return nil
 		},
 	})
 
@@ -98,204 +103,12 @@ func buildConfigCommand() *gcli.Command {
 				slog.Error(err)
 				return err
 			}
-			return WriteLine(os.Stdout, "ok")
+			ccolor.Successln("ok")
+			return nil
 		},
 	})
 
 	return cmd
-}
-
-func buildSourceCommand() *gcli.Command {
-	cmd := &gcli.Command{
-		Name: "source",
-		Desc: "Manage Skillc sources",
-	}
-
-	add := &gcli.Command{
-		Name: "add",
-		Desc: "Add a source",
-	}
-	add.Add(buildSourceAddLocalCommand())
-	add.Add(buildSourceAddGitCommand())
-	cmd.Add(add)
-
-	cmd.Add(&gcli.Command{
-		Name: "list",
-		Desc: "List sources",
-		Func: func(c *gcli.Command, args []string) error {
-			service := newSourceService()
-			list, err := service.List()
-			if err != nil {
-				slog.Error(err)
-				return err
-			}
-			for _, src := range list {
-				if err := WriteLine(os.Stdout, fmt.Sprintf("%s %s %s %s", src.ID, src.Type, src.Status, src.Path)); err != nil {
-					return err
-				}
-			}
-			return nil
-		},
-	})
-
-	cmd.Add(&gcli.Command{
-		Name: "sync",
-		Desc: "Sync source by id",
-		Config: func(c *gcli.Command) {
-			c.AddArg("id", "source id", true)
-		},
-		Func: func(c *gcli.Command, args []string) error {
-			sourceID := c.Arg("id").String()
-			for _, arg := range args {
-				if sourceID == "" {
-					sourceID = arg
-				}
-			}
-			if sourceID == "" {
-				return fmt.Errorf("source id is required")
-			}
-			service := newSourceService()
-			if err := service.Sync(sourceID); err != nil {
-				slog.Error(err)
-				return err
-			}
-			list, err := service.List()
-			if err != nil {
-				slog.Error(err)
-				return err
-			}
-			for _, src := range list {
-				if src.ID == sourceID {
-					return WriteLine(os.Stdout, fmt.Sprintf("synced %s %s", src.ID, src.Status))
-				}
-			}
-			return WriteLine(os.Stdout, fmt.Sprintf("synced %s", sourceID))
-		},
-	})
-
-	cmd.Add(&gcli.Command{
-		Name: "status",
-		Desc: "Show source status",
-		Func: func(c *gcli.Command, args []string) error {
-			service := newSourceService()
-			list, err := service.List()
-			if err != nil {
-				slog.Error(err)
-				return err
-			}
-			for _, src := range list {
-				if err := WriteLine(os.Stdout, fmt.Sprintf("%s %s %s", src.ID, src.Status, src.ErrorMessage)); err != nil {
-					return err
-				}
-			}
-			return nil
-		},
-	})
-
-	cmd.Add(&gcli.Command{
-		Name: "remove",
-		Desc: "Remove source by id",
-		Func: func(c *gcli.Command, args []string) error {
-			if len(args) < 1 {
-				return fmt.Errorf("source id is required")
-			}
-			service := newSourceService()
-			if err := service.Remove(args[0]); err != nil {
-				slog.Error(err)
-				return err
-			}
-			return WriteLine(os.Stdout, "ok")
-		},
-	})
-
-	return cmd
-}
-
-func buildSourceAddLocalCommand() *gcli.Command {
-	var syncNow bool
-	return &gcli.Command{
-		Name: "local",
-		Desc: "Add a local source",
-		Config: func(c *gcli.Command) {
-			c.BoolOpt(&syncNow, "sync", "", false, "sync source after adding")
-			c.AddArg("path", "local source path", true)
-		},
-		Func: func(c *gcli.Command, _ []string) error {
-			pathArg := c.Arg("path").String()
-			if pathArg == "" {
-				return fmt.Errorf("local source path is required")
-			}
-
-			service := newSourceService()
-			src, err := service.AddLocal(pathArg)
-			if err != nil {
-				slog.Error(err)
-				return err
-			}
-			ccolor.Infof("%s path=%s added", src.ID, src.Path)
-
-			if syncNow {
-				if err := service.Sync(src.ID); err != nil {
-					slog.Error(err)
-					return err
-				}
-				return nil
-			}
-			ccolor.Infof("Next, please run > skillc source sync %s", src.ID)
-			return nil
-		},
-	}
-}
-
-func buildSourceAddGitCommand() *gcli.Command {
-	var syncNow bool
-	return &gcli.Command{
-		Name: "git",
-		Desc: "Add a git source",
-		Config: func(c *gcli.Command) {
-			c.AddArg("url", "git source url", true)
-			c.AddArg("ref", "git ref", false)
-			c.BoolOpt(&syncNow, "sync", "", false, "sync source after adding")
-		},
-		Func: func(c *gcli.Command, args []string) error {
-			urlArg := c.Arg("url").String()
-			ref := c.Arg("ref").String()
-			parsedSync := syncNow
-			for _, arg := range args {
-				if arg == "--sync" {
-					parsedSync = true
-					continue
-				}
-				if urlArg == "" {
-					urlArg = arg
-					continue
-				}
-				if ref == "" {
-					ref = arg
-				}
-			}
-			if urlArg == "" {
-				return fmt.Errorf("git source url is required")
-			}
-			service := newSourceService()
-			src, err := service.AddGit(urlArg, ref)
-			if err != nil {
-				slog.Error(err)
-				return err
-			}
-			if err := WriteLine(os.Stdout, fmt.Sprintf("%s %s %s", src.ID, src.URL, src.Ref)); err != nil {
-				return err
-			}
-			if parsedSync {
-				if err := service.Sync(src.ID); err != nil {
-					slog.Error(err)
-					return err
-				}
-				return nil
-			}
-			return WriteLine(os.Stdout, fmt.Sprintf("next: skillc source sync %s", src.ID))
-		},
-	}
 }
 
 func buildSearchCommand() *gcli.Command {
@@ -305,11 +118,8 @@ func buildSearchCommand() *gcli.Command {
 		Config: func(c *gcli.Command) {
 			c.AddArg("keyword", "search keyword", false)
 		},
-		Func: func(c *gcli.Command, args []string) error {
-			keyword := ""
-			if len(args) > 0 {
-				keyword = args[0]
-			}
+		Func: func(c *gcli.Command, _ []string) error {
+			keyword := c.Arg("keyword").String()
 			service := newSearchService()
 			items, err := service.Search(keyword, "", "")
 			if err != nil {
@@ -317,7 +127,8 @@ func buildSearchCommand() *gcli.Command {
 				return err
 			}
 			if len(items) == 0 {
-				return WriteLine(os.Stdout, "no skills found")
+				ccolor.Warnln("no skills found")
+				return nil
 			}
 			for _, item := range items {
 				if err := WriteLine(os.Stdout, formatSkillLine(item)); err != nil {

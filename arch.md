@@ -45,6 +45,8 @@ Skillc 的核心价值是把“Skill 来源管理”和“Agent 安装适配”�
 
 CLI 只负责参数解析、输出格式与错误码。具体业务流程放在应用服务层，避免命令实现膨胀为难测试的脚本式逻辑。
 
+其中 `skillc collection` 只提供基于索引的 collection 浏览入口；collection 聚合与排序规则必须下沉到 CLI 之下的应用服务 / repo index 层，CLI 不承担聚合逻辑。
+
 ### 2.4 标准化数据模型
 
 无论 Skill 来自 local、git 还是 registry，最终都映射为统一的 `Skill` 模型；无论安装到哪个 Agent，最终都写入统一的 `LockRecord` 模型。
@@ -143,6 +145,7 @@ MVP 先打通 `source -> index -> install -> lock` 主链路，再扩展 `regist
 - 发现 Skill 子目录
 - 解析 `SKILL.md` YAML front matter
 - 生成标准化 Skill 索引与限定名
+- 提供 collection 聚合视图，支持集合列表与集合内 skill 浏览
 
 边界：
 - 负责把来源转换为可搜索的 Skill 列表
@@ -490,6 +493,7 @@ internal/
 - `skillc init`
 - `skillc config show/get/set`
 - `skillc source add/list/remove/sync/status`
+- `skillc collection` 基于索引提供 collection 浏览能力
 - local/git 来源索引
 - `skillc search`
 - `skillc show`

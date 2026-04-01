@@ -1,6 +1,7 @@
 package searchapp
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/inhere/skillc/internal/domain/skill"
@@ -33,6 +34,28 @@ func (s *Service) Search(keyword string, agent string, sourceType sourcepkg.Type
 		Agent:      agent,
 		SourceType: sourceType,
 	}), nil
+}
+
+func (s *Service) ListCollections() ([]repoindex.CollectionSummary, error) {
+	items, err := s.store.Load(s.indexPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return []repoindex.CollectionSummary{}, nil
+		}
+		return nil, err
+	}
+	return repoindex.ListCollections(items), nil
+}
+
+func (s *Service) ListCollectionSkills(collection string) ([]skill.Skill, error) {
+	items, err := s.store.Load(s.indexPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("collection not found: %s", collection)
+		}
+		return nil, err
+	}
+	return repoindex.ListCollectionSkills(items, collection)
 }
 
 func (s *Service) Resolve(target string) ([]skill.Skill, error) {

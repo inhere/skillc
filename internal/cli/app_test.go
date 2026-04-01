@@ -34,6 +34,14 @@ func TestNewApp_RegistersSearchCommand(t *testing.T) {
 	assert.Eq(t, "Show indexed skill details", show.Desc)
 }
 
+func TestNewApp_RegistersCollectionCommand(t *testing.T) {
+	app := newTestApp()
+
+	collection := findCommandByName(app, "collection")
+	assert.NotNil(t, collection)
+	assert.Eq(t, "Browse indexed collections", collection.Desc)
+}
+
 func TestNewApp_RegistersInstallListAndDoctorCommands(t *testing.T) {
 	app := newTestApp()
 
@@ -119,6 +127,37 @@ func TestInstallCommand_RestoresFromLockFileWhenNoArgs(t *testing.T) {
 	data, err := os.ReadFile(filepath.Join(installedPath, "hello.txt"))
 	assert.NoErr(t, err)
 	assert.Eq(t, "restored", string(data))
+}
+
+func TestCollectionListCommand_PrintsCollectionSummary(t *testing.T) {
+	baseDir := t.TempDir()
+	config := cfg.DefaultConfig()
+	config.IndexFile = filepath.Join(baseDir, "cache", "index.json")
+	assert.NoErr(t, configstore.NewYAMLStore().Save(filepath.Join(baseDir, "skillc.yaml"), config))
+	assert.NoErr(t, repoindex.NewStore().Save(config.IndexFile, []skill.Skill{
+		{ID: "alpha-one", Name: "Alpha One", Collection: "alpha", SourceID: "src-a", SourceName: "repo-a"},
+		{ID: "alpha-two", Name: "Alpha Two", Collection: "alpha", SourceID: "src-b", SourceName: "repo-b"},
+		{ID: "beta-one", Name: "Beta One", Collection: "beta", SourceID: "src-a", SourceName: "repo-a"},
+	}))
+
+	output := runAppInDirWithStdout(t, baseDir, []string{"collection", "list"})
+	assert.Contains(t, output, "alpha      | 2      | 2")
+	assert.Contains(t, output, "beta       | 1      | 1")
+}
+
+func TestCollectionSkillsCommand_PrintsSkillNameAndDescription(t *testing.T) {
+	baseDir := t.TempDir()
+	config := cfg.DefaultConfig()
+	config.IndexFile = filepath.Join(baseDir, "cache", "index.json")
+	assert.NoErr(t, configstore.NewYAMLStore().Save(filepath.Join(baseDir, "skillc.yaml"), config))
+	assert.NoErr(t, repoindex.NewStore().Save(config.IndexFile, []skill.Skill{
+		{ID: "alpha-one", Name: "Alpha One", Description: "first skill", Collection: "alpha"},
+		{ID: "alpha-two", Name: "Alpha Two", Description: "second skill", Collection: "alpha"},
+	}))
+
+	output := runAppInDirWithStdout(t, baseDir, []string{"collection", "skills", "alpha"})
+	assert.Contains(t, output, "Alpha One | first skill")
+	assert.Contains(t, output, "Alpha Two | second skill")
 }
 
 func TestSearchCommand_ReturnsMatchesForQueryArgument(t *testing.T) {
@@ -346,18 +385,29 @@ func runInDirWithStdout(t *testing.T, dir string, fn func() error) string {
 	}()
 
 	oldStdout := os.Stdout
-	r, w, err := os.Pipe()
+	stdoutR, stdoutW, err := os.Pipe()
 	assert.NoErr(t, err)
-	os.Stdout = w
+	os.Stdout = stdoutW
 	defer func() {
 		os.Stdout = oldStdout
 	}()
 
+	oldStderr := os.Stderr
+	stderrR, stderrW, err := os.Pipe()
+	assert.NoErr(t, err)
+	os.Stderr = stderrW
+	defer func() {
+		os.Stderr = oldStderr
+	}()
+
 	err = fn()
 	assert.NoErr(t, err)
-	assert.NoErr(t, w.Close())
+	assert.NoErr(t, stdoutW.Close())
+	assert.NoErr(t, stderrW.Close())
 
-	data, readErr := io.ReadAll(r)
+	stdoutData, readErr := io.ReadAll(stdoutR)
 	assert.NoErr(t, readErr)
-	return strings.ReplaceAll(string(data), "\r\n", "\n")
+	stderrData, readErr := io.ReadAll(stderrR)
+	assert.NoErr(t, readErr)
+	return strings.ReplaceAll(string(stdoutData)+string(stderrData), "\r\n", "\n")
 }

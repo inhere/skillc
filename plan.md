@@ -463,3 +463,23 @@
 - [x] **Step 4: Run tests to verify they pass**
 - [x] **Step 5: Run `go test ./...`**
 - [x] **Step 6: Commit**
+
+### Task 25: Add collection browsing commands ✅ Completed
+
+**Files:**
+- Create: `internal/infra/repoindex/collection.go`
+- Test: `internal/infra/repoindex/collection_test.go`
+- Create: `internal/cli/collection_cmd.go`
+- Modify: `internal/app/searchapp/service.go`
+- Modify: `internal/app/searchapp/service_test.go`
+- Modify: `internal/cli/app.go`
+- Modify: `internal/cli/app_test.go`
+- Modify: `arch.md`
+- Modify: `plan.md`
+
+- [x] **Step 1: Write the failing tests**
+- [x] **Step 2: Run tests to verify they fail**
+- [x] **Step 3: Write minimal implementation**
+- [x] **Step 4: Run tests to verify they pass**
+- [x] **Step 5: Run regression tests**
+- [x] **Step 6: Sync docs**

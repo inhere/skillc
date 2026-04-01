@@ -36,6 +36,9 @@ func ParseSkillMarkdown(content string, src sourcepkg.Source) (Skill, error) {
 		return Skill{}, err
 	}
 	if meta.ID == "" {
+		meta.ID = meta.Name
+	}
+	if meta.ID == "" {
 		return Skill{}, fmt.Errorf("skill id is required")
 	}
 	if meta.Name == "" {

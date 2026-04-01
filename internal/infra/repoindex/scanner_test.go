@@ -45,3 +45,19 @@ name: Skill B
 	assert.Len(t, items, 2)
 	assert.Eq(t, "abc12345", items[1].Version)
 }
+
+func TestScanner_ScanIndexesSkillsFromNestedSkillsDirectory(t *testing.T) {
+	root := t.TempDir()
+	skillsRoot := filepath.Join(root, "skills")
+	assert.NoErr(t, os.MkdirAll(filepath.Join(skillsRoot, "frontend-design"), 0o755))
+	assert.NoErr(t, os.WriteFile(filepath.Join(skillsRoot, "frontend-design", "SKILL.md"), []byte(`---
+id: frontend-design
+name: Frontend Design
+---`), 0o644))
+
+	scanner := NewScanner()
+	items, err := scanner.Scan(source.Source{ID: "local-demo", Type: source.TypeLocal, Path: root})
+	assert.NoErr(t, err)
+	assert.Len(t, items, 1)
+	assert.Eq(t, "frontend-design", items[0].ID)
+}

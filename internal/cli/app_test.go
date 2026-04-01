@@ -139,7 +139,7 @@ func TestSearchCommand_ReturnsMatchesForQueryArgument(t *testing.T) {
 	assert.Contains(t, output, "design-helper Design Helper")
 }
 
-func TestSearchCommand_ReturnsEmptyWhenIndexMissing(t *testing.T) {
+func TestSearchCommand_ReturnsHelpfulMessageWhenNoMatches(t *testing.T) {
 	baseDir := t.TempDir()
 	config := cfg.DefaultConfig()
 	config.IndexFile = filepath.Join(baseDir, "cache", "index.json")
@@ -147,7 +147,7 @@ func TestSearchCommand_ReturnsEmptyWhenIndexMissing(t *testing.T) {
 
 	output := runAppInDirWithStdout(t, baseDir, []string{"search", "design"})
 
-	assert.Eq(t, "", output)
+	assert.Contains(t, output, "no skills found")
 }
 
 func TestSourceAddLocalCommand_PrintsNextSyncHint(t *testing.T) {
@@ -204,6 +204,33 @@ func TestSourceAddGitCommand_PrintsNextSyncHint(t *testing.T) {
 
 	assert.Contains(t, output, "git-repo https://example.com/repo.git")
 	assert.Contains(t, output, "next: skillc source sync git-repo")
+}
+
+func TestSourceSyncCommand_PrintsSourceStatusAfterSync(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	indexPath := filepath.Join(baseDir, "cache", "index.json")
+	sourceRoot := filepath.Join(baseDir, "skills")
+	skillDir := filepath.Join(sourceRoot, "hello-skill")
+	assert.NoErr(t, os.MkdirAll(skillDir, 0o755))
+	assert.NoErr(t, os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(`---
+id: hello-skill
+name: Hello Skill
+description: Friendly greeting helper
+---
+# Hello Skill
+`), 0o644))
+
+	config := cfg.DefaultConfig()
+	config.IndexFile = indexPath
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
+
+	addOutput := runAppInDirWithStdout(t, baseDir, []string{"source", "add", "local", sourceRoot})
+	assert.Contains(t, addOutput, "next: skillc source sync local-skills")
+
+	syncOutput := runAppInDirWithStdout(t, baseDir, []string{"source", "sync", "local-skills"})
+	assert.Contains(t, syncOutput, "local-skills")
+	assert.Contains(t, syncOutput, "ready")
 }
 
 func TestListCommand_ReturnsEmptyWhenLockFileMissing(t *testing.T) {

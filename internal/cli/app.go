@@ -144,15 +144,31 @@ func buildSourceCommand() *gcli.Command {
 			c.AddArg("id", "source id", true)
 		},
 		Func: func(c *gcli.Command, args []string) error {
-			if len(args) < 1 {
+			sourceID := c.Arg("id").String()
+			for _, arg := range args {
+				if sourceID == "" {
+					sourceID = arg
+				}
+			}
+			if sourceID == "" {
 				return fmt.Errorf("source id is required")
 			}
 			service := newSourceService()
-			if err := service.Sync(args[0]); err != nil {
+			if err := service.Sync(sourceID); err != nil {
 				slog.Error(err)
 				return err
 			}
-			return WriteLine(os.Stdout, "ok")
+			list, err := service.List()
+			if err != nil {
+				slog.Error(err)
+				return err
+			}
+			for _, src := range list {
+				if src.ID == sourceID {
+					return WriteLine(os.Stdout, fmt.Sprintf("synced %s %s", src.ID, src.Status))
+				}
+			}
+			return WriteLine(os.Stdout, fmt.Sprintf("synced %s", sourceID))
 		},
 	})
 
@@ -200,21 +216,12 @@ func buildSourceAddLocalCommand() *gcli.Command {
 		Name: "local",
 		Desc: "Add a local source",
 		Config: func(c *gcli.Command) {
-			c.AddArg("path", "local source path", true)
 			c.BoolOpt(&syncNow, "sync", "", false, "sync source after adding")
+			c.AddArg("path", "local source path", true)
 		},
 		Func: func(c *gcli.Command, args []string) error {
 			pathArg := c.Arg("path").String()
 			parsedSync := syncNow
-			for _, arg := range args {
-				if arg == "--sync" {
-					parsedSync = true
-					continue
-				}
-				if pathArg == "" {
-					pathArg = arg
-				}
-			}
 			if pathArg == "" {
 				return fmt.Errorf("local source path is required")
 			}
@@ -307,6 +314,9 @@ func buildSearchCommand() *gcli.Command {
 			if err != nil {
 				slog.Error(err)
 				return err
+			}
+			if len(items) == 0 {
+				return WriteLine(os.Stdout, "no skills found")
 			}
 			for _, item := range items {
 				if err := WriteLine(os.Stdout, formatSkillLine(item)); err != nil {

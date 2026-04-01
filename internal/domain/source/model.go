@@ -32,6 +32,12 @@ func NewLocalSource(path string) (Source, error) {
 	if name == "." || name == string(filepath.Separator) || name == "" {
 		return Source{}, fmt.Errorf("invalid source path: %s", path)
 	}
+
+	// 特殊处理 如果name=skills 或 skill, 取出父级目录名拼接为name
+	if name == "skills" || name == "skill" {
+		name = filepath.Base(filepath.Dir(clean)) + "-" + name
+	}
+
 	return Source{
 		ID:   fmt.Sprintf("local-%s", name),
 		Type: TypeLocal,

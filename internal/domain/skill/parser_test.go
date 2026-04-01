@@ -56,3 +56,17 @@ name: Hello Skill
 	assert.NoErr(t, err)
 	assert.Eq(t, "12345678", got.Version)
 }
+
+func TestParseSkillMarkdown_FallsBackToNameAsID(t *testing.T) {
+	content := `---
+name: frontend-design
+description: Design frontend interfaces
+---
+
+# Frontend Design`
+
+	got, err := ParseSkillMarkdown(content, source.Source{ID: "local-demo", Type: source.TypeLocal, Path: "/skills/frontend-design"})
+	assert.NoErr(t, err)
+	assert.Eq(t, "frontend-design", got.ID)
+	assert.Eq(t, "frontend-design", got.Name)
+}

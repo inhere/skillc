@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/gookit/gcli/v3"
+	"github.com/gookit/gcli/v3/show/table"
 	"github.com/gookit/goutil/x/ccolor"
 	"github.com/gookit/slog"
 )
@@ -34,11 +35,12 @@ func buildSourceCommand() *gcli.Command {
 				slog.Error(err)
 				return err
 			}
+
+			tb := table.New("Source List").SetHeads("ID", "Type", "Status", "Path")
 			for _, src := range list {
-				if err := WriteLine(os.Stdout, fmt.Sprintf("%s %s %s %s", src.ID, src.Type, src.Status, src.Path)); err != nil {
-					return err
-				}
+				tb.AddRow(src.ID, src.Type, src.Status, src.Path)
 			}
+			tb.Println()
 			return nil
 		},
 	})

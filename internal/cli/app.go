@@ -5,8 +5,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/gookit/gcli/v3/show"
 	"github.com/gookit/gcli/v3"
+	"github.com/gookit/gcli/v3/show"
+	"github.com/gookit/gcli/v3/show/table"
 	"github.com/gookit/goutil/x/ccolor"
 	"github.com/gookit/slog"
 	"github.com/inhere/skillc/internal/app/configapp"
@@ -130,11 +131,12 @@ func buildSearchCommand() *gcli.Command {
 				ccolor.Warnln("no skills found")
 				return nil
 			}
+
+			tb := table.New("Search Result").SetHeads("Name", "Version", "Collection")
 			for _, item := range items {
-				if err := WriteLine(os.Stdout, formatSkillLine(item)); err != nil {
-					return err
-				}
+				tb.AddRow(item.Name, item.Version, item.Collection)
 			}
+			tb.Println()
 			return nil
 		},
 	}

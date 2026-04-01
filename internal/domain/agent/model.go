@@ -6,3 +6,5 @@ const (
 	ScopeUser    Scope = "user"
 	ScopeProject Scope = "project"
 )
+
+const DefaultAgentDir = ".agents"

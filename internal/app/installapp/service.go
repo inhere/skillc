@@ -40,49 +40,68 @@ func NewService(lockFile string) *Service {
 	}
 }
 
-func (s *Service) Run(config cfg.Config, workingDir string, args []string, lookup skillLookup) (CommandResult, error) {
-	if len(args) == 0 {
+type InstallReq struct {
+	SkillID string
+	Agent    string
+	Scope    string
+	WorkDir  string
+}
+
+// Run installs skills. 通过 skill id 搜索并安装技能
+func (s *Service) Run(config cfg.Config, req InstallReq, lookup skillLookup) (CommandResult, error) {
+	// 从 lock file 恢复所有技能
+	if req.SkillID == "" {
 		restored, err := s.Restore(sourcePathMap(config))
 		if err != nil {
 			return CommandResult{}, err
 		}
 		return CommandResult{Restored: restored}, nil
 	}
-	if len(args) < 3 {
-		return CommandResult{}, fmt.Errorf("skill id, agent, and scope are required")
-	}
+
 	if lookup == nil {
 		return CommandResult{}, fmt.Errorf("skill lookup is required")
 	}
 
-	scope, err := parseScope(args[2])
+	scope, err := parseScope(req.Scope)
 	if err != nil {
 		return CommandResult{}, err
 	}
-	items, err := lookup.Resolve(args[0])
+	items, err := lookup.Resolve(req.SkillID)
 	if err != nil {
 		return CommandResult{}, err
 	}
-	targetRoot, err := agent.ResolveInstallPath(config, workingDir, args[1], scope)
+	targetRoot, err := agent.ResolveInstallPath(config, req.WorkDir, req.Agent, scope)
 	if err != nil {
 		return CommandResult{}, err
 	}
-	installed := make([]lockpkg.Record, 0, len(items))
-	for _, item := range items {
-		record, err := s.Install(item, args[1], scope, targetRoot)
-		if err != nil {
-			return CommandResult{}, err
-		}
-		installed = append(installed, record)
+
+	installed, err := s.InstallMulti(items, req.Agent, scope, targetRoot)
+	if err != nil {
+		return CommandResult{}, err
 	}
 	return CommandResult{Installed: installed}, nil
 }
 
+// InstallMulti installs multiple skills.
+func (s *Service) InstallMulti(items []skill.Skill, agentName string, scope agent.Scope, targetRoot string) ([]lockpkg.Record, error) {
+	installed := make([]lockpkg.Record, 0, len(items))
+	for _, item := range items {
+		record, err := s.Install(item, agentName, scope, targetRoot)
+		if err != nil {
+			return nil, err
+		}
+		installed = append(installed, record)
+	}
+	return installed, nil
+}
+
+// Install installs a skill.
 func (s *Service) Install(item skill.Skill, agentName string, scope agent.Scope, targetRoot string) (lockpkg.Record, error) {
 	targetPath := filepath.Join(targetRoot, item.ID)
 	if err := s.installer.Install(filepath.Join(item.Path, item.InstallEntry), targetPath); err != nil {
 		return lockpkg.Record{}, err
 	}
+
 	now := s.now()
 	record := lockpkg.Record{
 		SkillID:             item.ID,
@@ -108,6 +127,16 @@ func (s *Service) Install(item skill.Skill, agentName string, scope agent.Scope,
 		return lockpkg.Record{}, err
 	}
 	return record, nil
+}
+
+// UninstallMulti uninstalls multiple skills.
+func (s *Service) UninstallMulti(skillIDs []string, agentName string, scope agent.Scope) error {
+	for _, skillID := range skillIDs {
+		if err := s.Uninstall(skillID, agentName, scope); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *Service) Uninstall(skillID string, agentName string, scope agent.Scope) error {

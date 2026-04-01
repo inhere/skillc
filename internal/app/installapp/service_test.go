@@ -30,11 +30,17 @@ func TestService_RunInstallsIndexedSkill(t *testing.T) {
 	assert.NoErr(t, os.WriteFile(filepath.Join(commandsDir, "hello.txt"), []byte("hello"), 0o644))
 
 	service := NewService(lockFile)
+	req := InstallReq{
+		SkillID: "hello-skill",
+		Agent:   "claude-code",
+		Scope:   "project",
+		WorkDir: baseDir,
+	}
 	result, err := service.Run(cfg.Config{
 		AgentTools: map[string]cfg.AgentToolConfig{
 			"claude-code": {ProjectDir: filepath.Join(baseDir, ".claude")},
 		},
-	}, baseDir, []string{"hello-skill", "claude-code", "project"}, skillLookupFunc(func(id string) ([]skill.Skill, error) {
+	}, req, skillLookupFunc(func(id string) ([]skill.Skill, error) {
 		return []skill.Skill{{
 			ID:                  "hello-skill",
 			QualifiedName:       "marketplaces/hello-skill",
@@ -68,11 +74,17 @@ func TestService_RunInstallsCollectionTarget(t *testing.T) {
 	assert.NoErr(t, os.WriteFile(filepath.Join(secondSourceDir, "commands", "world.txt"), []byte("world"), 0o644))
 
 	service := NewService(lockFile)
+	req := InstallReq{
+		SkillID: "repo-a/marketplaces",
+		Agent:   "claude-code",
+		Scope:   "project",
+		WorkDir: baseDir,
+	}
 	result, err := service.Run(cfg.Config{
 		AgentTools: map[string]cfg.AgentToolConfig{
 			"claude-code": {ProjectDir: filepath.Join(baseDir, ".claude")},
 		},
-	}, baseDir, []string{"repo-a/marketplaces", "claude-code", "project"}, skillLookupFunc(func(id string) ([]skill.Skill, error) {
+	}, req, skillLookupFunc(func(id string) ([]skill.Skill, error) {
 		return []skill.Skill{
 			{ID: "hello-skill", QualifiedName: "marketplaces/hello-skill", SourceQualifiedName: "repo-a/marketplaces/hello-skill", Collection: "marketplaces", Version: "1.0.0", SourceID: "local-demo", SourceType: sourcepkg.TypeLocal, InstallEntry: "commands", Path: firstSourceDir},
 			{ID: "world-skill", QualifiedName: "marketplaces/world-skill", SourceQualifiedName: "repo-a/marketplaces/world-skill", Collection: "marketplaces", Version: "1.0.0", SourceID: "local-demo", SourceType: sourcepkg.TypeLocal, InstallEntry: "commands", Path: secondSourceDir},
@@ -103,7 +115,10 @@ func TestService_RunRestoresWhenNoArgs(t *testing.T) {
 	}}))
 
 	service := NewService(lockFile)
-	result, err := service.Run(cfg.Config{Sources: []sourcepkg.Source{{ID: "local-demo", Path: sourceDir}}}, baseDir, nil, nil)
+	req := InstallReq{
+		WorkDir: baseDir,
+	}
+	result, err := service.Run(cfg.Config{Sources: []sourcepkg.Source{{ID: "local-demo", Path: sourceDir}}}, req, nil)
 	assert.NoErr(t, err)
 	assert.Len(t, result.Installed, 0)
 	assert.Len(t, result.Restored, 1)
@@ -116,14 +131,26 @@ func TestService_RunRestoresWhenNoArgs(t *testing.T) {
 
 func TestService_RunRequiresSkillLookupForInstall(t *testing.T) {
 	service := NewService(filepath.Join(t.TempDir(), "skillc-install.lock"))
-	_, err := service.Run(cfg.Config{}, t.TempDir(), []string{"hello-skill", "claude-code", "project"}, nil)
+	req := InstallReq{
+		SkillID: "hello-skill",
+		Agent:   "claude-code",
+		Scope:   "project",
+		WorkDir: t.TempDir(),
+	}
+	_, err := service.Run(cfg.Config{}, req, nil)
 	assert.Err(t, err)
 	assert.Contains(t, err.Error(), "skill lookup is required")
 }
 
 func TestService_RunReturnsLookupErrors(t *testing.T) {
 	service := NewService(filepath.Join(t.TempDir(), "skillc-install.lock"))
-	_, err := service.Run(cfg.Config{}, t.TempDir(), []string{"missing", "claude-code", "project"}, skillLookupFunc(func(id string) ([]skill.Skill, error) {
+	req := InstallReq{
+		SkillID: "missing",
+		Agent:   "claude-code",
+		Scope:   "project",
+	}
+
+	_, err := service.Run(cfg.Config{}, req, skillLookupFunc(func(id string) ([]skill.Skill, error) {
 		return nil, fmt.Errorf("skill not found: %s", id)
 	}))
 	assert.Err(t, err)

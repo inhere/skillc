@@ -14,6 +14,7 @@ func buildSourceCommand() *gcli.Command {
 	cmd := &gcli.Command{
 		Name: "source",
 		Desc: "Manage Skillc sources",
+		Aliases: []string{"src"},
 	}
 
 	add := &gcli.Command{
@@ -27,6 +28,7 @@ func buildSourceCommand() *gcli.Command {
 	cmd.Add(&gcli.Command{
 		Name: "list",
 		Desc: "List sources",
+		Aliases: []string{"ls"},
 		Func: func(c *gcli.Command, args []string) error {
 			service := newSourceService()
 			list, err := service.List()

@@ -6,9 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/gookit/gcli/v3"
-	"github.com/gookit/gcli/v3/show"
 	"github.com/gookit/gcli/v3/show/table"
-	"github.com/gookit/goutil/x/ccolor"
 	"github.com/gookit/slog"
 	"github.com/inhere/skillc/internal/app/configapp"
 	"github.com/inhere/skillc/internal/app/doctorapp"
@@ -36,81 +34,6 @@ func NewApp(version, gitHash, buildTime string) *gcli.App {
 	app.Add(buildListCommand())
 	app.Add(buildDoctorCommand())
 	return app
-}
-
-func buildConfigCommand() *gcli.Command {
-	cmd := &gcli.Command{
-		Name: "config",
-		Desc: "Manage Skillc configuration",
-	}
-
-	cmd.Add(&gcli.Command{
-		Name: "init",
-		Desc: "Initialize config file",
-		Func: func(c *gcli.Command, args []string) error {
-			service := newConfigService()
-			cfg, err := service.Init()
-			if err != nil {
-				slog.Error(err)
-				return err
-			}
-			return WriteLine(os.Stdout, cfg.LockFile)
-		},
-	})
-
-	cmd.Add(&gcli.Command{
-		Name: "show",
-		Desc: "Show current config",
-		Func: func(c *gcli.Command, args []string) error {
-			service := newConfigService()
-			cfg, err := service.Show()
-			if err != nil {
-				slog.Error(err)
-				return err
-			}
-
-			cfg.Sources = nil
-			show.AList("config", cfg)
-			return nil
-		},
-	})
-
-	cmd.Add(&gcli.Command{
-		Name: "get",
-		Desc: "Get config value by key",
-		Func: func(c *gcli.Command, args []string) error {
-			if len(args) < 1 {
-				return fmt.Errorf("config key is required")
-			}
-			service := newConfigService()
-			value, err := service.Get(args[0])
-			if err != nil {
-				slog.Error(err)
-				return err
-			}
-			ccolor.Infof("%s=%s\n", args[0], value)
-			return nil
-		},
-	})
-
-	cmd.Add(&gcli.Command{
-		Name: "set",
-		Desc: "Set config value by key",
-		Func: func(c *gcli.Command, args []string) error {
-			if len(args) < 2 {
-				return fmt.Errorf("config key and value are required")
-			}
-			service := newConfigService()
-			if err := service.Set(args[0], args[1]); err != nil {
-				slog.Error(err)
-				return err
-			}
-			ccolor.Successln("ok")
-			return nil
-		},
-	})
-
-	return cmd
 }
 
 func buildSearchCommand() *gcli.Command {
@@ -165,6 +88,7 @@ func buildInstallCommand() *gcli.Command {
 	return &gcli.Command{
 		Name: "install",
 		Desc: "Install skills",
+		Aliases: []string{"ins"},
 		Func: func(c *gcli.Command, args []string) error {
 			config, cwd, err := loadConfig()
 			if err != nil {

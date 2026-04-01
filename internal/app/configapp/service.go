@@ -82,3 +82,8 @@ func (s *Service) Set(key string, value string) error {
 
 	return s.store.Save(s.configFile, data)
 }
+
+// ConfigFile config file path
+func (s *Service) ConfigFile() string {
+	return s.configFile
+}

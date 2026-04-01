@@ -14,11 +14,13 @@ func buildCollectionCommand() *gcli.Command {
 	cmd := &gcli.Command{
 		Name: "collection",
 		Desc: "Browse indexed collections",
+		Aliases: []string{"coll"},
 	}
 
 	cmd.Add(&gcli.Command{
 		Name: "list",
 		Desc: "List indexed collections",
+		Aliases: []string{"ls"},
 		Func: func(c *gcli.Command, _ []string) error {
 			service := newSearchService()
 			items, err := service.ListCollections()

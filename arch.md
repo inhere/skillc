@@ -661,7 +661,7 @@ skillc install   # 无参数 restore
 
 - `source add local` -> 输出下一步 sync 提示，或 `--sync` -> 扫描 -> `search`
 - `source add git` -> 输出下一步 sync 提示，或 `--sync` -> 扫描 -> `search`
-- 对于 git source：若配置了 `proxy_url`，仅在 `skillc` 发起的网络型 Git 命令（当前为 `git clone`）上注入代理；不会写入任何 git config，本地命令如 `rev-parse` 不使用代理
+- 对于 git source：若配置了 `proxy_url`，仅在 `skillc` 发起的网络型 Git 命令（当前为 `git clone`）上注入代理；`gitx.Sync` 通过 `SyncOptions` 接收代理和输出控制；交互终端下 `git clone --progress` 实时输出到 `stderr`，非交互场景不显示进度；不会写入任何 git config，本地命令如 `rev-parse` 不使用代理也不显示进度
 - `install` -> 文件落地 -> lock 写入
 - `uninstall` -> 文件删除 -> lock 删除
 - `install` 无参数 -> restore

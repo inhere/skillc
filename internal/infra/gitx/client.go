@@ -2,9 +2,17 @@ package gitx
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 )
+
+type SyncOptions struct {
+	ProxyURL string
+	Progress io.Writer
+	Quiet    bool
+	Verbose  bool
+}
 
 type Client struct {
 	bin string
@@ -17,14 +25,20 @@ func New(bin string) *Client {
 	return &Client{bin: bin}
 }
 
-func (c *Client) Sync(url, dir, ref, proxyURL string) (string, error) {
+func (c *Client) Sync(url, dir, ref string, opts SyncOptions) (string, error) {
 	if _, err := exec.LookPath(c.bin); err != nil {
 		return "", fmt.Errorf("git executable not found: %w", err)
 	}
 
-	cmd := c.cloneCommand(url, dir, ref, proxyURL)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		return "", fmt.Errorf("git clone failed: %s", string(out))
+	cmd := c.cloneCommand(url, dir, ref, opts)
+	if opts.Progress != nil {
+		if err := cmd.Run(); err != nil {
+			return "", fmt.Errorf("git clone failed: %w", err)
+		}
+	} else {
+		if out, err := cmd.CombinedOutput(); err != nil {
+			return "", fmt.Errorf("git clone failed: %s", string(out))
+		}
 	}
 
 	resolved, err := c.revParseHead(dir)
@@ -34,13 +48,22 @@ func (c *Client) Sync(url, dir, ref, proxyURL string) (string, error) {
 	return resolved, nil
 }
 
-func (c *Client) cloneCommand(url, dir, ref, proxyURL string) *exec.Cmd {
-	args := []string{"clone", url, dir}
-	if ref != "" {
-		args = []string{"clone", "--branch", ref, url, dir}
+func (c *Client) cloneCommand(url, dir, ref string, opts SyncOptions) *exec.Cmd {
+	args := []string{"clone"}
+	if opts.Progress != nil {
+		args = append(args, "--progress")
 	}
+	if ref != "" {
+		args = append(args, "--branch", ref)
+	}
+	args = append(args, url, dir)
+
 	cmd := exec.Command(c.bin, args...)
-	cmd.Env = buildGitEnv(os.Environ(), proxyURL)
+	cmd.Env = buildGitEnv(os.Environ(), opts.ProxyURL)
+	if opts.Progress != nil {
+		cmd.Stdout = opts.Progress
+		cmd.Stderr = opts.Progress
+	}
 	return cmd
 }
 

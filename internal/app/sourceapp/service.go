@@ -2,6 +2,7 @@ package sourceapp
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"time"
@@ -14,37 +15,42 @@ import (
 	"github.com/inhere/skillc/internal/infra/gitx"
 	"github.com/inhere/skillc/internal/infra/repoindex"
 	"github.com/inhere/skillc/internal/infra/sourcestore"
+	"golang.org/x/term"
 )
 
 type gitRunner interface {
-	Sync(url, dir, ref, proxyURL string) (string, error)
+	Sync(url, dir, ref string, opts gitx.SyncOptions) (string, error)
 }
 
-type gitRunnerFunc func(url, dir, ref, proxyURL string) (string, error)
+type gitRunnerFunc func(url, dir, ref string, opts gitx.SyncOptions) (string, error)
 
-func (f gitRunnerFunc) Sync(url, dir, ref, proxyURL string) (string, error) {
-	return f(url, dir, ref, proxyURL)
+func (f gitRunnerFunc) Sync(url, dir, ref string, opts gitx.SyncOptions) (string, error) {
+	return f(url, dir, ref, opts)
 }
 
 type Service struct {
-	configFile string
-	baseDir    string
-	store      *configstore.YAMLStore
-	git        gitRunner
-	scanner    *repoindex.Scanner
-	indexStore *repoindex.Store
-	now        func() time.Time
+	configFile     string
+	baseDir        string
+	store          *configstore.YAMLStore
+	git            gitRunner
+	scanner        *repoindex.Scanner
+	indexStore     *repoindex.Store
+	now            func() time.Time
+	isInteractive  func() bool
+	progressWriter io.Writer
 }
 
 func NewService(configFile string, baseDir string) *Service {
 	return &Service{
-		configFile: configFile,
-		baseDir:    baseDir,
-		store:      configstore.NewYAMLStore(),
-		git:        gitx.New("git"),
-		scanner:    repoindex.NewScanner(),
-		indexStore: repoindex.NewStore(),
-		now:        time.Now,
+		configFile:     configFile,
+		baseDir:        baseDir,
+		store:          configstore.NewYAMLStore(),
+		git:            gitx.New("git"),
+		scanner:        repoindex.NewScanner(),
+		indexStore:     repoindex.NewStore(),
+		now:            time.Now,
+		isInteractive:  func() bool { return term.IsTerminal(int(os.Stderr.Fd())) },
+		progressWriter: os.Stderr,
 	}
 }
 
@@ -159,7 +165,7 @@ func (s *Service) Sync(id string) error {
 		}
 
 		ccolor.Infof("Syncing Git source %s to %s", src.ID, targetDir)
-		resolvedRef, err := s.git.Sync(src.URL, targetDir, src.Ref, data.ProxyURL)
+		resolvedRef, err := s.git.Sync(src.URL, targetDir, src.Ref, s.gitSyncOptions(data))
 		if err != nil {
 			data.Sources[i].Status = "error"
 			data.Sources[i].ErrorMessage = err.Error()
@@ -179,6 +185,14 @@ func (s *Service) Sync(id string) error {
 	}
 
 	return fmt.Errorf("source not found: %s", id)
+}
+
+func (s *Service) gitSyncOptions(data cfg.Config) gitx.SyncOptions {
+	opts := gitx.SyncOptions{ProxyURL: data.ProxyURL}
+	if s.isInteractive != nil && s.isInteractive() {
+		opts.Progress = s.progressWriter
+	}
+	return opts
 }
 
 func (s *Service) rebuildIndex(data cfg.Config) error {

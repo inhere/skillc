@@ -477,7 +477,7 @@
 - Modify: `arch.md`
 - Modify: `plan.md`
 
-### Task 26: Add proxy support for git source sync
+### Task 26: Add SyncOptions and TTY-only progress for git source sync
 
 **Files:**
 - Modify: `internal/app/sourceapp/service.go`
@@ -487,9 +487,9 @@
 - Modify: `arch.md`
 - Modify: `plan.md`
 
-**Design note (2026-04-01):** When `source` type is `git` and config `proxy_url` is set, `source sync` must apply that proxy only to skillc-started network Git commands such as `git clone`. It must not write any Git config, and local Git commands such as `rev-parse` must continue to run without proxy injection.
+**Design note (2026-04-02):** `gitx.Sync` now moves from a positional `proxyURL` argument to `SyncOptions`, so Git sync can carry `ProxyURL`, `Progress`, `Quiet`, and `Verbose` without growing the signature again. `source sync` should show live `git clone --progress` output on `stderr` only when running in an interactive terminal.
 
-**Verification note (2026-04-01):** Git source sync now forwards config `proxy_url` into the Git client, injects proxy env vars only for `git clone`, keeps local `rev-parse` unproxied, and passes `go test ./...`.
+**Verification note (2026-04-02):** Git source sync now builds `gitx.SyncOptions` in `sourceapp`, forwards config `proxy_url`, attaches progress output only on TTY, keeps `rev-parse` unproxied and silent, and still passes `go test ./...`.
 
 - [x] **Step 1: Write the failing tests**
 - [x] **Step 2: Run tests to verify they fail**

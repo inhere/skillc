@@ -157,12 +157,6 @@ func (s *Service) Sync(id string) error {
 
 		// Git 源同步
 		targetDir := filepath.Join(data.RepoCacheDir, src.ID)
-		if err := os.RemoveAll(targetDir); err != nil {
-			data.Sources[i].Status = "error"
-			data.Sources[i].ErrorMessage = err.Error()
-			_ = s.store.Save(s.configFile, data)
-			return err
-		}
 
 		ccolor.Infof("Syncing Git source %s to %s\n", src.ID, targetDir)
 		resolvedRef, err := s.git.Sync(src.URL, targetDir, src.Ref, s.gitSyncOptions(data))

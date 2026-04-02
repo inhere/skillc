@@ -497,3 +497,25 @@
 - [x] **Step 4: Run tests to verify they pass**
 - [x] **Step 5: Run `go test ./...`**
 - [ ] **Step 6: Commit**
+
+### Task 27: Reuse healthy git repo cache for incremental source sync
+
+**Files:**
+- Modify: `internal/app/sourceapp/service.go`
+- Modify: `internal/app/sourceapp/service_test.go`
+- Modify: `internal/infra/gitx/client.go`
+- Modify: `internal/infra/gitx/client_test.go`
+- Modify: `arch.md`
+- Modify: `plan.md`
+
+**Design note (2026-04-02):** Git source sync should prefer reusing an existing repo cache when the cache directory is still a healthy clone of the same `origin`. Reused caches sync incrementally via `git fetch --prune origin`, `git reset --hard <target>`, and `git clean -fd`; missing or damaged caches, or caches whose `origin` no longer matches, must fall back to removing the cache dir and cloning again.
+
+**Verification note (2026-04-02):** Focused regression passes for `internal/infra/gitx` and `internal/app/sourceapp`. Full `go test ./...` was attempted and still fails only at the known unrelated baseline `internal/cli/app_test.go:TestSourceSyncCommand_PrintsSourceStatusAfterSync`.
+
+- [x] **Step 1: Write the failing tests**
+- [x] **Step 2: Run tests to verify they fail**
+- [x] **Step 3: Write minimal implementation**
+- [x] **Step 4: Run tests to verify they pass**
+- [x] **Step 5: Run focused regression tests**
+- [x] **Step 6: Attempt `go test ./...` and record baseline failure**
+- [ ] **Step 7: Commit**

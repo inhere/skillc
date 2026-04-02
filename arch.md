@@ -136,6 +136,7 @@ MVP 先打通 `source -> index -> install -> lock` 主链路，再扩展 `regist
 - CLI 层面对 local/git 使用 `skillc source`
 - CLI 层面对 registry 使用 `skillc registry`
 - 数据模型层统一抽象为 `Source`
+- Git source sync 优先复用 repo cache：缓存目录存在且仍指向同一 `origin` 时执行增量同步（`git fetch --prune origin` -> `git reset --hard <target>` -> `git clean -fd`）；缓存缺失、损坏或 `origin` 不匹配时回退为删除缓存后重新 clone
 
 ### 4.3 repo index
 
@@ -661,7 +662,7 @@ skillc install   # 无参数 restore
 
 - `source add local` -> 输出下一步 sync 提示，或 `--sync` -> 扫描 -> `search`
 - `source add git` -> 输出下一步 sync 提示，或 `--sync` -> 扫描 -> `search`
-- 对于 git source：若配置了 `proxy_url`，仅在 `skillc` 发起的网络型 Git 命令（当前为 `git clone`）上注入代理；`gitx.Sync` 通过 `SyncOptions` 接收代理和输出控制；交互终端下 `git clone --progress` 实时输出到 `stderr`，非交互场景不显示进度；不会写入任何 git config，本地命令如 `rev-parse` 不使用代理也不显示进度
+- 对于 git source：若配置了 `proxy_url`，仅在 `skillc` 发起的网络型 Git 命令（当前为 `git clone`、`git fetch --prune origin`）上注入代理；`gitx.Sync` 通过 `SyncOptions` 接收代理和输出控制，并优先复用已存在且 origin 匹配的 repo cache，对缓存执行 `fetch --prune`、`reset --hard`、`clean -fd` 的增量同步；当缓存缺失、损坏或 origin 不匹配时，回退为删除缓存后重新 clone；交互终端下 `git clone --progress` 实时输出到 `stderr`，非交互场景不显示进度；不会写入任何 git config，本地命令如 `rev-parse` 不使用代理也不显示进度
 - `install` -> 文件落地 -> lock 写入
 - `uninstall` -> 文件删除 -> lock 删除
 - `install` 无参数 -> restore

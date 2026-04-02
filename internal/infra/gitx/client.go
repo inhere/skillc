@@ -119,7 +119,9 @@ func (c *Client) cloneCommand(url, dir, ref string, opts SyncOptions) *exec.Cmd 
 	args = append(args, url, dir)
 
 	cmd := exec.Command(c.bin, args...)
-	cmd.Env = buildGitEnv(os.Environ(), opts.ProxyURL)
+	if len(opts.ProxyURL) > 0 {
+		cmd.Env = buildGitEnv(os.Environ(), opts.ProxyURL)
+	}
 	if opts.Progress != nil {
 		cmd.Stdout = opts.Progress
 		cmd.Stderr = opts.Progress
@@ -135,7 +137,9 @@ func (c *Client) fetchCommand(dir string, opts SyncOptions) *exec.Cmd {
 	args = append(args, "origin")
 
 	cmd := exec.Command(c.bin, args...)
-	cmd.Env = buildGitEnv(os.Environ(), opts.ProxyURL)
+	if len(opts.ProxyURL) > 0 {
+		cmd.Env = buildGitEnv(os.Environ(), opts.ProxyURL)
+	}
 	if opts.Progress != nil {
 		cmd.Stdout = opts.Progress
 		cmd.Stderr = opts.Progress

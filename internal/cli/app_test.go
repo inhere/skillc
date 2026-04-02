@@ -176,16 +176,26 @@ func TestSearchCommand_ReturnsMatchesForQueryArgument(t *testing.T) {
 	assert.Contains(t, output, "Name")
 }
 
-func TestSearchCommand_ReturnsHelpfulMessageWhenNoMatches(t *testing.T) {
+func TestSearchCommand_ShowsResolvableQualifiedName(t *testing.T) {
 	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	indexPath := filepath.Join(baseDir, "cache", "index.json")
 	config := cfg.DefaultConfig()
-	config.IndexFile = filepath.Join(baseDir, "cache", "index.json")
-	assert.NoErr(t, configstore.NewYAMLStore().Save(filepath.Join(baseDir, "skillc.yaml"), config))
+	config.IndexFile = indexPath
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
+	assert.NoErr(t, repoindex.NewStore().Save(indexPath, []skill.Skill{{
+		ID:            "ship-skill",
+		Name:          "ship",
+		Description:   "Ship workflow",
+		Collection:    "gstack",
+		QualifiedName: "gstack/ship",
+	}}))
 
-	output := runAppInDirWithStdout(t, baseDir, []string{"search", "design"})
+	output := runAppInDirWithStdout(t, baseDir, []string{"search", "ship"})
 
-	assert.Eq(t, "", output)
+	assert.Contains(t, output, "gstack/ship")
 }
+
 
 func TestSourceAddLocalCommand_PrintsNextSyncHint(t *testing.T) {
 	baseDir := t.TempDir()

@@ -144,6 +144,8 @@ func (s *Service) Sync(id string) error {
 		if src.ID != id {
 			continue
 		}
+		ccolor.Infof("- Syncing source %s(type=%s) ...\n", src.ID, src.Type)
+
 		// 本地源直接返回
 		if src.Type != domainsource.TypeGit {
 			data.Sources[i].Status = "ready"
@@ -158,7 +160,7 @@ func (s *Service) Sync(id string) error {
 		// Git 源同步
 		targetDir := filepath.Join(data.RepoCacheDir, src.ID)
 
-		ccolor.Infof("Syncing Git source %s to %s\n", src.ID, targetDir)
+		ccolor.Infof("Syncing Git source %s\n", src.URL)
 		resolvedRef, err := s.git.Sync(src.URL, targetDir, src.Ref, s.gitSyncOptions(data))
 		if err != nil {
 			data.Sources[i].Status = "error"

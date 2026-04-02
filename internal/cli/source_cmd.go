@@ -105,12 +105,14 @@ func buildSourceSyncCommand() *gcli.Command {
 
 			service := newSourceService()
 			if syncAll {
+				ccolor.Infof("sync ALL sources ...\n")
 				err := service.SyncAll()
 				if err != nil {
 					slog.Error(err)
 					return err
 				}
-				return WriteLine(os.Stdout, "ok")
+				ccolor.Infof("synced ALL sources\n")
+				return nil
 			}
 
 			if err := service.Sync(sourceID); err != nil {

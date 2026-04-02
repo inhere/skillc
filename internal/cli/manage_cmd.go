@@ -34,9 +34,13 @@ func buildSearchCommand() *gcli.Command {
 				return nil
 			}
 
-			tb := table.New("Search Result").SetHeads("Name", "Version", "Collection")
+			tb := table.New("Search Result").SetHeads("Target", "Version", "Collection")
 			for _, item := range items {
-				tb.AddRow(item.Name, item.Version, item.Collection)
+				target := item.QualifiedName
+				if target == "" {
+					target = item.ID
+				}
+				tb.AddRow(target, item.Version, item.Collection)
 			}
 			_, err = fmt.Fprint(os.Stdout, tb.Render())
 			return err
@@ -94,9 +98,9 @@ func buildInstallCommand() *gcli.Command {
 
 			req := installapp.InstallReq{
 				SkillID: c.Arg("skill-id").String(),
-				Agent:    opts.Agent,
-				Scope:    opts.Scope,
-				WorkDir:  cwd,
+				Agent:   opts.Agent,
+				Scope:   opts.Scope,
+				WorkDir: cwd,
 			}
 			result, err := installapp.NewService(config.LockFile).Run(config, req, newSearchService())
 			if err != nil {

@@ -15,6 +15,28 @@ import (
 	"github.com/inhere/skillc/internal/infra/gitx"
 )
 
+func TestMain(m *testing.M) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+	testHome := filepath.Join(cwd, "testdata", "home")
+	if err := os.RemoveAll(testHome); err != nil {
+		panic(err)
+	}
+	if err := os.MkdirAll(testHome, 0o755); err != nil {
+		panic(err)
+	}
+	if err := os.Setenv("HOME", testHome); err != nil {
+		panic(err)
+	}
+	if err := os.Setenv("USERPROFILE", testHome); err != nil {
+		panic(err)
+	}
+
+	os.Exit(m.Run())
+}
+
 type gitRunnerStub struct {
 	syncFn func(url, dir, ref string, opts gitx.SyncOptions) (string, error)
 }

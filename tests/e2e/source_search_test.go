@@ -13,6 +13,39 @@ import (
 	sourcepkg "github.com/inhere/skillc/internal/domain/source"
 )
 
+func TestMain(m *testing.M) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+	testHome := filepath.Join(cwd, "testdata", "home")
+	if err := os.RemoveAll(testHome); err != nil {
+		panic(err)
+	}
+	if err := os.MkdirAll(testHome, 0o755); err != nil {
+		panic(err)
+	}
+	if err := os.Setenv("HOME", testHome); err != nil {
+		panic(err)
+	}
+	if err := os.Setenv("USERPROFILE", testHome); err != nil {
+		panic(err)
+	}
+
+	os.Exit(m.Run())
+}
+
+func TestConfigInit_UsesLocalTestHomePaths(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+
+	configService := configapp.NewService(configFile, baseDir)
+	cfg, err := configService.Init()
+	assert.NoErr(t, err)
+	assert.Contains(t, cfg.IndexFile, filepath.Join("testdata", "home"))
+	assert.Contains(t, cfg.RepoCacheDir, filepath.Join("testdata", "home"))
+}
+
 func TestLocalSourceToSearchFlow(t *testing.T) {
 	baseDir := t.TempDir()
 	configFile := filepath.Join(baseDir, "skillc.yaml")

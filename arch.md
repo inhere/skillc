@@ -136,6 +136,7 @@ MVP 先打通 `source -> index -> install -> lock` 主链路，再扩展 `regist
 - CLI 层面对 local/git 使用 `skillc source`
 - CLI 层面对 registry 使用 `skillc registry`
 - 数据模型层统一抽象为 `Source`
+- Git source sync 优先复用 repo cache：缓存目录存在且仍指向同一 `origin` 时执行增量同步（`git fetch --prune origin` -> `git reset --hard <target>` -> `git clean -fd`）；缓存缺失、损坏或 `origin` 不匹配时回退为删除缓存后重新 clone
 
 ### 4.3 repo index
 

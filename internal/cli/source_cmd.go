@@ -124,7 +124,7 @@ func buildSourceSyncCommand() *gcli.Command {
 			}
 			for _, src := range list {
 				if src.ID == sourceID {
-					ccolor.Infof("synced %s %s\n", src.ID, src.Status)
+					return WriteLine(os.Stdout, fmt.Sprintf("synced %s %s", src.ID, src.Status))
 				}
 			}
 

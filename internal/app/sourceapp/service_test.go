@@ -184,16 +184,26 @@ func TestService_SyncGitBuildsSyncOptionsWithoutProgressWhenNotTTY(t *testing.T)
 	assert.Nil(t, calledOpts.Progress)
 }
 
-func TestService_SyncGitSourceReusesExistingCacheDir(t *testing.T) {
+func TestService_SyncGitSourceReusesExistingCachePath(t *testing.T) {
 	baseDir := t.TempDir()
 	configFile := filepath.Join(baseDir, "skillc.yaml")
 	service := NewService(configFile, baseDir)
-	cloneCalls := 0
+	var syncDirs []string
 	service.git = gitRunnerStub{syncFn: func(url, dir, ref string, opts gitx.SyncOptions) (string, error) {
-		cloneCalls++
-		_, err := os.Stat(filepath.Join(dir, "stale.txt"))
-		assert.True(t, os.IsNotExist(err))
-		return "deadbeefcafebabe", os.MkdirAll(dir, 0o755)
+		syncDirs = append(syncDirs, dir)
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return "", err
+		}
+		cacheMarker := filepath.Join(dir, "cached.txt")
+		if len(syncDirs) == 1 {
+			if err := os.WriteFile(cacheMarker, []byte("old"), 0o644); err != nil {
+				return "", err
+			}
+		} else {
+			_, err := os.Stat(cacheMarker)
+			assert.NoErr(t, err)
+		}
+		return "deadbeefcafebabe", nil
 	}}
 
 	src, err := service.AddGit("https://example.com/repo.git", "main")
@@ -201,15 +211,13 @@ func TestService_SyncGitSourceReusesExistingCacheDir(t *testing.T) {
 
 	err = service.Sync(src.ID)
 	assert.NoErr(t, err)
+	assert.NoErr(t, service.Sync(src.ID))
+
 	list, err := service.List()
 	assert.NoErr(t, err)
-	assert.NoErr(t, os.WriteFile(filepath.Join(list[0].Path, "stale.txt"), []byte("old"), 0o644))
-
-	err = service.Sync(src.ID)
-	assert.NoErr(t, err)
-	assert.Eq(t, 2, cloneCalls)
-	_, err = os.Stat(filepath.Join(list[0].Path, "stale.txt"))
-	assert.True(t, os.IsNotExist(err))
+	assert.Eq(t, 2, len(syncDirs))
+	assert.Eq(t, syncDirs[0], syncDirs[1])
+	assert.Eq(t, syncDirs[0], list[0].Path)
 }
 
 func TestService_SyncGitUpdatesLastSyncAt(t *testing.T) {

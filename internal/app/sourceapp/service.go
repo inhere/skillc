@@ -17,13 +17,13 @@ import (
 )
 
 type gitRunner interface {
-	Sync(url, dir, ref string) (string, error)
+	Sync(url, dir, ref, proxyURL string) (string, error)
 }
 
-type gitRunnerFunc func(url, dir, ref string) (string, error)
+type gitRunnerFunc func(url, dir, ref, proxyURL string) (string, error)
 
-func (f gitRunnerFunc) Sync(url, dir, ref string) (string, error) {
-	return f(url, dir, ref)
+func (f gitRunnerFunc) Sync(url, dir, ref, proxyURL string) (string, error) {
+	return f(url, dir, ref, proxyURL)
 }
 
 type Service struct {
@@ -159,7 +159,7 @@ func (s *Service) Sync(id string) error {
 		}
 
 		ccolor.Infof("Syncing Git source %s to %s", src.ID, targetDir)
-		resolvedRef, err := s.git.Sync(src.URL, targetDir, src.Ref)
+		resolvedRef, err := s.git.Sync(src.URL, targetDir, src.Ref, data.ProxyURL)
 		if err != nil {
 			data.Sources[i].Status = "error"
 			data.Sources[i].ErrorMessage = err.Error()

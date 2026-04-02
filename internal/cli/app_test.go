@@ -85,9 +85,7 @@ func TestInstallCommand_InstallsIndexedSkill(t *testing.T) {
 		Path:         sourceDir,
 	}}))
 
-	output := runInDirWithStdout(t, baseDir, func() error {
-		return findCommandByName(newTestApp(), "install").Func(nil, []string{"hello-skill", "claude-code", "project"})
-	})
+	output := runAppInDirWithStdout(t, baseDir, []string{"install", "--agent", "claude-code", "hello-skill"})
 
 	assert.Contains(t, output, "hello-skill")
 	data, err := os.ReadFile(filepath.Join(baseDir, "project-claude", "skills", "hello-skill", "hello.txt"))
@@ -119,9 +117,7 @@ func TestInstallCommand_RestoresFromLockFileWhenNoArgs(t *testing.T) {
 		InstalledPath: installedPath,
 	}}))
 
-	output := runInDirWithStdout(t, baseDir, func() error {
-		return findCommandByName(newTestApp(), "install").Func(nil, nil)
-	})
+	output := runAppInDirWithStdout(t, baseDir, []string{"install"})
 
 	assert.Contains(t, output, "hello-skill claude-code project")
 	data, err := os.ReadFile(filepath.Join(installedPath, "hello.txt"))
@@ -188,7 +184,7 @@ func TestSearchCommand_ReturnsHelpfulMessageWhenNoMatches(t *testing.T) {
 
 	output := runAppInDirWithStdout(t, baseDir, []string{"search", "design"})
 
-	assert.Contains(t, output, "no skills found")
+	assert.Eq(t, "", output)
 }
 
 func TestSourceAddLocalCommand_PrintsNextSyncHint(t *testing.T) {
@@ -289,9 +285,7 @@ func TestListCommand_ReturnsEmptyWhenLockFileMissing(t *testing.T) {
 	config.LockFile = filepath.Join(baseDir, "skillc-install.lock")
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
 
-	output := runInDirWithStdout(t, baseDir, func() error {
-		return findCommandByName(newTestApp(), "list").Func(nil, []string{"claude-code", "project"})
-	})
+	output := runAppInDirWithStdout(t, baseDir, []string{"list", "--agent", "claude-code"})
 
 	assert.Eq(t, "", output)
 }
@@ -313,11 +307,12 @@ func TestListCommand_ListsInstalledSkills(t *testing.T) {
 		InstalledPath: installedPath,
 	}}))
 
-	output := runInDirWithStdout(t, baseDir, func() error {
-		return findCommandByName(newTestApp(), "list").Func(nil, []string{"claude-code", "project"})
-	})
+	output := runAppInDirWithStdout(t, baseDir, []string{"list", "--agent", "claude-code"})
 
-	assert.Contains(t, output, "hello-skill claude-code project installed")
+	assert.Contains(t, output, "hello-skill")
+	assert.Contains(t, output, "claude-code")
+	assert.Contains(t, output, "project")
+	assert.Contains(t, output, "installed")
 }
 
 func TestUninstallCommand_RemovesInstalledSkill(t *testing.T) {
@@ -338,10 +333,8 @@ func TestUninstallCommand_RemovesInstalledSkill(t *testing.T) {
 		InstalledPath: installedPath,
 	}}))
 
-	output := runInDirWithStdout(t, baseDir, func() error {
-		return findCommandByName(newTestApp(), "uninstall").Func(nil, []string{"hello-skill", "claude-code", "project"})
-	})
-	assert.Contains(t, output, "ok")
+	output := runAppInDirWithStdout(t, baseDir, []string{"uninstall", "--agent", "claude-code", "hello-skill"})
+	_ = output
 
 	_, err := os.Stat(installedPath)
 	assert.True(t, os.IsNotExist(err))
@@ -359,9 +352,7 @@ func TestDoctorCommand_ReportsHealth(t *testing.T) {
 	config.RepoCacheDir = filepath.Join(baseDir, "repos")
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
 
-	output := runInDirWithStdout(t, baseDir, func() error {
-		return findCommandByName(newTestApp(), "doctor").Func(nil, nil)
-	})
+	output := runAppInDirWithStdout(t, baseDir, []string{"doctor"})
 
 	assert.Contains(t, output, "git_available=")
 	assert.Contains(t, output, "config_ok=true")

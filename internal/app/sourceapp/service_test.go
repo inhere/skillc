@@ -14,11 +14,11 @@ import (
 )
 
 type gitRunnerStub struct {
-	syncFn func(url, dir, ref string) (string, error)
+	syncFn func(url, dir, ref, proxyURL string) (string, error)
 }
 
-func (s gitRunnerStub) Sync(url, dir, ref string) (string, error) {
-	return s.syncFn(url, dir, ref)
+func (s gitRunnerStub) Sync(url, dir, ref, proxyURL string) (string, error) {
+	return s.syncFn(url, dir, ref, proxyURL)
 }
 
 func TestService_AddListRemoveLocalSource(t *testing.T) {
@@ -89,7 +89,7 @@ func TestService_AddGitAndSyncStatus(t *testing.T) {
 	cfg, err := configapp.NewService(configFile, baseDir).Show()
 	assert.NoErr(t, err)
 	service := NewService(configFile, baseDir)
-	service.git = gitRunnerStub{syncFn: func(url, dir, ref string) (string, error) {
+	service.git = gitRunnerStub{syncFn: func(url, dir, ref, proxyURL string) (string, error) {
 		assert.Eq(t, filepath.Join(cfg.RepoCacheDir, "git-repo"), dir)
 		return "deadbeefcafebabe", os.MkdirAll(dir, 0o755)
 	}}
@@ -116,7 +116,7 @@ func TestService_AddGitWithoutRefSyncsDefaultBranch(t *testing.T) {
 	service := NewService(configFile, baseDir)
 
 	calledRef := "unexpected"
-	service.git = gitRunnerStub{syncFn: func(url, dir, ref string) (string, error) {
+	service.git = gitRunnerStub{syncFn: func(url, dir, ref, proxyURL string) (string, error) {
 		calledRef = ref
 		return "deadbeefcafebabe", os.MkdirAll(dir, 0o755)
 	}}
@@ -130,12 +130,55 @@ func TestService_AddGitWithoutRefSyncsDefaultBranch(t *testing.T) {
 	assert.Eq(t, "", calledRef)
 }
 
+func TestService_SyncGitPassesConfiguredProxyURL(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	cfgService := configapp.NewService(configFile, baseDir)
+
+	_, err := cfgService.Init()
+	assert.NoErr(t, err)
+	assert.NoErr(t, cfgService.Set("proxy_url", "http://localhost:7890"))
+
+	service := NewService(configFile, baseDir)
+	calledProxy := ""
+	service.git = gitRunnerStub{syncFn: func(url, dir, ref, proxyURL string) (string, error) {
+		calledProxy = proxyURL
+		return "deadbeefcafebabe", os.MkdirAll(dir, 0o755)
+	}}
+
+	src, err := service.AddGit("https://example.com/repo.git", "main")
+	assert.NoErr(t, err)
+
+	err = service.Sync(src.ID)
+	assert.NoErr(t, err)
+	assert.Eq(t, "http://localhost:7890", calledProxy)
+}
+
+func TestService_SyncGitPassesEmptyProxyWhenUnset(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	service := NewService(configFile, baseDir)
+
+	calledProxy := "unexpected"
+	service.git = gitRunnerStub{syncFn: func(url, dir, ref, proxyURL string) (string, error) {
+		calledProxy = proxyURL
+		return "deadbeefcafebabe", os.MkdirAll(dir, 0o755)
+	}}
+
+	src, err := service.AddGit("https://example.com/repo.git", "main")
+	assert.NoErr(t, err)
+
+	err = service.Sync(src.ID)
+	assert.NoErr(t, err)
+	assert.Eq(t, "", calledProxy)
+}
+
 func TestService_SyncGitSourceReusesExistingCacheDir(t *testing.T) {
 	baseDir := t.TempDir()
 	configFile := filepath.Join(baseDir, "skillc.yaml")
 	service := NewService(configFile, baseDir)
 	cloneCalls := 0
-	service.git = gitRunnerStub{syncFn: func(url, dir, ref string) (string, error) {
+	service.git = gitRunnerStub{syncFn: func(url, dir, ref, proxyURL string) (string, error) {
 		cloneCalls++
 		_, err := os.Stat(filepath.Join(dir, "stale.txt"))
 		assert.True(t, os.IsNotExist(err))
@@ -163,7 +206,7 @@ func TestService_SyncGitUpdatesLastSyncAt(t *testing.T) {
 	configFile := filepath.Join(baseDir, "skillc.yaml")
 	service := NewService(configFile, baseDir)
 	service.now = func() time.Time { return time.Unix(1710000000, 0).UTC() }
-	service.git = gitRunnerStub{syncFn: func(url, dir, ref string) (string, error) {
+	service.git = gitRunnerStub{syncFn: func(url, dir, ref, proxyURL string) (string, error) {
 		return "0123456789abcdef", os.MkdirAll(dir, 0o755)
 	}}
 
@@ -180,7 +223,7 @@ func TestService_SyncMissingGitSetsSourceError(t *testing.T) {
 	baseDir := t.TempDir()
 	configFile := filepath.Join(baseDir, "skillc.yaml")
 	service := NewService(configFile, baseDir)
-	service.git = gitRunnerStub{syncFn: func(url, dir, ref string) (string, error) {
+	service.git = gitRunnerStub{syncFn: func(url, dir, ref, proxyURL string) (string, error) {
 		return "", errors.New("git executable not found")
 	}}
 

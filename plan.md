@@ -477,9 +477,23 @@
 - Modify: `arch.md`
 - Modify: `plan.md`
 
+### Task 26: Add proxy support for git source sync
+
+**Files:**
+- Modify: `internal/app/sourceapp/service.go`
+- Modify: `internal/app/sourceapp/service_test.go`
+- Modify: `internal/infra/gitx/client.go`
+- Modify: `internal/infra/gitx/client_test.go`
+- Modify: `arch.md`
+- Modify: `plan.md`
+
+**Design note (2026-04-01):** When `source` type is `git` and config `proxy_url` is set, `source sync` must apply that proxy only to skillc-started network Git commands such as `git clone`. It must not write any Git config, and local Git commands such as `rev-parse` must continue to run without proxy injection.
+
+**Verification note (2026-04-01):** Git source sync now forwards config `proxy_url` into the Git client, injects proxy env vars only for `git clone`, keeps local `rev-parse` unproxied, and passes `go test ./...`.
+
 - [x] **Step 1: Write the failing tests**
 - [x] **Step 2: Run tests to verify they fail**
 - [x] **Step 3: Write minimal implementation**
 - [x] **Step 4: Run tests to verify they pass**
-- [x] **Step 5: Run regression tests**
-- [x] **Step 6: Sync docs**
+- [x] **Step 5: Run `go test ./...`**
+- [ ] **Step 6: Commit**

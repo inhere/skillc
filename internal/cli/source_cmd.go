@@ -10,11 +10,10 @@ import (
 	"github.com/gookit/slog"
 )
 
-
 func buildSourceCommand() *gcli.Command {
 	cmd := &gcli.Command{
-		Name: "source",
-		Desc: "Manage Skillc sources",
+		Name:    "source",
+		Desc:    "Manage Skillc sources",
 		Aliases: []string{"src"},
 	}
 
@@ -27,8 +26,8 @@ func buildSourceCommand() *gcli.Command {
 	cmd.Add(add)
 
 	cmd.Add(&gcli.Command{
-		Name: "list",
-		Desc: "List sources",
+		Name:    "list",
+		Desc:    "List sources",
 		Aliases: []string{"ls"},
 		Func: func(c *gcli.Command, args []string) error {
 			service := newSourceService()
@@ -124,7 +123,7 @@ func buildSourceSyncCommand() *gcli.Command {
 			}
 			for _, src := range list {
 				if src.ID == sourceID {
-					ccolor.Infof("synced %s %s\n", src.ID, src.Status)
+					return WriteLine(os.Stdout, fmt.Sprintf("synced %s %s", src.ID, src.Status))
 				}
 			}
 

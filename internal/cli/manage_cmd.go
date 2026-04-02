@@ -48,14 +48,14 @@ func buildShowCommand() *gcli.Command {
 	return &gcli.Command{
 		Name: "show",
 		Desc: "Show indexed skill details",
-		Func: func(c *gcli.Command, args []string) error {
-			if len(args) < 1 {
-				return fmt.Errorf("skill id is required")
-			}
+		Config: func(c *gcli.Command) {
+			c.AddArg("skill-id", "skill id", true)
+		},
+		Func: func(c *gcli.Command, _ []string) error {
+			skillID := c.Arg("skill-id").String()
 			service := newSearchService()
-			item, err := service.Show(args[0])
+			item, err := service.Show(skillID)
 			if err != nil {
-				slog.Error(err)
 				return err
 			}
 

@@ -164,7 +164,7 @@ func (s *Service) Sync(id string) error {
 			return err
 		}
 
-		ccolor.Infof("Syncing Git source %s to %s", src.ID, targetDir)
+		ccolor.Infof("Syncing Git source %s to %s\n", src.ID, targetDir)
 		resolvedRef, err := s.git.Sync(src.URL, targetDir, src.Ref, s.gitSyncOptions(data))
 		if err != nil {
 			data.Sources[i].Status = "error"

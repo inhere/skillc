@@ -6,6 +6,7 @@ import (
 
 	"github.com/gookit/gcli/v3"
 	"github.com/gookit/gcli/v3/show/table"
+	"github.com/gookit/goutil/x/ccolor"
 	"github.com/gookit/slog"
 )
 
@@ -123,10 +124,12 @@ func buildSourceSyncCommand() *gcli.Command {
 			}
 			for _, src := range list {
 				if src.ID == sourceID {
-					return WriteLine(os.Stdout, fmt.Sprintf("synced %s %s", src.ID, src.Status))
+					ccolor.Infof("synced %s %s\n", src.ID, src.Status)
 				}
 			}
-			return WriteLine(os.Stdout, fmt.Sprintf("synced %s", sourceID))
+
+			ccolor.Infof("synced %s\n", sourceID)
+			return nil
 		},
 	}
 }

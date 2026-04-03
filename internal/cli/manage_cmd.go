@@ -1,8 +1,10 @@
 package cli
 
 import (
+	"bufio"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/gookit/gcli/v3"
 	"github.com/gookit/gcli/v3/show"
@@ -70,8 +72,10 @@ func buildShowCommand() *gcli.Command {
 }
 
 type ManageOptions struct {
-	Scope string
-	Agent string
+	Scope      string
+	Agent      string
+	Yes        bool
+	Collection bool
 }
 
 func (mo *ManageOptions) bindCommand(c *gcli.Command) {
@@ -87,6 +91,8 @@ func buildInstallCommand() *gcli.Command {
 		Aliases: []string{"ins"},
 		Config: func(c *gcli.Command) {
 			opts.bindCommand(c)
+			c.BoolOpt(&opts.Yes, "yes", "y", false, "skip confirmation prompt")
+			c.BoolOpt(&opts.Collection, "collection", "c", false, "treat targets as collection selectors")
 			c.AddArg("skill-id", "skill id. if empty, restore from lock file")
 		},
 		Func: func(c *gcli.Command, _ []string) error {
@@ -96,30 +102,97 @@ func buildInstallCommand() *gcli.Command {
 				return err
 			}
 
-			req := installapp.InstallReq{
-				SkillID: c.Arg("skill-id").String(),
+			targetArg := c.Arg("skill-id").String()
+			if targetArg == "" {
+				result, err := installapp.NewService(config.LockFile).Run(config, installapp.InstallReq{
+					Agent:   opts.Agent,
+					Scope:   opts.Scope,
+					WorkDir: cwd,
+				}, nil)
+				if err != nil {
+					slog.Error(err)
+					return err
+				}
+				for _, record := range result.Restored {
+					if err := WriteLine(os.Stdout, fmt.Sprintf("%s %s %s", record.SkillID, record.Agent, record.Scope)); err != nil {
+						return err
+					}
+				}
+				return nil
+			}
+
+			targets := splitInstallTargets(targetArg)
+			if len(targets) == 0 {
+				return nil
+			}
+			if !opts.Yes {
+				confirmed, err := confirmInstall(os.Stdin, os.Stdout)
+				if err != nil {
+					return err
+				}
+				if !confirmed {
+					return WriteLine(os.Stdout, "install cancelled")
+				}
+			}
+
+			searchResult, err := newSearchService().ResolveInstallTargets(targets, opts.Collection)
+			if err != nil {
+				slog.Error(err)
+				return err
+			}
+
+			result, err := installapp.NewService(config.LockFile).RunResolved(config, installapp.InstallReq{
 				Agent:   opts.Agent,
 				Scope:   opts.Scope,
 				WorkDir: cwd,
-			}
-			result, err := installapp.NewService(config.LockFile).Run(config, req, newSearchService())
+			}, searchResult.Resolved, searchResult.Failed)
 			if err != nil {
 				slog.Error(err)
 				return err
 			}
 			for _, record := range result.Installed {
-				if err := WriteLine(os.Stdout, fmt.Sprintf("%s %s", record.SkillID, record.InstalledPath)); err != nil {
+				if err := WriteLine(os.Stdout, fmt.Sprintf("installed %s %s", record.SkillID, record.InstalledPath)); err != nil {
 					return err
 				}
 			}
-			for _, record := range result.Restored {
-				if err := WriteLine(os.Stdout, fmt.Sprintf("%s %s %s", record.SkillID, record.Agent, record.Scope)); err != nil {
+			for _, failed := range result.ResolveFailed {
+				if err := WriteLine(os.Stdout, fmt.Sprintf("resolve failed %s %s", failed.Target, failed.Reason)); err != nil {
+					return err
+				}
+			}
+			for _, failed := range result.InstallFailed {
+				if err := WriteLine(os.Stdout, fmt.Sprintf("install failed %s %s", failed.SkillID, failed.Reason)); err != nil {
 					return err
 				}
 			}
 			return nil
 		},
 	}
+}
+
+func splitInstallTargets(value string) []string {
+	parts := strings.Split(value, ",")
+	targets := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		targets = append(targets, part)
+	}
+	return targets
+}
+
+func confirmInstall(in *os.File, out *os.File) (bool, error) {
+	if _, err := fmt.Fprint(out, "Continue? [y/N] "); err != nil {
+		return false, err
+	}
+	answer, err := bufio.NewReader(in).ReadString('\n')
+	if err != nil && err.Error() != "EOF" {
+		return false, err
+	}
+	answer = strings.TrimSpace(strings.ToLower(answer))
+	return answer == "y" || answer == "yes", nil
 }
 
 func buildUninstallCommand() *gcli.Command {

@@ -69,6 +69,209 @@ func TestService_ResolveSupportsSourceCollectionTarget(t *testing.T) {
 	assert.Len(t, items, 2)
 }
 
+func TestService_ResolveInstallTargetsMixedTargets(t *testing.T) {
+	baseDir := t.TempDir()
+	indexPath := filepath.Join(baseDir, "index.json")
+	store := repoindex.NewStore()
+	assert.NoErr(t, store.Save(indexPath, []skill.Skill{
+		{ID: "hello-skill", Collection: "marketplaces", QualifiedName: "marketplaces/hello-skill", SourceQualifiedName: "repo-a/marketplaces/hello-skill"},
+		{ID: "world-skill", Collection: "marketplaces", QualifiedName: "marketplaces/world-skill", SourceQualifiedName: "repo-a/marketplaces/world-skill"},
+	}))
+
+	service := NewService(indexPath)
+	result, err := service.ResolveInstallTargets([]string{"hello-skill", "world-*", "missing-skill"}, false)
+	assert.NoErr(t, err)
+	assert.Len(t, result.Resolved, 2)
+	assert.Eq(t, "hello-skill", result.Resolved[0].ID)
+	assert.Eq(t, "world-skill", result.Resolved[1].ID)
+	assert.Len(t, result.Failed, 1)
+	assert.Eq(t, "missing-skill", result.Failed[0].Target)
+	assert.Contains(t, result.Failed[0].Reason, "skill not found")
+}
+
+func TestService_ResolveInstallTargetsCollectionModeExpandsCollections(t *testing.T) {
+	baseDir := t.TempDir()
+	indexPath := filepath.Join(baseDir, "index.json")
+	store := repoindex.NewStore()
+	assert.NoErr(t, store.Save(indexPath, []skill.Skill{
+		{ID: "hello-skill", Collection: "marketplaces", QualifiedName: "marketplaces/hello-skill", SourceQualifiedName: "repo-a/marketplaces/hello-skill"},
+		{ID: "world-skill", Collection: "marketplaces", QualifiedName: "marketplaces/world-skill", SourceQualifiedName: "repo-a/marketplaces/world-skill"},
+	}))
+
+	service := NewService(indexPath)
+	result, err := service.ResolveInstallTargets([]string{"repo-a/marketplaces", "repo-a/missing"}, true)
+	assert.NoErr(t, err)
+	assert.Len(t, result.Resolved, 2)
+	assert.Eq(t, "hello-skill", result.Resolved[0].ID)
+	assert.Eq(t, "world-skill", result.Resolved[1].ID)
+	assert.Len(t, result.Failed, 1)
+	assert.Eq(t, "repo-a/missing", result.Failed[0].Target)
+	assert.Contains(t, result.Failed[0].Reason, "not found")
+}
+
+func TestService_ResolveInstallTargetsDoesNotAutoExpandCollectionWithoutFlag(t *testing.T) {
+	baseDir := t.TempDir()
+	indexPath := filepath.Join(baseDir, "index.json")
+	store := repoindex.NewStore()
+	assert.NoErr(t, store.Save(indexPath, []skill.Skill{
+		{ID: "hello-skill", Collection: "marketplaces", QualifiedName: "marketplaces/hello-skill", SourceQualifiedName: "repo-a/marketplaces/hello-skill"},
+		{ID: "world-skill", Collection: "marketplaces", QualifiedName: "marketplaces/world-skill", SourceQualifiedName: "repo-a/marketplaces/world-skill"},
+	}))
+
+	service := NewService(indexPath)
+	result, err := service.ResolveInstallTargets([]string{"repo-a/marketplaces"}, false)
+	assert.NoErr(t, err)
+	assert.Len(t, result.Resolved, 0)
+	assert.Len(t, result.Failed, 1)
+	assert.Eq(t, "repo-a/marketplaces", result.Failed[0].Target)
+	assert.Contains(t, result.Failed[0].Reason, "not found")
+}
+
+func TestService_ResolveInstallTargetsDeduplicatesRepeatedMatches(t *testing.T) {
+	baseDir := t.TempDir()
+	indexPath := filepath.Join(baseDir, "index.json")
+	store := repoindex.NewStore()
+	assert.NoErr(t, store.Save(indexPath, []skill.Skill{
+		{ID: "hello-skill", Collection: "marketplaces", QualifiedName: "marketplaces/hello-skill", SourceQualifiedName: "repo-a/marketplaces/hello-skill"},
+	}))
+
+	service := NewService(indexPath)
+	result, err := service.ResolveInstallTargets([]string{"hello-skill", "hello-*"}, false)
+	assert.NoErr(t, err)
+	assert.Len(t, result.Resolved, 1)
+	assert.Eq(t, "hello-skill", result.Resolved[0].ID)
+	assert.Len(t, result.Failed, 0)
+}
+
+func TestService_ResolveInstallTargetsDeduplicatesWithoutSourceQualifiedName(t *testing.T) {
+	baseDir := t.TempDir()
+	indexPath := filepath.Join(baseDir, "index.json")
+	store := repoindex.NewStore()
+	assert.NoErr(t, store.Save(indexPath, []skill.Skill{
+		{ID: "hello-skill", QualifiedName: "marketplaces/hello-skill"},
+		{ID: "plain-skill"},
+	}))
+
+	service := NewService(indexPath)
+	qualified, err := service.ResolveInstallTargets([]string{"hello-skill", "hello-*"}, false)
+	assert.NoErr(t, err)
+	assert.Len(t, qualified.Resolved, 1)
+	assert.Eq(t, "hello-skill", qualified.Resolved[0].ID)
+
+	plain, err := service.ResolveInstallTargets([]string{"plain-skill", "plain-*"}, false)
+	assert.NoErr(t, err)
+	assert.Len(t, plain.Resolved, 1)
+	assert.Eq(t, "plain-skill", plain.Resolved[0].ID)
+}
+
+func TestService_ResolveInstallTargetsDeduplicatesWithSourceQualifiedNamePrecedence(t *testing.T) {
+	baseDir := t.TempDir()
+	indexPath := filepath.Join(baseDir, "index.json")
+	store := repoindex.NewStore()
+	assert.NoErr(t, store.Save(indexPath, []skill.Skill{
+		{ID: "ship", Collection: "shared", QualifiedName: "shared/ship", SourceQualifiedName: "repo-a/shared/ship"},
+		{ID: "ship", Collection: "shared", QualifiedName: "shared/ship", SourceQualifiedName: "repo-b/shared/ship"},
+	}))
+
+	service := NewService(indexPath)
+	result, err := service.ResolveInstallTargets([]string{"shared"}, true)
+	assert.NoErr(t, err)
+	assert.Len(t, result.Resolved, 2)
+	assert.Eq(t, "repo-a/shared/ship", result.Resolved[0].SourceQualifiedName)
+	assert.Eq(t, "repo-b/shared/ship", result.Resolved[1].SourceQualifiedName)
+	assert.Len(t, result.Failed, 0)
+}
+
+func TestService_ResolveInstallTargetsCollectionModeRejectsPlainSkillTarget(t *testing.T) {
+	baseDir := t.TempDir()
+	indexPath := filepath.Join(baseDir, "index.json")
+	store := repoindex.NewStore()
+	assert.NoErr(t, store.Save(indexPath, []skill.Skill{
+		{ID: "hello-skill", Collection: "marketplaces", QualifiedName: "marketplaces/hello-skill", SourceQualifiedName: "repo-a/marketplaces/hello-skill"},
+	}))
+
+	service := NewService(indexPath)
+	result, err := service.ResolveInstallTargets([]string{"hello-skill"}, true)
+	assert.NoErr(t, err)
+	assert.Len(t, result.Resolved, 0)
+	assert.Len(t, result.Failed, 1)
+	assert.Eq(t, "hello-skill", result.Failed[0].Target)
+}
+
+func TestService_ResolveInstallTargetsDoesNotAutoExpandSingleSkillCollectionWithoutFlag(t *testing.T) {
+	baseDir := t.TempDir()
+	indexPath := filepath.Join(baseDir, "index.json")
+	store := repoindex.NewStore()
+	assert.NoErr(t, store.Save(indexPath, []skill.Skill{
+		{ID: "solo-skill", Collection: "solo", QualifiedName: "solo/solo-skill", SourceQualifiedName: "repo-a/solo/solo-skill"},
+	}))
+
+	service := NewService(indexPath)
+	result, err := service.ResolveInstallTargets([]string{"repo-a/solo"}, false)
+	assert.NoErr(t, err)
+	assert.Len(t, result.Resolved, 0)
+	assert.Len(t, result.Failed, 1)
+	assert.Eq(t, "repo-a/solo", result.Failed[0].Target)
+}
+
+func TestService_ResolveInstallTargetsPrefixMatchesOnlySkillID(t *testing.T) {
+	baseDir := t.TempDir()
+	indexPath := filepath.Join(baseDir, "index.json")
+	store := repoindex.NewStore()
+	assert.NoErr(t, store.Save(indexPath, []skill.Skill{
+		{ID: "ship", Collection: "hello-tools", QualifiedName: "hello-tools/ship", SourceQualifiedName: "repo-a/hello-tools/ship"},
+	}))
+
+	service := NewService(indexPath)
+	result, err := service.ResolveInstallTargets([]string{"hello-*"}, false)
+	assert.NoErr(t, err)
+	assert.Len(t, result.Resolved, 0)
+	assert.Len(t, result.Failed, 1)
+	assert.Contains(t, result.Failed[0].Reason, "skill not found")
+}
+
+func TestService_ResolveInstallTargetsRejectsBareWildcard(t *testing.T) {
+	baseDir := t.TempDir()
+	indexPath := filepath.Join(baseDir, "index.json")
+	store := repoindex.NewStore()
+	assert.NoErr(t, store.Save(indexPath, []skill.Skill{
+		{ID: "hello-skill", QualifiedName: "marketplaces/hello-skill"},
+	}))
+
+	service := NewService(indexPath)
+	result, err := service.ResolveInstallTargets([]string{"*"}, false)
+	assert.NoErr(t, err)
+	assert.Len(t, result.Resolved, 0)
+	assert.Len(t, result.Failed, 1)
+	assert.Contains(t, result.Failed[0].Reason, "skill not found")
+}
+
+func TestService_ResolveInstallTargetsFailsAmbiguousPlainTarget(t *testing.T) {
+	baseDir := t.TempDir()
+	indexPath := filepath.Join(baseDir, "index.json")
+	store := repoindex.NewStore()
+	assert.NoErr(t, store.Save(indexPath, []skill.Skill{
+		{ID: "shared-skill", QualifiedName: "alpha/shared-skill", SourceQualifiedName: "repo-a/alpha/shared-skill"},
+		{ID: "shared-skill", QualifiedName: "beta/shared-skill", SourceQualifiedName: "repo-b/beta/shared-skill"},
+	}))
+
+	service := NewService(indexPath)
+	result, err := service.ResolveInstallTargets([]string{"shared-skill"}, false)
+	assert.NoErr(t, err)
+	assert.Len(t, result.Resolved, 0)
+	assert.Len(t, result.Failed, 1)
+	assert.Contains(t, result.Failed[0].Reason, "ambiguous skill target")
+}
+
+func TestService_ResolveInstallTargetsReturnsEmptyWhenIndexMissing(t *testing.T) {
+	service := NewService(filepath.Join(t.TempDir(), "missing.json"))
+
+	result, err := service.ResolveInstallTargets([]string{"hello-skill"}, false)
+	assert.NoErr(t, err)
+	assert.Len(t, result.Resolved, 0)
+	assert.Len(t, result.Failed, 0)
+}
+
 func TestService_ListCollectionsReturnsEmptyWhenIndexMissing(t *testing.T) {
 	service := NewService(filepath.Join(t.TempDir(), "missing.json"))
 

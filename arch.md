@@ -362,6 +362,13 @@ type InstallPlan struct {
 - `collection`
 - `source/collection`
 
+`skillc install` 还支持以下 CLI 约定：
+- `skill-id` 参数可使用逗号分隔多个 target，按单次命令批量解析与安装
+- `prefix-*` 仅作为 `skill.ID` 前缀匹配语法，不匹配 `QualifiedName` / `SourceQualifiedName`
+- `--collection` / `-c` 显式把传入 target 当作 collection 选择器；未指定时不自动按 collection 展开
+- `--yes` / `-y` 跳过交互确认；未指定且存在安装 target 时，CLI 先提示确认
+- 批量安装采用部分成功语义：单个 target 的 resolve / install 失败会汇总输出，但不阻断其他 target 的安装
+
 1. 读取配置
 2. 根据 target 从索引定位一个 Skill 或一个 collection 下的多个 Skill
 3. 若 target 有歧义，提示补全 source 限定名

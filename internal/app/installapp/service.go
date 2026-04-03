@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/inhere/skillc/internal/app/searchapp"
 	"github.com/inhere/skillc/internal/domain/agent"
 	cfg "github.com/inhere/skillc/internal/domain/config"
 	lockpkg "github.com/inhere/skillc/internal/domain/lock"
@@ -20,8 +21,20 @@ type skillLookup interface {
 }
 
 type CommandResult struct {
+	Installed     []lockpkg.Record
+	Restored      []lockpkg.Record
+	ResolveFailed []searchapp.TargetError
+	InstallFailed []InstallItemError
+}
+
+type InstallItemError struct {
+	SkillID string
+	Reason  string
+}
+
+type BatchInstallResult struct {
 	Installed []lockpkg.Record
-	Restored  []lockpkg.Record
+	Failed    []InstallItemError
 }
 
 type Service struct {
@@ -42,9 +55,9 @@ func NewService(lockFile string) *Service {
 
 type InstallReq struct {
 	SkillID string
-	Agent    string
-	Scope    string
-	WorkDir  string
+	Agent   string
+	Scope   string
+	WorkDir string
 }
 
 // Run installs skills. 通过 skill id 搜索并安装技能
@@ -62,11 +75,15 @@ func (s *Service) Run(config cfg.Config, req InstallReq, lookup skillLookup) (Co
 		return CommandResult{}, fmt.Errorf("skill lookup is required")
 	}
 
-	scope, err := parseScope(req.Scope)
+	items, err := lookup.Resolve(req.SkillID)
 	if err != nil {
 		return CommandResult{}, err
 	}
-	items, err := lookup.Resolve(req.SkillID)
+	return s.RunResolved(config, req, items, nil)
+}
+
+func (s *Service) RunResolved(config cfg.Config, req InstallReq, items []skill.Skill, resolveFailed []searchapp.TargetError) (CommandResult, error) {
+	scope, err := parseScope(req.Scope)
 	if err != nil {
 		return CommandResult{}, err
 	}
@@ -75,29 +92,42 @@ func (s *Service) Run(config cfg.Config, req InstallReq, lookup skillLookup) (Co
 		return CommandResult{}, err
 	}
 
-	installed, err := s.InstallMulti(items, req.Agent, scope, targetRoot)
+	installResult, err := s.InstallMulti(items, req.Agent, scope, targetRoot)
 	if err != nil {
 		return CommandResult{}, err
 	}
-	return CommandResult{Installed: installed}, nil
+	return CommandResult{
+		Installed:     installResult.Installed,
+		ResolveFailed: resolveFailed,
+		InstallFailed: installResult.Failed,
+	}, nil
 }
 
 // InstallMulti installs multiple skills.
-func (s *Service) InstallMulti(items []skill.Skill, agentName string, scope agent.Scope, targetRoot string) ([]lockpkg.Record, error) {
-	installed := make([]lockpkg.Record, 0, len(items))
+func (s *Service) InstallMulti(items []skill.Skill, agentName string, scope agent.Scope, targetRoot string) (BatchInstallResult, error) {
+	result := BatchInstallResult{
+		Installed: make([]lockpkg.Record, 0, len(items)),
+		Failed:    make([]InstallItemError, 0),
+	}
 	for _, item := range items {
 		record, err := s.Install(item, agentName, scope, targetRoot)
 		if err != nil {
-			return nil, err
+			result.Failed = append(result.Failed, InstallItemError{SkillID: item.ID, Reason: err.Error()})
+			continue
 		}
-		installed = append(installed, record)
+		result.Installed = append(result.Installed, record)
 	}
-	return installed, nil
+	return result, nil
 }
 
 // Install installs a skill.
 func (s *Service) Install(item skill.Skill, agentName string, scope agent.Scope, targetRoot string) (lockpkg.Record, error) {
-	targetPath := filepath.Join(targetRoot, item.ID)
+	records, err := s.loadRecords()
+	if err != nil {
+		return lockpkg.Record{}, err
+	}
+
+	targetPath := installTargetPath(records, item, agentName, scope, targetRoot)
 	if err := s.installer.Install(filepath.Join(item.Path, item.InstallEntry), targetPath); err != nil {
 		return lockpkg.Record{}, err
 	}
@@ -118,10 +148,6 @@ func (s *Service) Install(item skill.Skill, agentName string, scope agent.Scope,
 		UpdatedAt:           now,
 	}
 
-	records, err := s.loadRecords()
-	if err != nil {
-		return lockpkg.Record{}, err
-	}
 	records = upsertRecord(records, record)
 	if err := s.store.Save(s.lockFile, records); err != nil {
 		return lockpkg.Record{}, err
@@ -200,13 +226,78 @@ func (s *Service) loadRecords() ([]lockpkg.Record, error) {
 
 func upsertRecord(records []lockpkg.Record, next lockpkg.Record) []lockpkg.Record {
 	for i, record := range records {
-		if record.SkillID == next.SkillID && record.Agent == next.Agent && record.Scope == next.Scope {
+		if sameInstallIdentity(record, next) {
 			next.InstalledAt = record.InstalledAt
 			records[i] = next
 			return records
 		}
 	}
 	return append(records, next)
+}
+
+func sameInstallIdentity(current lockpkg.Record, next lockpkg.Record) bool {
+	if current.Agent != next.Agent || current.Scope != next.Scope || current.SkillID != next.SkillID {
+		return false
+	}
+	if current.SourceQualifiedName != "" || next.SourceQualifiedName != "" {
+		return current.SourceQualifiedName == next.SourceQualifiedName
+	}
+	if current.SourceID != "" || next.SourceID != "" {
+		return current.SourceID == next.SourceID
+	}
+	return current.QualifiedName == next.QualifiedName
+}
+
+func installTargetPath(records []lockpkg.Record, item skill.Skill, agentName string, scope agent.Scope, targetRoot string) string {
+	fallback := filepath.Join(targetRoot, item.ID)
+	for _, record := range records {
+		if sameInstallIdentity(record, lockpkg.Record{
+			SkillID:             item.ID,
+			QualifiedName:       item.QualifiedName,
+			SourceQualifiedName: item.SourceQualifiedName,
+			SourceID:            item.SourceID,
+			Agent:               agentName,
+			Scope:               string(scope),
+		}) {
+			if record.InstalledPath != "" {
+				return record.InstalledPath
+			}
+			break
+		}
+	}
+	if needsSourceScopedPath(records, item, agentName, scope) {
+		return filepath.Join(targetRoot, sourceScopedInstallDir(item))
+	}
+	return fallback
+}
+
+func needsSourceScopedPath(records []lockpkg.Record, item skill.Skill, agentName string, scope agent.Scope) bool {
+	for _, record := range records {
+		if record.Agent != agentName || record.Scope != string(scope) || record.SkillID != item.ID {
+			continue
+		}
+		if !sameInstallIdentity(record, lockpkg.Record{
+			SkillID:             item.ID,
+			QualifiedName:       item.QualifiedName,
+			SourceQualifiedName: item.SourceQualifiedName,
+			SourceID:            item.SourceID,
+			Agent:               agentName,
+			Scope:               string(scope),
+		}) {
+			return true
+		}
+	}
+	return false
+}
+
+func sourceScopedInstallDir(item skill.Skill) string {
+	if item.SourceQualifiedName != "" {
+		return strings.ReplaceAll(item.SourceQualifiedName, "/", "--")
+	}
+	if item.SourceID != "" {
+		return item.SourceID + "--" + item.ID
+	}
+	return item.ID
 }
 
 func matchingRecords(records []lockpkg.Record, target string, agentName string, scope string) (map[int]struct{}, error) {

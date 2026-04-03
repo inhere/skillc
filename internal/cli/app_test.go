@@ -85,12 +85,106 @@ func TestInstallCommand_InstallsIndexedSkill(t *testing.T) {
 		Path:         sourceDir,
 	}}))
 
-	output := runAppInDirWithStdout(t, baseDir, []string{"install", "--agent", "claude-code", "hello-skill"})
+	output := runAppInDirWithStdout(t, baseDir, []string{"install", "--yes", "--agent", "claude-code", "hello-skill"})
 
 	assert.Contains(t, output, "hello-skill")
 	data, err := os.ReadFile(filepath.Join(baseDir, "project-claude", "skills", "hello-skill", "hello.txt"))
 	assert.NoErr(t, err)
 	assert.Eq(t, "hello", string(data))
+}
+
+func TestInstallCommand_BatchTargetsWithYesReportsResolveAndInstallFailures(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	indexPath := filepath.Join(baseDir, "cache", "index.json")
+	goodSourceDir := filepath.Join(baseDir, "source", "hello-skill")
+	assert.NoErr(t, os.MkdirAll(filepath.Join(goodSourceDir, "commands"), 0o755))
+	assert.NoErr(t, os.WriteFile(filepath.Join(goodSourceDir, "commands", "hello.txt"), []byte("hello"), 0o644))
+
+	config := cfg.DefaultConfig()
+	config.LockFile = filepath.Join(baseDir, "skillc-install.lock")
+	config.IndexFile = indexPath
+	config.AgentTools["claude-code"] = cfg.AgentToolConfig{Dirname: ".claude", UserDir: filepath.Join(baseDir, "user-claude"), ProjectDir: filepath.Join(baseDir, "project-claude")}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
+	assert.NoErr(t, repoindex.NewStore().Save(indexPath, []skill.Skill{
+		{ID: "hello-skill", Name: "Hello Skill", Version: "1.0.0", SourceID: "local-demo", SourceType: sourcepkg.TypeLocal, InstallEntry: "commands", Path: goodSourceDir},
+		{ID: "world-skill", Name: "World Skill", Version: "1.0.0", SourceID: "local-demo", SourceType: sourcepkg.TypeLocal, InstallEntry: "commands", Path: filepath.Join(baseDir, "missing")},
+	}))
+
+	output := runAppInDirWithStdout(t, baseDir, []string{"install", "--yes", "--agent", "claude-code", "hello-skill,world-*,missing-skill"})
+
+	assert.Contains(t, output, "hello-skill")
+	assert.Contains(t, output, "resolve failed missing-skill")
+	assert.Contains(t, output, "install failed world-skill")
+	data, err := os.ReadFile(filepath.Join(baseDir, "project-claude", "skills", "hello-skill", "hello.txt"))
+	assert.NoErr(t, err)
+	assert.Eq(t, "hello", string(data))
+	_, err = os.Stat(filepath.Join(baseDir, "project-claude", "skills", "world-skill", "hello.txt"))
+	assert.True(t, os.IsNotExist(err))
+}
+
+func TestInstallCommand_CollectionModeInstallsCollectionTarget(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	indexPath := filepath.Join(baseDir, "cache", "index.json")
+	firstSourceDir := filepath.Join(baseDir, "source", "hello-skill")
+	secondSourceDir := filepath.Join(baseDir, "source", "world-skill")
+	assert.NoErr(t, os.MkdirAll(filepath.Join(firstSourceDir, "commands"), 0o755))
+	assert.NoErr(t, os.MkdirAll(filepath.Join(secondSourceDir, "commands"), 0o755))
+	assert.NoErr(t, os.WriteFile(filepath.Join(firstSourceDir, "commands", "hello.txt"), []byte("hello"), 0o644))
+	assert.NoErr(t, os.WriteFile(filepath.Join(secondSourceDir, "commands", "world.txt"), []byte("world"), 0o644))
+
+	config := cfg.DefaultConfig()
+	config.LockFile = filepath.Join(baseDir, "skillc-install.lock")
+	config.IndexFile = indexPath
+	config.AgentTools["claude-code"] = cfg.AgentToolConfig{Dirname: ".claude", UserDir: filepath.Join(baseDir, "user-claude"), ProjectDir: filepath.Join(baseDir, "project-claude")}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
+	assert.NoErr(t, repoindex.NewStore().Save(indexPath, []skill.Skill{
+		{ID: "hello-skill", Name: "Hello Skill", Collection: "marketplaces", QualifiedName: "marketplaces/hello-skill", SourceQualifiedName: "repo-a/marketplaces/hello-skill", Version: "1.0.0", SourceID: "local-demo", SourceType: sourcepkg.TypeLocal, InstallEntry: "commands", Path: firstSourceDir},
+		{ID: "world-skill", Name: "World Skill", Collection: "marketplaces", QualifiedName: "marketplaces/world-skill", SourceQualifiedName: "repo-a/marketplaces/world-skill", Version: "1.0.0", SourceID: "local-demo", SourceType: sourcepkg.TypeLocal, InstallEntry: "commands", Path: secondSourceDir},
+	}))
+
+	output := runAppInDirWithStdout(t, baseDir, []string{"install", "--yes", "--collection", "--agent", "claude-code", "repo-a/marketplaces"})
+
+	assert.Contains(t, output, "hello-skill")
+	assert.Contains(t, output, "world-skill")
+	helloData, err := os.ReadFile(filepath.Join(baseDir, "project-claude", "skills", "hello-skill", "hello.txt"))
+	assert.NoErr(t, err)
+	assert.Eq(t, "hello", string(helloData))
+	worldData, err := os.ReadFile(filepath.Join(baseDir, "project-claude", "skills", "world-skill", "world.txt"))
+	assert.NoErr(t, err)
+	assert.Eq(t, "world", string(worldData))
+}
+
+func TestInstallCommand_PromptsBeforeInstallWithoutYes(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	indexPath := filepath.Join(baseDir, "cache", "index.json")
+	sourceDir := filepath.Join(baseDir, "source", "hello-skill")
+	assert.NoErr(t, os.MkdirAll(filepath.Join(sourceDir, "commands"), 0o755))
+	assert.NoErr(t, os.WriteFile(filepath.Join(sourceDir, "commands", "hello.txt"), []byte("hello"), 0o644))
+
+	config := cfg.DefaultConfig()
+	config.LockFile = filepath.Join(baseDir, "skillc-install.lock")
+	config.IndexFile = indexPath
+	config.AgentTools["claude-code"] = cfg.AgentToolConfig{Dirname: ".claude", UserDir: filepath.Join(baseDir, "user-claude"), ProjectDir: filepath.Join(baseDir, "project-claude")}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
+	assert.NoErr(t, repoindex.NewStore().Save(indexPath, []skill.Skill{{
+		ID:           "hello-skill",
+		Name:         "Hello Skill",
+		Version:      "1.0.0",
+		SourceID:     "local-demo",
+		SourceType:   sourcepkg.TypeLocal,
+		InstallEntry: "commands",
+		Path:         sourceDir,
+	}}))
+
+	output := runAppInDirWithInput(t, baseDir, []string{"install", "--agent", "claude-code", "hello-skill"}, "n\n")
+
+	assert.Contains(t, output, "Continue? [y/N]")
+	assert.Contains(t, output, "install cancelled")
+	_, err := os.Stat(filepath.Join(baseDir, "project-claude", "skills", "hello-skill", "hello.txt"))
+	assert.True(t, os.IsNotExist(err))
 }
 
 func TestInstallCommand_RestoresFromLockFileWhenNoArgs(t *testing.T) {
@@ -386,13 +480,37 @@ func runAppInDirWithStdout(t *testing.T, dir string, args []string) string {
 	})
 }
 
+func runAppInDirWithInput(t *testing.T, dir string, args []string, input string) string {
+	return runInDirWithIO(t, dir, input, func() error {
+		newTestApp().Run(args)
+		return nil
+	})
+}
+
 func runInDirWithStdout(t *testing.T, dir string, fn func() error) string {
+	return runInDirWithIO(t, dir, "", fn)
+}
+
+func runInDirWithIO(t *testing.T, dir string, input string, fn func() error) string {
 	t.Helper()
 	oldWD, err := os.Getwd()
 	assert.NoErr(t, err)
 	assert.NoErr(t, os.Chdir(dir))
 	defer func() {
 		assert.NoErr(t, os.Chdir(oldWD))
+	}()
+
+	oldStdin := os.Stdin
+	stdinR, stdinW, err := os.Pipe()
+	assert.NoErr(t, err)
+	if input != "" {
+		_, err = stdinW.Write([]byte(input))
+		assert.NoErr(t, err)
+	}
+	assert.NoErr(t, stdinW.Close())
+	os.Stdin = stdinR
+	defer func() {
+		os.Stdin = oldStdin
 	}()
 
 	oldStdout := os.Stdout

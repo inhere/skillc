@@ -517,5 +517,26 @@
 - [x] **Step 3: Write minimal implementation**
 - [x] **Step 4: Run tests to verify they pass**
 - [x] **Step 5: Run focused regression tests**
+### Task 28: Add batch install target CLI options and partial-success flow ✅ Completed
+
+**Files:**
+- Modify: `internal/app/searchapp/service.go`
+- Modify: `internal/app/searchapp/service_test.go`
+- Modify: `internal/app/installapp/service.go`
+- Modify: `internal/app/installapp/service_test.go`
+- Modify: `internal/cli/manage_cmd.go`
+- Modify: `internal/cli/app_test.go`
+- Modify: `arch.md`
+- Modify: `plan.md`
+
+**Design note (2026-04-03):** `skillc install` should accept comma-separated batch targets in a single `skill-id` argument, treat `prefix-*` as `skill.ID` prefix matching only, require explicit `--collection/-c` before expanding a collection selector, and support `--yes/-y` to skip confirmation. Batch execution must use partial-success semantics so resolve/install failures are reported and skipped without aborting other targets.
+
+**Verification note (2026-04-03):** Focused CLI install tests pass for batch targets with partial-success output, explicit collection mode, prompt-vs-`--yes` behavior, and installapp/searchapp regressions. `go test ./...` was re-run and still fails only at the pre-existing unrelated baseline `internal/cli/app_test.go:336` (`TestSourceAddLocalCommand_WithSyncRebuildsIndexForSearch`).
+
+- [x] **Step 1: Write the failing tests**
+- [x] **Step 2: Run tests to verify they fail**
+- [x] **Step 3: Write minimal implementation**
+- [x] **Step 4: Run tests to verify they pass**
+- [x] **Step 5: Run focused regression tests**
 - [x] **Step 6: Attempt `go test ./...` and record baseline failure**
 - [ ] **Step 7: Commit**

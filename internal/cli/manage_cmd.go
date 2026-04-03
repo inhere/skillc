@@ -80,7 +80,7 @@ type ManageOptions struct {
 
 func (mo *ManageOptions) bindCommand(c *gcli.Command) {
 	c.StrOpt(&mo.Scope, "scope", "s", string(agent.ScopeProject), "scope name")
-	c.StrOpt(&mo.Agent, "agent", "a", agent.DefaultAgentDir, "agent name or directory")
+	c.StrOpt(&mo.Agent, "agent", "a", agent.DefaultAgentName, "agent name or directory")
 }
 
 func buildInstallCommand() *gcli.Command {

@@ -123,8 +123,21 @@ func buildInstallCommand() *gcli.Command {
 
 			targets := splitInstallTargets(targetArg)
 			if len(targets) == 0 {
+				ccolor.Warnln("invalid skill targets")
 				return nil
 			}
+
+			searchResult, err := newSearchService().ResolveInstallTargets(targets, opts.Collection)
+			if err != nil {
+				slog.Error(err)
+				return err
+			}
+
+			skillIDs := make([]string, 0, len(searchResult.Resolved))
+			for _, item := range searchResult.Resolved {
+				skillIDs = append(skillIDs, item.ID)
+			}
+			ccolor.Printf("Will install skills: <info>%s</>\n", strings.Join(skillIDs, ", "))
 			if !opts.Yes {
 				confirmed, err := confirmInstall(os.Stdin, os.Stdout)
 				if err != nil {
@@ -133,12 +146,6 @@ func buildInstallCommand() *gcli.Command {
 				if !confirmed {
 					return WriteLine(os.Stdout, "install cancelled")
 				}
-			}
-
-			searchResult, err := newSearchService().ResolveInstallTargets(targets, opts.Collection)
-			if err != nil {
-				slog.Error(err)
-				return err
 			}
 
 			result, err := installapp.NewService(config.LockFile).RunResolved(config, installapp.InstallReq{
@@ -151,19 +158,13 @@ func buildInstallCommand() *gcli.Command {
 				return err
 			}
 			for _, record := range result.Installed {
-				if err := WriteLine(os.Stdout, fmt.Sprintf("installed %s %s", record.SkillID, record.InstalledPath)); err != nil {
-					return err
-				}
+				ccolor.Successf("installed %s %s\n", record.SkillID, record.InstalledPath)
 			}
 			for _, failed := range result.ResolveFailed {
-				if err := WriteLine(os.Stdout, fmt.Sprintf("resolve failed %s %s", failed.Target, failed.Reason)); err != nil {
-					return err
-				}
+				ccolor.Warnf("- resolve failed %s %s\n", failed.Target, failed.Reason)
 			}
 			for _, failed := range result.InstallFailed {
-				if err := WriteLine(os.Stdout, fmt.Sprintf("install failed %s %s", failed.SkillID, failed.Reason)); err != nil {
-					return err
-				}
+				ccolor.Errorf("install failed %s %s\n", failed.SkillID, failed.Reason)
 			}
 			return nil
 		},

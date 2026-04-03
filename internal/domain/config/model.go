@@ -3,9 +3,10 @@ package config
 import domainsource "github.com/inhere/skillc/internal/domain/source"
 
 type Config struct {
-	ProxyURL         string                `yaml:"proxy_url"`
+	ProxyURL string `yaml:"proxy_url"`
 	// AgentTools is the agent tools config.
-	AgentTools       map[string]AgentToolConfig `yaml:"agent_tools"`
+	//  - 通用的key agents 必定存在
+	AgentTools map[string]AgentToolConfig `yaml:"agent_tools"`
 	// LockFile is the lock file path.
 	LockFile         string                `yaml:"lock_file"`
 	RepoCacheDir     string                `yaml:"repo_cache_dir"`

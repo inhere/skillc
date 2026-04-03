@@ -40,10 +40,6 @@ func ResolveSkills(items []skill.Skill, target string) ([]skill.Skill, error) {
 	for _, item := range items {
 		if item.SourceQualifiedName == target || item.QualifiedName == target {
 			exact = append(exact, item)
-			continue
-		}
-		if !strings.Contains(target, "/") && item.ID == target && (item.Collection == "" || item.QualifiedName == "" || item.QualifiedName == item.ID) {
-			exact = append(exact, item)
 		}
 	}
 	if len(exact) > 1 {
@@ -51,6 +47,34 @@ func ResolveSkills(items []skill.Skill, target string) ([]skill.Skill, error) {
 	}
 	if len(exact) == 1 {
 		return exact, nil
+	}
+
+	if !strings.Contains(target, "/") {
+		exactID := make([]skill.Skill, 0)
+		for _, item := range items {
+			if item.ID == target {
+				exactID = append(exactID, item)
+			}
+		}
+		if len(exactID) > 1 {
+			return nil, fmt.Errorf("ambiguous skill target: %s; use source/collection/skill", target)
+		}
+		if len(exactID) == 1 {
+			return exactID, nil
+		}
+
+		tailMatches := make([]skill.Skill, 0)
+		for _, item := range items {
+			if idx := strings.LastIndex(item.QualifiedName, "/"); idx >= 0 && idx < len(item.QualifiedName)-1 && item.QualifiedName[idx+1:] == target {
+				tailMatches = append(tailMatches, item)
+			}
+		}
+		if len(tailMatches) > 1 {
+			return nil, fmt.Errorf("ambiguous skill target: %s; use source/collection/skill", target)
+		}
+		if len(tailMatches) == 1 {
+			return tailMatches, nil
+		}
 	}
 
 	collectionMatches := make([]skill.Skill, 0)

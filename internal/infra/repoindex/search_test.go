@@ -46,3 +46,35 @@ func TestResolveSkills_SupportsCollectionTargetsAndDisambiguation(t *testing.T) 
 	assert.Err(t, err)
 	assert.Contains(t, err.Error(), "ambiguous collection target")
 }
+
+func TestResolveSkill_SupportsUniqueQualifiedNameTail(t *testing.T) {
+	items := []skill.Skill{
+		{ID: "ship-skill", Name: "ship", Collection: "gstack", QualifiedName: "gstack/ship", SourceQualifiedName: "repo-a/gstack/ship"},
+	}
+
+	item, err := ResolveSkill(items, "ship")
+	assert.NoErr(t, err)
+	assert.Eq(t, "ship-skill", item.ID)
+}
+
+func TestResolveSkill_PrefersExactIDOverQualifiedNameTail(t *testing.T) {
+	items := []skill.Skill{
+		{ID: "ship", Name: "ship", QualifiedName: "ship"},
+		{ID: "ship-skill", Name: "ship", Collection: "gstack", QualifiedName: "gstack/ship", SourceQualifiedName: "repo-a/gstack/ship"},
+	}
+
+	item, err := ResolveSkill(items, "ship")
+	assert.NoErr(t, err)
+	assert.Eq(t, "ship", item.ID)
+}
+
+func TestResolveSkill_RejectsAmbiguousQualifiedNameTail(t *testing.T) {
+	items := []skill.Skill{
+		{ID: "ship-gstack", Name: "ship", Collection: "gstack", QualifiedName: "gstack/ship", SourceQualifiedName: "repo-a/gstack/ship"},
+		{ID: "ship-other", Name: "ship", Collection: "other", QualifiedName: "other/ship", SourceQualifiedName: "repo-b/other/ship"},
+	}
+
+	_, err := ResolveSkill(items, "ship")
+	assert.Err(t, err)
+	assert.Contains(t, err.Error(), "ambiguous skill target")
+}

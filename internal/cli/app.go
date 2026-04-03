@@ -31,40 +31,34 @@ func NewApp(version, gitHash, buildTime string) *gcli.App {
 	return app
 }
 
-func newConfigService() *configapp.Service {
+var workDir = getWorkdir()
+
+func getWorkdir() string {
 	cwd, err := os.Getwd()
 	if err != nil {
 		cwd = "."
 	}
-	return configapp.NewService(defaultConfigFile(cwd), cwd)
+	return cwd
+}
+
+func newConfigService() *configapp.Service {
+	return configapp.NewService(defaultConfigFile(workDir), workDir)
 }
 
 func newSearchService() *searchapp.Service {
 	config, _, err := loadConfig()
 	if err != nil {
-		cwd, getwdErr := os.Getwd()
-		if getwdErr != nil {
-			cwd = "."
-		}
-		return searchapp.NewService(filepath.Join(cwd, "skillc-index.json"))
+		return searchapp.NewService(filepath.Join(workDir, "skillc-index.json"))
 	}
 	return searchapp.NewService(config.IndexFile)
 }
 
 func newSourceService() *sourceapp.Service {
-	cwd, err := os.Getwd()
-	if err != nil {
-		cwd = "."
-	}
-	return sourceapp.NewService(defaultConfigFile(cwd), cwd)
+	return sourceapp.NewService(defaultConfigFile(workDir), workDir)
 }
 
 func newDoctorService() *doctorapp.Service {
-	cwd, err := os.Getwd()
-	if err != nil {
-		cwd = "."
-	}
-	return doctorapp.NewService(defaultConfigFile(cwd), cwd)
+	return doctorapp.NewService(defaultConfigFile(workDir), workDir)
 }
 
 func loadConfig() (cfg.Config, string, error) {

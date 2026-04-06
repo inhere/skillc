@@ -533,10 +533,26 @@
 
 **Verification note (2026-04-03):** Focused CLI install tests pass for batch targets with partial-success output, explicit collection mode, prompt-vs-`--yes` behavior, and installapp/searchapp regressions. `go test ./...` was re-run and still fails only at the pre-existing unrelated baseline `internal/cli/app_test.go:336` (`TestSourceAddLocalCommand_WithSyncRebuildsIndexForSearch`).
 
+### Task 29: Add installed skill update flow
+
+**Files:**
+- Create: `internal/app/updateapp/service.go`
+- Test: `internal/app/updateapp/service_test.go`
+- Modify: `internal/app/installapp/service.go`
+- Modify: `internal/app/installapp/service_test.go`
+- Modify: `internal/cli/manage_cmd.go`
+- Modify: `internal/cli/app_test.go`
+- Modify: `arch.md`
+- Modify: `plan.md`
+
+**Design note (2026-04-06):** `skillc update` now uses a lock-first workflow. It selects installed skills from the lock file when present, falls back to scanning the installed agent directory when the lock is missing or empty, skips pinned or ambiguous entries, syncs each referenced source once, reloads the shared index, and reinstalls matching skills in place via recorded `InstalledPath` without version comparison.
+
+**Verification note (2026-04-06):** Focused regressions pass for `internal/app/installapp`, `internal/app/updateapp`, and `internal/cli`, including CLI output for updated / skipped / failed items. Full regression `go test ./...` now passes too.
+
 - [x] **Step 1: Write the failing tests**
 - [x] **Step 2: Run tests to verify they fail**
 - [x] **Step 3: Write minimal implementation**
 - [x] **Step 4: Run tests to verify they pass**
-- [x] **Step 5: Run focused regression tests**
-- [x] **Step 6: Attempt `go test ./...` and record baseline failure**
-- [ ] **Step 7: Commit**
+- [x] **Step 5: Run `go test ./...`**
+- [ ] **Step 6: Commit**
+

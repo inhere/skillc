@@ -355,23 +355,32 @@ Skillc 需要支持卸载已安装 Skill。
 
 ### 9.8 Skill 更新
 
-Skillc 需要支持来源同步和已安装 Skill 升级。
+Skillc 需要支持来源同步和已安装 Skill 刷新。
 
 更新分为两层：
 
 - **Source Update**：通过 `skillc source sync [source-id]` 或 `skillc registry refresh [registry-id]` 手动同步来源
-- **Skill Update**：通过 `skillc update [<skill-id>]` 对比锁文件中已安装版本与来源最新版本，执行升级。**执行 Skill Update 时会自动先触发相关来源的 Source Update**，用户无需手动先执行 sync
+- **Skill Update（v1）**：通过 `skillc update [--agent <agent>] [--scope <scope>] [--yes]` 刷新当前已安装 Skill。**执行 Skill Update 时会自动先触发相关来源的 Source Update**，用户无需手动先执行 sync
 
-功能要求：
+功能要求（v1）：
 
-- 检查某个 Skill 是否可升级
-- 列出所有可升级 Skill（`skillc outdated`）
-- 升级单个 Skill
-- 升级指定 Agent 下的所有 Skills（`--agent <agent> --all`）
-- 支持 `--dry-run` 预览将要升级的内容
-- `pinned: true` 的 Skill 在 update 时自动跳过
+- 默认按已安装项更新，而不是要求显式传 skill 目标
+- 优先使用 lock file 中的安装记录作为更新输入
+- 当 lock file 不存在或为空时，按 `--agent` / `--scope` 扫描当前已安装目录作为 fallback
+- fallback 需要兼容 source-scoped 安装目录，以及同 ID 多来源安装时的 plain/scoped 混合目录
+- 更新前自动同步相关来源
+- 从来源重新安装到原位置，完成“刷新到最新来源内容”的效果
+- 成功更新后刷新 lock 记录，保证后续 restore / list / update 语义一致
+- `pinned: true` 的 lock 记录在 update 时自动跳过
 
-版本判断规则：
+当前版本明确不包含：
+
+- `skillc update <skill-id>` / collection / source 目标参数更新
+- `--all`、`--dry-run`、`--json`
+- `skillc outdated`
+- 基于版本号或 checksum 的“是否需要更新”判断
+
+版本判断规则（后续阶段）：
 
 - Git 源优先基于 commit/tag 判断
 - 本地路径源基于内容指纹（SHA256）或修改时间加指纹判断
@@ -451,7 +460,7 @@ skillc install [<skill-id>[@<version>]] [--agent <agent>] [--scope <global|proje
 skillc uninstall <skill-id> [--agent <agent>] [--scope <global|project>] [--yes] [--dry-run]
 skillc list [--agent <agent>] [--scope <global|project>] [--status <installed|outdated|missing|orphan>] [--json]
 skillc outdated [--agent <agent>] [--json]
-skillc update [<skill-id>] [--agent <agent>] [--all] [--dry-run]
+skillc update [--agent <agent>] [--scope <scope>] [--yes]
 
 # 缓存管理
 skillc cache info

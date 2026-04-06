@@ -147,6 +147,7 @@ func (s *Service) Install(item skill.Skill, agentName string, scope agent.Scope,
 		InstalledAt:         now,
 		UpdatedAt:           now,
 	}
+	record = preserveInstalledAt(records, record)
 
 	records = upsertRecord(records, record)
 	if err := s.store.Save(s.lockFile, records); err != nil {
@@ -154,6 +155,41 @@ func (s *Service) Install(item skill.Skill, agentName string, scope agent.Scope,
 	}
 	return record, nil
 }
+
+func (s *Service) ReinstallAtPath(item skill.Skill, agentName string, scope agent.Scope, targetPath string) (lockpkg.Record, error) {
+	records, err := s.loadRecords()
+	if err != nil {
+		return lockpkg.Record{}, err
+	}
+
+	if err := s.installer.Install(filepath.Join(item.Path, item.InstallEntry), targetPath); err != nil {
+		return lockpkg.Record{}, err
+	}
+
+	now := s.now()
+	record := lockpkg.Record{
+		SkillID:             item.ID,
+		QualifiedName:       item.QualifiedName,
+		SourceQualifiedName: item.SourceQualifiedName,
+		Agent:               agentName,
+		Scope:               string(scope),
+		Version:             item.Version,
+		SourceID:            item.SourceID,
+		SourceType:          string(item.SourceType),
+		InstallEntry:        item.InstallEntry,
+		InstalledPath:       targetPath,
+		InstalledAt:         now,
+		UpdatedAt:           now,
+	}
+	record = preserveInstalledAt(records, record)
+
+	records = upsertRecord(records, record)
+	if err := s.store.Save(s.lockFile, records); err != nil {
+		return lockpkg.Record{}, err
+	}
+	return record, nil
+}
+
 
 // UninstallMulti uninstalls multiple skills.
 func (s *Service) UninstallMulti(skillIDs []string, agentName string, scope agent.Scope) error {
@@ -222,6 +258,16 @@ func (s *Service) loadRecords() ([]lockpkg.Record, error) {
 		return nil, nil
 	}
 	return nil, err
+}
+
+func preserveInstalledAt(records []lockpkg.Record, next lockpkg.Record) lockpkg.Record {
+	for _, record := range records {
+		if sameInstallIdentity(record, next) {
+			next.InstalledAt = record.InstalledAt
+			return next
+		}
+	}
+	return next
 }
 
 func upsertRecord(records []lockpkg.Record, next lockpkg.Record) []lockpkg.Record {

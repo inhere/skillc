@@ -250,6 +250,57 @@ func TestService_RunResolvedReturnsInstalledAndResolveFailures(t *testing.T) {
 	assert.Eq(t, "hello", string(data))
 }
 
+func TestService_ReinstallAtPathUpdatesExistingLockRecord(t *testing.T) {
+	baseDir := t.TempDir()
+	lockFile := filepath.Join(baseDir, "skillc-install.lock")
+	sourceDir := filepath.Join(baseDir, "source", "hello-skill")
+	commandsDir := filepath.Join(sourceDir, "commands")
+	targetPath := filepath.Join(baseDir, ".claude", "skills", "hello-skill")
+	assert.NoErr(t, os.MkdirAll(commandsDir, 0o755))
+	assert.NoErr(t, os.WriteFile(filepath.Join(commandsDir, "hello.txt"), []byte("updated"), 0o644))
+	assert.NoErr(t, NewService(lockFile).store.Save(lockFile, []lockpkg.Record{{
+		SkillID:             "hello-skill",
+		QualifiedName:       "marketplaces/hello-skill",
+		SourceQualifiedName: "repo-a/marketplaces/hello-skill",
+		Agent:               "claude-code",
+		Scope:               "project",
+		SourceID:            "local-demo",
+		SourceType:          "local",
+		InstallEntry:        "commands",
+		InstalledPath:       targetPath,
+		InstalledAt:         time.Date(2026, 4, 1, 1, 0, 0, 0, time.UTC),
+		UpdatedAt:           time.Date(2026, 4, 1, 1, 0, 0, 0, time.UTC),
+	}}))
+
+	service := NewService(lockFile)
+	service.now = func() time.Time { return time.Date(2026, 4, 4, 9, 0, 0, 0, time.UTC) }
+
+	record, err := service.ReinstallAtPath(skill.Skill{
+		ID:                  "hello-skill",
+		QualifiedName:       "marketplaces/hello-skill",
+		SourceQualifiedName: "repo-a/marketplaces/hello-skill",
+		Version:             "1.1.0",
+		SourceID:            "local-demo",
+		SourceType:          sourcepkg.TypeLocal,
+		InstallEntry:        "commands",
+		Path:                sourceDir,
+	}, "claude-code", agent.ScopeProject, targetPath)
+	assert.NoErr(t, err)
+	assert.Eq(t, targetPath, record.InstalledPath)
+	assert.Eq(t, "1.1.0", record.Version)
+	assert.Eq(t, time.Date(2026, 4, 1, 1, 0, 0, 0, time.UTC), record.InstalledAt)
+	assert.Eq(t, time.Date(2026, 4, 4, 9, 0, 0, 0, time.UTC), record.UpdatedAt)
+
+	data, err := os.ReadFile(filepath.Join(targetPath, "hello.txt"))
+	assert.NoErr(t, err)
+	assert.Eq(t, "updated", string(data))
+
+	locks, err := service.store.Load(lockFile)
+	assert.NoErr(t, err)
+	assert.Len(t, locks, 1)
+	assert.Eq(t, "1.1.0", locks[0].Version)
+}
+
 func TestService_RunResolvedReturnsResolveAndInstallFailures(t *testing.T) {
 	baseDir := t.TempDir()
 	lockFile := filepath.Join(baseDir, "skillc-install.lock")

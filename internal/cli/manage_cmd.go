@@ -13,6 +13,7 @@ import (
 	"github.com/gookit/slog"
 	"github.com/inhere/skillc/internal/app/installapp"
 	"github.com/inhere/skillc/internal/app/listapp"
+	"github.com/inhere/skillc/internal/app/updateapp"
 	"github.com/inhere/skillc/internal/domain/agent"
 )
 
@@ -137,7 +138,9 @@ func buildInstallCommand() *gcli.Command {
 			for _, item := range searchResult.Resolved {
 				skillIDs = append(skillIDs, item.ID)
 			}
-			ccolor.Printf("Will install skills: <info>%s</>\n", strings.Join(skillIDs, ", "))
+			if _, err := fmt.Fprintf(os.Stdout, "Will install skills: %s\n", strings.Join(skillIDs, ", ")); err != nil {
+				return err
+			}
 			if !opts.Yes {
 				confirmed, err := confirmInstall(os.Stdin, os.Stdout)
 				if err != nil {
@@ -158,13 +161,19 @@ func buildInstallCommand() *gcli.Command {
 				return err
 			}
 			for _, record := range result.Installed {
-				ccolor.Successf("installed %s %s\n", record.SkillID, record.InstalledPath)
+				if err := WriteLine(os.Stdout, fmt.Sprintf("installed %s %s", record.SkillID, record.InstalledPath)); err != nil {
+					return err
+				}
 			}
 			for _, failed := range result.ResolveFailed {
-				ccolor.Warnf("- resolve failed %s %s\n", failed.Target, failed.Reason)
+				if err := WriteLine(os.Stdout, fmt.Sprintf("- resolve failed %s %s", failed.Target, failed.Reason)); err != nil {
+					return err
+				}
 			}
 			for _, failed := range result.InstallFailed {
-				ccolor.Errorf("install failed %s %s\n", failed.SkillID, failed.Reason)
+				if err := WriteLine(os.Stdout, fmt.Sprintf("install failed %s %s", failed.SkillID, failed.Reason)); err != nil {
+					return err
+				}
 			}
 			return nil
 		},
@@ -194,6 +203,51 @@ func confirmInstall(in *os.File, out *os.File) (bool, error) {
 	}
 	answer = strings.TrimSpace(strings.ToLower(answer))
 	return answer == "y" || answer == "yes", nil
+}
+
+func buildUpdateCommand() *gcli.Command {
+	var opts ManageOptions
+	return &gcli.Command{
+		Name: "update",
+		Desc: "Update installed skills",
+		Config: func(c *gcli.Command) {
+			opts.bindCommand(c)
+			c.BoolOpt(&opts.Yes, "yes", "y", false, "skip confirmation prompt")
+		},
+		Func: func(c *gcli.Command, _ []string) error {
+			_, cwd, err := loadConfig()
+			if err != nil {
+				slog.Error(err)
+				return err
+			}
+
+			result, err := updateapp.NewService(defaultConfigFile(cwd), cwd).Run(updateapp.Req{
+				Agent:   opts.Agent,
+				Scope:   opts.Scope,
+				WorkDir: cwd,
+			})
+			if err != nil {
+				slog.Error(err)
+				return err
+			}
+			for _, record := range result.Updated {
+				if err := WriteLine(os.Stdout, fmt.Sprintf("updated %s %s", record.SkillID, record.InstalledPath)); err != nil {
+					return err
+				}
+			}
+			for _, skipped := range result.Skipped {
+				if err := WriteLine(os.Stdout, fmt.Sprintf("skipped %s %s", skipped.SkillID, skipped.Reason)); err != nil {
+					return err
+				}
+			}
+			for _, failed := range result.Failed {
+				if err := WriteLine(os.Stdout, fmt.Sprintf("update failed %s %s", failed.SkillID, failed.Reason)); err != nil {
+					return err
+				}
+			}
+			return nil
+		},
+	}
 }
 
 func buildUninstallCommand() *gcli.Command {

@@ -42,6 +42,14 @@ func TestNewApp_RegistersCollectionCommand(t *testing.T) {
 	assert.Eq(t, "Browse indexed collections", collection.Desc)
 }
 
+func TestNewApp_RegistersUpdateCommand(t *testing.T) {
+	app := newTestApp()
+
+	update := findCommandByName(app, "update")
+	assert.NotNil(t, update)
+	assert.Eq(t, "Update installed skills", update.Desc)
+}
+
 func TestNewApp_RegistersInstallListAndDoctorCommands(t *testing.T) {
 	app := newTestApp()
 
@@ -448,21 +456,52 @@ func TestUninstallCommand_RemovesInstalledSkill(t *testing.T) {
 	assert.Len(t, locks, 0)
 }
 
-func TestDoctorCommand_ReportsHealth(t *testing.T) {
+func TestUpdateCommand_PrintsUpdatedSkippedAndFailedItems(t *testing.T) {
 	baseDir := t.TempDir()
 	configFile := filepath.Join(baseDir, "skillc.yaml")
+	lockFile := filepath.Join(baseDir, "skillc-install.lock")
+	indexFile := filepath.Join(baseDir, "cache", "index.json")
+	helloSource := filepath.Join(baseDir, "source", "hello-skill")
+	helloCommands := filepath.Join(helloSource, "commands")
+	helloInstalled := filepath.Join(baseDir, "project-claude", "skills", "hello-skill")
+	pinnedInstalled := filepath.Join(baseDir, "project-claude", "skills", "pinned-skill")
+	brokenInstalled := filepath.Join(baseDir, "project-claude", "skills", "broken-skill")
+	assert.NoErr(t, os.MkdirAll(helloCommands, 0o755))
+	assert.NoErr(t, os.WriteFile(filepath.Join(helloCommands, "hello.txt"), []byte("updated"), 0o644))
+	assert.NoErr(t, os.WriteFile(filepath.Join(helloSource, "SKILL.md"), []byte(`---
+id: hello-skill
+name: Hello Skill
+description: Friendly greeting helper
+version: 2.0.0
+install_entry: commands
+---
+# Hello Skill
+`), 0o644))
+	assert.NoErr(t, os.MkdirAll(filepath.Join(baseDir, "project-claude", "skills"), 0o755))
+
 	config := cfg.DefaultConfig()
-	config.LockFile = filepath.Join(baseDir, "skillc-install.lock")
-	config.RepoCacheDir = filepath.Join(baseDir, "repos")
+	config.LockFile = lockFile
+	config.IndexFile = indexFile
+	config.Sources = []sourcepkg.Source{{ID: "local-demo", Name: "local-demo", Type: sourcepkg.TypeLocal, Path: filepath.Join(baseDir, "source")}}
+	config.AgentTools["claude-code"] = cfg.AgentToolConfig{Dirname: ".claude", UserDir: filepath.Join(baseDir, "user-claude"), ProjectDir: filepath.Join(baseDir, "project-claude")}
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
+	assert.NoErr(t, lockstore.NewStore().Save(lockFile, []lockpkg.Record{
+		{SkillID: "hello-skill", QualifiedName: "hello-skill", SourceQualifiedName: "local-demo/hello-skill", Agent: "claude-code", Scope: "project", SourceID: "local-demo", InstallEntry: "commands", InstalledPath: helloInstalled},
+		{SkillID: "pinned-skill", QualifiedName: "pinned-skill", SourceQualifiedName: "local-demo/pinned-skill", Agent: "claude-code", Scope: "project", SourceID: "local-demo", InstallEntry: "commands", InstalledPath: pinnedInstalled, Pinned: true},
+		{SkillID: "broken-skill", QualifiedName: "broken-skill", SourceQualifiedName: "local-demo/broken-skill", Agent: "claude-code", Scope: "project", SourceID: "local-demo", InstallEntry: "commands", InstalledPath: brokenInstalled},
+	}))
+	assert.NoErr(t, repoindex.NewStore().Save(indexFile, []skill.Skill{
+		{ID: "hello-skill", QualifiedName: "hello-skill", SourceQualifiedName: "local-demo/hello-skill", Version: "2.0.0", SourceID: "local-demo", SourceType: sourcepkg.TypeLocal, InstallEntry: "commands", Path: helloSource},
+		{ID: "pinned-skill", QualifiedName: "pinned-skill", SourceQualifiedName: "local-demo/pinned-skill", Version: "2.0.0", SourceID: "local-demo", SourceType: sourcepkg.TypeLocal, InstallEntry: "commands", Path: filepath.Join(baseDir, "source", "pinned-skill")},
+	}))
 
-	output := runAppInDirWithStdout(t, baseDir, []string{"doctor"})
+	output := runAppInDirWithStdout(t, baseDir, []string{"update", "--agent", "claude-code"})
 
-	assert.Contains(t, output, "git_available=")
-	assert.Contains(t, output, "config_ok=true")
-	assert.Contains(t, output, "lock_file=")
-	assert.Contains(t, output, "repo_cache_dir=")
+	assert.Contains(t, output, "updated hello-skill")
+	assert.Contains(t, output, "skipped pinned-skill")
+	assert.Contains(t, output, "update failed broken-skill")
 }
+
 
 func findCommandByName(app *gcli.App, name string) *gcli.Command {
 	for _, cmd := range app.Commands() {

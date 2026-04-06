@@ -390,17 +390,21 @@ type InstallPlan struct {
 5. 来源有效则重新安装
 6. 汇总成功/失败结果
 
-### 6.5 `skillc uninstall <target>`
+### 6.6 `skillc update`
 
-`<target>` 与 install 使用同一套命名语义，可卸载单个 skill 或整个 collection。
+- 默认按已安装项更新
+- 优先使用 lock 记录作为更新输入
+- lock 缺失或为空时，按 `agent + scope` 扫描已安装目录，并基于索引唯一匹配回退
+- 执行更新前自动同步相关来源
+- 当前版本不做版本比较，仅执行“同步来源 + 原位重装”
 
-1. 查询 lock 记录
-2. 根据 target 解析要删除的一条或多条安装记录
-3. 若 target 有歧义，提示补全 source 限定名
-4. 定位安装路径
-5. 删除目标产物
-6. 删除对应 lock 记录
-7. 返回幂等结果
+1. 读取配置与 lock file
+2. 按 `agent + scope` 收集已安装记录；若 lock 缺失或为空，则扫描已安装目录回退
+3. 过滤 pinned 项并记录 skip 原因
+4. 聚合待更新项涉及的 source，逐个执行 `source sync`
+5. 重新加载索引并按 `SkillID + QualifiedName / SourceQualifiedName / SourceID` 匹配最新 Skill
+6. 调用 install service 按已记录 `InstalledPath` 原位重装
+7. 汇总 updated / skipped / failed 结果并由 CLI 输出
 
 ---
 

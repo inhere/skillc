@@ -9,6 +9,7 @@ import (
 
 	"github.com/gookit/gcli/v3"
 	"github.com/gookit/goutil/testutil/assert"
+	"github.com/gookit/goutil/x/ccolor"
 	"github.com/inhere/skillc/internal/app/installapp"
 	"github.com/inhere/skillc/internal/app/updateapp"
 	cfg "github.com/inhere/skillc/internal/domain/config"
@@ -21,6 +22,7 @@ import (
 )
 
 func newTestApp() *gcli.App {
+	ccolor.Disable()
 	return NewApp("dev", "unknown", "unknown")
 }
 

@@ -79,7 +79,8 @@ func buildSourceCommand() *gcli.Command {
 				slog.Error(err)
 				return err
 			}
-			return WriteLine(os.Stdout, "ok")
+			ccolor.Infof("removed %s\n", args[0])
+			return nil
 		},
 	})
 

@@ -14,7 +14,7 @@ func NewStore() *Store {
 	return &Store{}
 }
 
-func (s *Store) Save(path string, items []lockpkg.Record) error {
+func (s *Store) Save(path string, items lockpkg.File) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
@@ -25,12 +25,12 @@ func (s *Store) Save(path string, items []lockpkg.Record) error {
 	return os.WriteFile(path, data, 0o644)
 }
 
-func (s *Store) Load(path string) ([]lockpkg.Record, error) {
+func (s *Store) Load(path string) (lockpkg.File, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
-	var items []lockpkg.Record
+	var items lockpkg.File
 	if err := json.Unmarshal(data, &items); err != nil {
 		return nil, err
 	}

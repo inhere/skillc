@@ -23,7 +23,7 @@ type sourceSyncer interface {
 }
 
 type reinstallService interface {
-	ReinstallAtPath(item skill.Skill, agentName string, scope agent.Scope, targetPath string) (lockpkg.Record, error)
+	ReinstallAtPath(item skill.Skill, agentName string, scope agent.Scope, scopeKey string, targetPath string) (installapp.RuntimeRecord, error)
 }
 
 type sourceServiceFactory func(configFile string, baseDir string) sourceSyncer
@@ -40,8 +40,17 @@ type UpdateReq struct {
 
 type Req = UpdateReq
 
+type InstalledItem struct {
+	lockpkg.Record
+	Agent         string
+	Scope         string
+	ScopeKey      string
+	InstalledPath string
+	FromLock      bool
+}
+
 type Candidate struct {
-	Installed lockpkg.Record
+	Installed InstalledItem
 	Latest    skill.Skill
 }
 
@@ -66,12 +75,13 @@ type SkippedItem struct {
 }
 
 type Result struct {
-	Candidates   []Candidate
-	Updated      []lockpkg.Record
-	SyncFailed   []SourceSyncError
-	UpdateFailed []UpdateItemError
-	Failed       []FailedItem
-	Skipped      []SkippedItem
+	Candidates    []Candidate
+	Updated       []installapp.RuntimeRecord
+	SyncFailed    []SourceSyncError
+	UpdateFailed  []UpdateItemError
+	CleanupFailed []FailedItem
+	Failed        []FailedItem
+	Skipped       []SkippedItem
 }
 
 type Service struct {
@@ -84,6 +94,7 @@ type Service struct {
 	newInstaller   func(lockFile string) reinstallService
 	sourceFactory  sourceServiceFactory
 	installFactory installServiceFactory
+	removeAll      func(path string) error
 }
 
 func NewService(configFile string, baseDir string) *Service {
@@ -103,6 +114,7 @@ func NewService(configFile string, baseDir string) *Service {
 		installFactory: func(lockFile string) reinstallService {
 			return installapp.NewService(lockFile)
 		},
+		removeAll: os.RemoveAll,
 	}
 }
 
@@ -142,35 +154,62 @@ func (s *Service) Run(req UpdateReq) (Result, error) {
 		result.Failed = append(result.Failed, FailedItem{SkillID: item.SkillID, Reason: item.Reason})
 	}
 
-	installer := s.newInstaller
-	if installer == nil {
-		installer = s.installFactory
+		installer := s.installFactory
+	if s.newInstaller != nil {
+		installer = s.newInstaller
 	}
 	worker := installer(config.LockFile)
+	removeAll := s.removeAll
+	if removeAll == nil {
+		removeAll = os.RemoveAll
+	}
 	for _, candidate := range result.Candidates {
-		record, err := worker.ReinstallAtPath(candidate.Latest, candidate.Installed.Agent, agent.Scope(candidate.Installed.Scope), candidate.Installed.InstalledPath)
+		oldPath := candidate.Installed.InstalledPath
+		targetPath := oldPath
+		removeOldPath := false
+		if candidate.Installed.FromLock {
+			targetPath, err = resolveLatestInstalledPath(config, req.WorkDir, candidate.Installed.ScopeKey, candidate.Installed.Agent, agent.Scope(candidate.Installed.Scope), candidate.Latest)
+			if err != nil {
+				result.UpdateFailed = append(result.UpdateFailed, UpdateItemError{SkillID: candidate.Installed.SkillID, Reason: err.Error()})
+				result.Failed = append(result.Failed, FailedItem{SkillID: candidate.Installed.SkillID, Reason: err.Error()})
+				continue
+			}
+			removeOldPath = oldPath != targetPath
+		}
+		record, err := worker.ReinstallAtPath(
+			candidate.Latest,
+			candidate.Installed.Agent,
+			agent.Scope(candidate.Installed.Scope),
+			candidate.Installed.ScopeKey,
+			targetPath,
+		)
 		if err != nil {
 			result.UpdateFailed = append(result.UpdateFailed, UpdateItemError{SkillID: candidate.Installed.SkillID, Reason: err.Error()})
 			result.Failed = append(result.Failed, FailedItem{SkillID: candidate.Installed.SkillID, Reason: err.Error()})
 			continue
 		}
 		result.Updated = append(result.Updated, record)
+		if removeOldPath {
+			if err := removeAll(oldPath); err != nil {
+				result.CleanupFailed = append(result.CleanupFailed, FailedItem{SkillID: candidate.Installed.SkillID, Reason: err.Error()})
+			}
+		}
 	}
 	return result, nil
 }
 
-func (s *Service) collectSelected(config cfg.Config, req UpdateReq, scope agent.Scope) ([]lockpkg.Record, []SkippedItem, error) {
+func (s *Service) collectSelected(config cfg.Config, req UpdateReq, scope agent.Scope) ([]InstalledItem, []SkippedItem, error) {
 	records, err := s.loadRecords(config.LockFile)
 	if err != nil {
 		return nil, nil, err
 	}
 	if len(records) > 0 {
-		return selectRecords(records, req.Target, req.Agent, string(scope), req.All)
+		return selectRecords(config, req.WorkDir, records, req.Target, req.Agent, string(scope), req.All)
 	}
 	return s.collectFromInstalledDirs(config, req.WorkDir, req.Agent, scope)
 }
 
-func (s *Service) loadRecords(path string) ([]lockpkg.Record, error) {
+func (s *Service) loadRecords(path string) (lockpkg.File, error) {
 	records, err := s.lockStore.Load(path)
 	if err == nil {
 		return records, nil
@@ -181,24 +220,41 @@ func (s *Service) loadRecords(path string) ([]lockpkg.Record, error) {
 	return nil, err
 }
 
-func selectRecords(records []lockpkg.Record, target string, agentName string, scope string, all bool) ([]lockpkg.Record, []SkippedItem, error) {
-	selected := make([]lockpkg.Record, 0, len(records))
+func selectRecords(config cfg.Config, workDir string, records lockpkg.File, target string, agentName string, scope string, all bool) ([]InstalledItem, []SkippedItem, error) {
+	selected := make([]InstalledItem, 0)
 	skipped := make([]SkippedItem, 0)
-	for _, record := range records {
-		if agentName != "" && record.Agent != agentName {
+	for _, scopeKey := range sortedScopeKeys(records) {
+		recordScope := scopeFromKey(scopeKey)
+		if scope != "" && string(recordScope) != scope {
 			continue
 		}
-		if scope != "" && record.Scope != scope {
-			continue
+		for _, record := range records[scopeKey] {
+			filteredAgents := filterAgents(record.Agents, agentName)
+			if len(filteredAgents) == 0 {
+				continue
+			}
+			if !all && target != "" && !matchesRecordTarget(record, target) {
+				continue
+			}
+			if record.Pinned {
+				skipped = append(skipped, SkippedItem{SkillID: record.SkillID, Reason: "pinned"})
+				continue
+			}
+			for _, currentAgent := range filteredAgents {
+				installedPath, err := resolveInstalledPath(config, workDir, scopeKey, currentAgent, recordScope, record)
+				if err != nil {
+					return nil, nil, err
+				}
+				selected = append(selected, InstalledItem{
+					Record:        record,
+					Agent:         currentAgent,
+					Scope:         string(recordScope),
+					ScopeKey:      scopeKey,
+					InstalledPath: installedPath,
+					FromLock:      true,
+				})
+			}
 		}
-		if !all && target != "" && !matchesRecordTarget(record, target) {
-			continue
-		}
-		if record.Pinned {
-			skipped = append(skipped, SkippedItem{SkillID: record.SkillID, Reason: "pinned"})
-			continue
-		}
-		selected = append(selected, record)
 	}
 	if !all && target != "" && len(selected) == 0 && len(skipped) == 0 {
 		return nil, nil, fmt.Errorf("skill not found: %s", target)
@@ -210,7 +266,7 @@ func matchesRecordTarget(record lockpkg.Record, target string) bool {
 	return record.SkillID == target || record.QualifiedName == target || record.SourceQualifiedName == target
 }
 
-func (s *Service) collectFromInstalledDirs(config cfg.Config, workDir, agentName string, scope agent.Scope) ([]lockpkg.Record, []SkippedItem, error) {
+func (s *Service) collectFromInstalledDirs(config cfg.Config, workDir, agentName string, scope agent.Scope) ([]InstalledItem, []SkippedItem, error) {
 	targetRoot, err := agent.ResolveInstallPath(config, workDir, agentName, scope)
 	if err != nil {
 		return nil, nil, err
@@ -226,6 +282,10 @@ func (s *Service) collectFromInstalledDirs(config cfg.Config, workDir, agentName
 	if err != nil {
 		return nil, nil, err
 	}
+	scopeKey, err := resolveScopeKey(scope, workDir)
+	if err != nil {
+		return nil, nil, err
+	}
 	entryNames := make(map[string]struct{}, len(entries))
 	for _, entry := range entries {
 		if entry.IsDir() {
@@ -233,7 +293,7 @@ func (s *Service) collectFromInstalledDirs(config cfg.Config, workDir, agentName
 		}
 	}
 
-	selected := make([]lockpkg.Record, 0, len(entries))
+	selected := make([]InstalledItem, 0, len(entries))
 	skipped := make([]SkippedItem, 0)
 	for _, entry := range entries {
 		if !entry.IsDir() {
@@ -244,16 +304,20 @@ func (s *Service) collectFromInstalledDirs(config cfg.Config, workDir, agentName
 		case 0:
 			skipped = append(skipped, SkippedItem{SkillID: entry.Name(), Reason: "index match not found"})
 		case 1:
-			selected = append(selected, lockpkg.Record{
-				SkillID:             matches[0].ID,
-				QualifiedName:       matches[0].QualifiedName,
-				SourceQualifiedName: matches[0].SourceQualifiedName,
-				Agent:               agentName,
-				Scope:               string(scope),
-				SourceID:            matches[0].SourceID,
-				SourceType:          string(matches[0].SourceType),
-				InstallEntry:        matches[0].InstallEntry,
-				InstalledPath:       filepath.Join(targetRoot, entry.Name()),
+			selected = append(selected, InstalledItem{
+				Record: lockpkg.Record{
+					SkillID:             matches[0].ID,
+					QualifiedName:       matches[0].QualifiedName,
+					SourceQualifiedName: matches[0].SourceQualifiedName,
+					SourceID:            matches[0].SourceID,
+					SourceType:          string(matches[0].SourceType),
+					InstallEntry:        matches[0].InstallEntry,
+				},
+				Agent:         agentName,
+				Scope:         string(scope),
+				ScopeKey:      scopeKey,
+				InstalledPath: filepath.Join(targetRoot, entry.Name()),
+				FromLock:      false,
 			})
 		default:
 			skipped = append(skipped, SkippedItem{SkillID: entry.Name(), Reason: "ambiguous index match"})
@@ -262,7 +326,7 @@ func (s *Service) collectFromInstalledDirs(config cfg.Config, workDir, agentName
 	return selected, skipped, nil
 }
 
-func (s *Service) syncSources(records []lockpkg.Record) []SourceSyncError {
+func (s *Service) syncSources(records []InstalledItem) []SourceSyncError {
 	svc := s.syncer
 	if svc == nil {
 		svc = s.sourceFactory(s.configFile, s.baseDir)
@@ -277,8 +341,7 @@ func (s *Service) syncSources(records []lockpkg.Record) []SourceSyncError {
 	return failed
 }
 
-
-func uniqueSourceIDs(records []lockpkg.Record) []string {
+func uniqueSourceIDs(records []InstalledItem) []string {
 	seen := make(map[string]struct{}, len(records))
 	ids := make([]string, 0, len(records))
 	for _, record := range records {
@@ -306,7 +369,7 @@ func (s *Service) loadIndex(path string) ([]skill.Skill, error) {
 	return nil, err
 }
 
-func collectCandidates(records []lockpkg.Record, items []skill.Skill, syncFailed []SourceSyncError) ([]Candidate, []UpdateItemError) {
+func collectCandidates(records []InstalledItem, items []skill.Skill, syncFailed []SourceSyncError) ([]Candidate, []UpdateItemError) {
 	failedSources := make(map[string]struct{}, len(syncFailed))
 	for _, item := range syncFailed {
 		failedSources[item.SourceID] = struct{}{}
@@ -318,7 +381,7 @@ func collectCandidates(records []lockpkg.Record, items []skill.Skill, syncFailed
 		if _, ok := failedSources[record.SourceID]; ok {
 			continue
 		}
-		latest, ok := findLatest(items, record)
+		latest, ok := findLatest(items, record.Record)
 		if !ok {
 			failed = append(failed, UpdateItemError{SkillID: record.SkillID, Reason: fmt.Sprintf("installed skill not found in source index: %s", record.SkillID)})
 			continue
@@ -341,11 +404,11 @@ func sameCandidateIdentity(record lockpkg.Record, item skill.Skill) bool {
 	if record.SkillID != item.ID {
 		return false
 	}
-	if record.SourceQualifiedName != "" || item.SourceQualifiedName != "" {
-		return record.SourceQualifiedName != "" && record.SourceQualifiedName == item.SourceQualifiedName
-	}
 	if record.SourceID != "" || item.SourceID != "" {
 		return record.SourceID != "" && record.SourceID == item.SourceID
+	}
+	if record.SourceQualifiedName != "" || item.SourceQualifiedName != "" {
+		return record.SourceQualifiedName != "" && record.SourceQualifiedName == item.SourceQualifiedName
 	}
 	if record.QualifiedName != "" || item.QualifiedName != "" {
 		return record.QualifiedName != "" && record.QualifiedName == item.QualifiedName
@@ -409,7 +472,7 @@ func sourceScopedInstallDir(item skill.Skill) string {
 	return item.ID
 }
 
-func failedFromSync(records []lockpkg.Record, syncFailed []SourceSyncError) []FailedItem {
+func failedFromSync(records []InstalledItem, syncFailed []SourceSyncError) []FailedItem {
 	if len(syncFailed) == 0 {
 		return nil
 	}
@@ -434,4 +497,80 @@ func parseScope(value string) (agent.Scope, error) {
 	default:
 		return "", fmt.Errorf("unsupported scope: %s", value)
 	}
+}
+
+func resolveScopeKey(scope agent.Scope, workDir string) (string, error) {
+	if scope == agent.ScopeUser {
+		return lockpkg.GlobalKey, nil
+	}
+	if strings.TrimSpace(workDir) == "" {
+		return "", fmt.Errorf("work dir is required for project scope")
+	}
+	absPath, err := filepath.Abs(workDir)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Clean(absPath), nil
+}
+
+func scopeFromKey(scopeKey string) agent.Scope {
+	if scopeKey == lockpkg.GlobalKey {
+		return agent.ScopeUser
+	}
+	return agent.ScopeProject
+}
+
+func resolveLatestInstalledPath(config cfg.Config, workDir string, scopeKey string, agentName string, scope agent.Scope, item skill.Skill) (string, error) {
+	baseDir := workDir
+	if scope == agent.ScopeProject {
+		baseDir = scopeKey
+	}
+	targetRoot, err := agent.ResolveInstallPath(config, baseDir, agentName, scope)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(targetRoot, sourceScopedInstallDir(item)), nil
+}
+
+func resolveInstalledPath(config cfg.Config, workDir string, scopeKey string, agentName string, scope agent.Scope, record lockpkg.Record) (string, error) {
+	baseDir := workDir
+	if scope == agent.ScopeProject {
+		baseDir = scopeKey
+	}
+	targetRoot, err := agent.ResolveInstallPath(config, baseDir, agentName, scope)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(targetRoot, installDirName(record)), nil
+}
+
+func installDirName(record lockpkg.Record) string {
+	if record.SourceQualifiedName != "" {
+		return strings.ReplaceAll(record.SourceQualifiedName, "/", "--")
+	}
+	if record.SourceID != "" {
+		return record.SourceID + "--" + record.SkillID
+	}
+	return record.SkillID
+}
+
+func filterAgents(agents []string, agentName string) []string {
+	if agentName == "" {
+		return append([]string(nil), agents...)
+	}
+	for _, current := range agents {
+		if current == agentName {
+			return []string{current}
+		}
+	}
+	return nil
+}
+
+func sortedScopeKeys(records lockpkg.File) []string {
+	keys := make([]string, 0, len(records))
+	for scopeKey := range records {
+		keys = append(keys, scopeKey)
+	}
+	sort.Strings(keys)
+	return keys
 }

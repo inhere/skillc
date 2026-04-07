@@ -123,9 +123,7 @@ func buildInstallCommand() *gcli.Command {
 					return err
 				}
 				for _, record := range result.Restored {
-					if err := WriteLine(os.Stdout, fmt.Sprintf("%s %s %s", record.SkillID, record.Agent, record.Scope)); err != nil {
-						return err
-					}
+					ccolor.Infof("%s %s %s\n", record.SkillID, record.Agent, record.Scope)
 				}
 				return nil
 			}
@@ -170,13 +168,13 @@ func buildInstallCommand() *gcli.Command {
 				return err
 			}
 			for _, record := range result.Installed {
-				ccolor.Infof("- installed %s %s", record.SkillID, record.InstalledPath)
+				ccolor.Infof("- installed %s %s\n", record.SkillID, record.InstalledPath)
 			}
 			for _, failed := range result.ResolveFailed {
-				ccolor.Warnf("- resolve failed %s %s", failed.Target, failed.Reason)
+				ccolor.Warnf("- resolve failed %s %s\n", failed.Target, failed.Reason)
 			}
 			for _, failed := range result.InstallFailed {
-				ccolor.Errorf("- install failed %s %s", failed.SkillID, failed.Reason)
+				ccolor.Errorf("- install failed %s %s\n", failed.SkillID, failed.Reason)
 			}
 			return nil
 		},
@@ -233,24 +231,16 @@ func buildUpdateCommand() *gcli.Command {
 				return err
 			}
 			for _, record := range result.Updated {
-				if err := WriteLine(os.Stdout, fmt.Sprintf("updated %s %s", record.SkillID, record.InstalledPath)); err != nil {
-					return err
-				}
+				ccolor.Infof("updated %s %s\n", record.SkillID, record.InstalledPath)
 			}
 			for _, skipped := range result.Skipped {
-				if err := WriteLine(os.Stdout, fmt.Sprintf("skipped %s %s", skipped.SkillID, skipped.Reason)); err != nil {
-					return err
-				}
+				ccolor.Infof("skipped %s %s\n", skipped.SkillID, skipped.Reason)
 			}
 			for _, failed := range result.CleanupFailed {
-				if err := WriteLine(os.Stdout, fmt.Sprintf("cleanup failed %s %s", failed.SkillID, failed.Reason)); err != nil {
-					return err
-				}
+				ccolor.Errorf("cleanup failed %s %s\n", failed.SkillID, failed.Reason)
 			}
 			for _, failed := range result.Failed {
-				if err := WriteLine(os.Stdout, fmt.Sprintf("update failed %s %s", failed.SkillID, failed.Reason)); err != nil {
-					return err
-				}
+				ccolor.Errorf("update failed %s %s\n", failed.SkillID, failed.Reason)
 			}
 			return nil
 		},
@@ -349,9 +339,7 @@ func buildDoctorCommand() *gcli.Command {
 				fmt.Sprintf("repo_cache_dir=%s", result.RepoCacheDir),
 			}
 			for _, line := range lines {
-				if err := WriteLine(os.Stdout, line); err != nil {
-					return err
-				}
+				ccolor.Infof("%s\n", line)
 			}
 			return nil
 		},

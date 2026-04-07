@@ -59,9 +59,7 @@ func buildSourceCommand() *gcli.Command {
 				return err
 			}
 			for _, src := range list {
-				if err := WriteLine(os.Stdout, fmt.Sprintf("%s %s %s", src.ID, src.Status, src.ErrorMessage)); err != nil {
-					return err
-				}
+				ccolor.Infof("%s %s %s\n", src.ID, src.Status, src.ErrorMessage)
 			}
 			return nil
 		},
@@ -126,7 +124,7 @@ func buildSourceSyncCommand() *gcli.Command {
 			}
 			for _, src := range list {
 				if src.ID == sourceID {
-					return WriteLine(os.Stdout, fmt.Sprintf("synced %s %s", src.ID, src.Status))
+					ccolor.Infof("synced %s %s\n", src.ID, src.Status)
 				}
 			}
 
@@ -168,7 +166,8 @@ func buildSourceAddLocalCommand() *gcli.Command {
 				}
 				return nil
 			}
-			return WriteLine(os.Stdout, fmt.Sprintf("Next, please run: skillc source sync %s", src.ID))
+			ccolor.Infof("Next, please run: skillc source sync %s\n", src.ID)
+			return nil
 		},
 	}
 }
@@ -208,7 +207,8 @@ func buildSourceAddGitCommand() *gcli.Command {
 				}
 				return nil
 			}
-			return WriteLine(os.Stdout, fmt.Sprintf("Next, please run: skillc source sync %s", src.ID))
+			ccolor.Infof("Next, please run: skillc source sync %s\n", src.ID)
+			return nil
 		},
 	}
 }

@@ -9,6 +9,8 @@ import (
 
 	"github.com/gookit/gcli/v3"
 	"github.com/gookit/goutil/testutil/assert"
+	"github.com/inhere/skillc/internal/app/installapp"
+	"github.com/inhere/skillc/internal/app/updateapp"
 	cfg "github.com/inhere/skillc/internal/domain/config"
 	lockpkg "github.com/inhere/skillc/internal/domain/lock"
 	"github.com/inhere/skillc/internal/domain/skill"
@@ -20,6 +22,14 @@ import (
 
 func newTestApp() *gcli.App {
 	return NewApp("dev", "unknown", "unknown")
+}
+
+type updateRunnerStub struct {
+	runFn func(updateapp.Req) (updateapp.Result, error)
+}
+
+func (s updateRunnerStub) Run(req updateapp.Req) (updateapp.Result, error) {
+	return s.runFn(req)
 }
 
 func TestNewApp_RegistersSearchCommand(t *testing.T) {
@@ -96,7 +106,8 @@ func TestInstallCommand_InstallsIndexedSkill(t *testing.T) {
 	output := runAppInDirWithStdout(t, baseDir, []string{"install", "--yes", "--agent", "claude-code", "hello-skill"})
 
 	assert.Contains(t, output, "hello-skill")
-	data, err := os.ReadFile(filepath.Join(baseDir, "project-claude", "skills", "hello-skill", "hello.txt"))
+	assert.Contains(t, output, filepath.Join(baseDir, "project-claude", "skills", "local-demo--hello-skill"))
+	data, err := os.ReadFile(filepath.Join(baseDir, "project-claude", "skills", "local-demo--hello-skill", "hello.txt"))
 	assert.NoErr(t, err)
 	assert.Eq(t, "hello", string(data))
 }
@@ -124,10 +135,10 @@ func TestInstallCommand_BatchTargetsWithYesReportsResolveAndInstallFailures(t *t
 	assert.Contains(t, output, "hello-skill")
 	assert.Contains(t, output, "resolve failed missing-skill")
 	assert.Contains(t, output, "install failed world-skill")
-	data, err := os.ReadFile(filepath.Join(baseDir, "project-claude", "skills", "hello-skill", "hello.txt"))
+	data, err := os.ReadFile(filepath.Join(baseDir, "project-claude", "skills", "local-demo--hello-skill", "hello.txt"))
 	assert.NoErr(t, err)
 	assert.Eq(t, "hello", string(data))
-	_, err = os.Stat(filepath.Join(baseDir, "project-claude", "skills", "world-skill", "hello.txt"))
+	_, err = os.Stat(filepath.Join(baseDir, "project-claude", "skills", "local-demo--world-skill", "hello.txt"))
 	assert.True(t, os.IsNotExist(err))
 }
 
@@ -156,10 +167,10 @@ func TestInstallCommand_CollectionModeInstallsCollectionTarget(t *testing.T) {
 
 	assert.Contains(t, output, "hello-skill")
 	assert.Contains(t, output, "world-skill")
-	helloData, err := os.ReadFile(filepath.Join(baseDir, "project-claude", "skills", "hello-skill", "hello.txt"))
+	helloData, err := os.ReadFile(filepath.Join(baseDir, "project-claude", "skills", "repo-a--marketplaces--hello-skill", "hello.txt"))
 	assert.NoErr(t, err)
 	assert.Eq(t, "hello", string(helloData))
-	worldData, err := os.ReadFile(filepath.Join(baseDir, "project-claude", "skills", "world-skill", "world.txt"))
+	worldData, err := os.ReadFile(filepath.Join(baseDir, "project-claude", "skills", "repo-a--marketplaces--world-skill", "world.txt"))
 	assert.NoErr(t, err)
 	assert.Eq(t, "world", string(worldData))
 }
@@ -191,7 +202,7 @@ func TestInstallCommand_PromptsBeforeInstallWithoutYes(t *testing.T) {
 
 	assert.Contains(t, output, "Continue? [y/N]")
 	assert.Contains(t, output, "install cancelled")
-	_, err := os.Stat(filepath.Join(baseDir, "project-claude", "skills", "hello-skill", "hello.txt"))
+	_, err := os.Stat(filepath.Join(baseDir, "project-claude", "skills", "local-demo--hello-skill", "hello.txt"))
 	assert.True(t, os.IsNotExist(err))
 }
 
@@ -201,30 +212,36 @@ func TestInstallCommand_RestoresFromLockFileWhenNoArgs(t *testing.T) {
 	lockFile := filepath.Join(baseDir, "skillc-install.lock")
 	sourceDir := filepath.Join(baseDir, "cache", "hello-skill")
 	commandsDir := filepath.Join(sourceDir, "commands")
-	installedPath := filepath.Join(baseDir, "project-claude", "skills", "hello-skill")
+	claudeInstalledPath := filepath.Join(baseDir, "project-claude", "skills", "local-demo--hello-skill")
+	agentsInstalledPath := filepath.Join(baseDir, ".agents", "skills", "local-demo--hello-skill")
 	assert.NoErr(t, os.MkdirAll(commandsDir, 0o755))
 	assert.NoErr(t, os.WriteFile(filepath.Join(commandsDir, "hello.txt"), []byte("restored"), 0o644))
 
 	config := cfg.DefaultConfig()
 	config.LockFile = lockFile
+	config.AgentTools["claude-code"] = cfg.AgentToolConfig{Dirname: ".claude", UserDir: filepath.Join(baseDir, "user-claude"), ProjectDir: filepath.Join(baseDir, "project-claude")}
 	config.Sources = []sourcepkg.Source{{ID: "local-demo", Type: sourcepkg.TypeLocal, Path: sourceDir}}
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
-	assert.NoErr(t, lockstore.NewStore().Save(lockFile, []lockpkg.Record{{
-		SkillID:       "hello-skill",
-		Agent:         "claude-code",
-		Scope:         "project",
-		SourceID:      "local-demo",
-		SourceType:    "local",
-		InstallEntry:  "commands",
-		InstalledPath: installedPath,
-	}}))
+	assert.NoErr(t, lockstore.NewStore().Save(lockFile, lockpkg.File{
+		filepath.Clean(baseDir): {{
+			SkillID:      "hello-skill",
+			SourceID:     "local-demo",
+			SourceType:   "local",
+			InstallEntry: "commands",
+			Agents:       []string{"agents", "claude-code"},
+		}},
+	}))
 
 	output := runAppInDirWithStdout(t, baseDir, []string{"install"})
 
+	assert.Contains(t, output, "hello-skill agents project")
 	assert.Contains(t, output, "hello-skill claude-code project")
-	data, err := os.ReadFile(filepath.Join(installedPath, "hello.txt"))
+	claudeData, err := os.ReadFile(filepath.Join(claudeInstalledPath, "hello.txt"))
 	assert.NoErr(t, err)
-	assert.Eq(t, "restored", string(data))
+	assert.Eq(t, "restored", string(claudeData))
+	agentsData, err := os.ReadFile(filepath.Join(agentsInstalledPath, "hello.txt"))
+	assert.NoErr(t, err)
+	assert.Eq(t, "restored", string(agentsData))
 }
 
 func TestCollectionListCommand_PrintsCollectionSummary(t *testing.T) {
@@ -406,18 +423,21 @@ func TestListCommand_ListsInstalledSkills(t *testing.T) {
 	baseDir := t.TempDir()
 	configFile := filepath.Join(baseDir, "skillc.yaml")
 	lockFile := filepath.Join(baseDir, "skillc-install.lock")
-	installedPath := filepath.Join(baseDir, "project-claude", "skills", "hello-skill")
+	installedPath := filepath.Join(baseDir, "project-claude", "skills", "local-demo--hello-skill")
 	assert.NoErr(t, os.MkdirAll(installedPath, 0o755))
+	assert.NoErr(t, os.WriteFile(filepath.Join(installedPath, "hello.txt"), []byte("hello"), 0o644))
 
 	config := cfg.DefaultConfig()
 	config.LockFile = lockFile
+	config.AgentTools["claude-code"] = cfg.AgentToolConfig{Dirname: ".claude", UserDir: filepath.Join(baseDir, "user-claude"), ProjectDir: filepath.Join(baseDir, "project-claude")}
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
-	assert.NoErr(t, lockstore.NewStore().Save(lockFile, []lockpkg.Record{{
-		SkillID:       "hello-skill",
-		Agent:         "claude-code",
-		Scope:         "project",
-		InstalledPath: installedPath,
-	}}))
+	assert.NoErr(t, lockstore.NewStore().Save(lockFile, lockpkg.File{
+		filepath.Clean(baseDir): {{
+			SkillID:  "hello-skill",
+			SourceID: "local-demo",
+			Agents:   []string{"claude-code"},
+		}},
+	}))
 
 	output := runAppInDirWithStdout(t, baseDir, []string{"list", "--agent", "claude-code"})
 
@@ -431,19 +451,21 @@ func TestUninstallCommand_RemovesInstalledSkill(t *testing.T) {
 	baseDir := t.TempDir()
 	configFile := filepath.Join(baseDir, "skillc.yaml")
 	lockFile := filepath.Join(baseDir, "skillc-install.lock")
-	installedPath := filepath.Join(baseDir, "project-claude", "skills", "hello-skill")
+	installedPath := filepath.Join(baseDir, "project-claude", "skills", "local-demo--hello-skill")
 	assert.NoErr(t, os.MkdirAll(installedPath, 0o755))
 	assert.NoErr(t, os.WriteFile(filepath.Join(installedPath, "hello.txt"), []byte("hello"), 0o644))
 
 	config := cfg.DefaultConfig()
 	config.LockFile = lockFile
+	config.AgentTools["claude-code"] = cfg.AgentToolConfig{Dirname: ".claude", UserDir: filepath.Join(baseDir, "user-claude"), ProjectDir: filepath.Join(baseDir, "project-claude")}
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
-	assert.NoErr(t, lockstore.NewStore().Save(lockFile, []lockpkg.Record{{
-		SkillID:       "hello-skill",
-		Agent:         "claude-code",
-		Scope:         "project",
-		InstalledPath: installedPath,
-	}}))
+	assert.NoErr(t, lockstore.NewStore().Save(lockFile, lockpkg.File{
+		filepath.Clean(baseDir): {{
+			SkillID:  "hello-skill",
+			SourceID: "local-demo",
+			Agents:   []string{"claude-code"},
+		}},
+	}))
 
 	output := runAppInDirWithStdout(t, baseDir, []string{"uninstall", "--agent", "claude-code", "hello-skill"})
 	_ = output
@@ -463,9 +485,9 @@ func TestUpdateCommand_PrintsUpdatedSkippedAndFailedItems(t *testing.T) {
 	indexFile := filepath.Join(baseDir, "cache", "index.json")
 	helloSource := filepath.Join(baseDir, "source", "hello-skill")
 	helloCommands := filepath.Join(helloSource, "commands")
-	helloInstalled := filepath.Join(baseDir, "project-claude", "skills", "hello-skill")
-	pinnedInstalled := filepath.Join(baseDir, "project-claude", "skills", "pinned-skill")
-	brokenInstalled := filepath.Join(baseDir, "project-claude", "skills", "broken-skill")
+	helloInstalled := filepath.Join(baseDir, "project-claude", "skills", "local-demo--hello-skill")
+	pinnedInstalled := filepath.Join(baseDir, "project-claude", "skills", "local-demo--pinned-skill")
+	brokenInstalled := filepath.Join(baseDir, "project-claude", "skills", "local-demo--broken-skill")
 	assert.NoErr(t, os.MkdirAll(helloCommands, 0o755))
 	assert.NoErr(t, os.WriteFile(filepath.Join(helloCommands, "hello.txt"), []byte("updated"), 0o644))
 	assert.NoErr(t, os.WriteFile(filepath.Join(helloSource, "SKILL.md"), []byte(`---
@@ -485,21 +507,52 @@ install_entry: commands
 	config.Sources = []sourcepkg.Source{{ID: "local-demo", Name: "local-demo", Type: sourcepkg.TypeLocal, Path: filepath.Join(baseDir, "source")}}
 	config.AgentTools["claude-code"] = cfg.AgentToolConfig{Dirname: ".claude", UserDir: filepath.Join(baseDir, "user-claude"), ProjectDir: filepath.Join(baseDir, "project-claude")}
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
-	assert.NoErr(t, lockstore.NewStore().Save(lockFile, []lockpkg.Record{
-		{SkillID: "hello-skill", QualifiedName: "hello-skill", SourceQualifiedName: "local-demo/hello-skill", Agent: "claude-code", Scope: "project", SourceID: "local-demo", InstallEntry: "commands", InstalledPath: helloInstalled},
-		{SkillID: "pinned-skill", QualifiedName: "pinned-skill", SourceQualifiedName: "local-demo/pinned-skill", Agent: "claude-code", Scope: "project", SourceID: "local-demo", InstallEntry: "commands", InstalledPath: pinnedInstalled, Pinned: true},
-		{SkillID: "broken-skill", QualifiedName: "broken-skill", SourceQualifiedName: "local-demo/broken-skill", Agent: "claude-code", Scope: "project", SourceID: "local-demo", InstallEntry: "commands", InstalledPath: brokenInstalled},
+	assert.NoErr(t, lockstore.NewStore().Save(lockFile, lockpkg.File{
+		filepath.Clean(baseDir): {
+			{SkillID: "hello-skill", QualifiedName: "hello-skill", SourceQualifiedName: "local-demo/hello-skill", SourceID: "local-demo", InstallEntry: "commands", Agents: []string{"claude-code"}},
+			{SkillID: "pinned-skill", QualifiedName: "pinned-skill", SourceQualifiedName: "local-demo/pinned-skill", SourceID: "local-demo", InstallEntry: "commands", Agents: []string{"claude-code"}, Pinned: true},
+			{SkillID: "broken-skill", QualifiedName: "broken-skill", SourceQualifiedName: "local-demo/broken-skill", SourceID: "local-demo", InstallEntry: "commands", Agents: []string{"claude-code"}},
+		},
 	}))
 	assert.NoErr(t, repoindex.NewStore().Save(indexFile, []skill.Skill{
 		{ID: "hello-skill", QualifiedName: "hello-skill", SourceQualifiedName: "local-demo/hello-skill", Version: "2.0.0", SourceID: "local-demo", SourceType: sourcepkg.TypeLocal, InstallEntry: "commands", Path: helloSource},
 		{ID: "pinned-skill", QualifiedName: "pinned-skill", SourceQualifiedName: "local-demo/pinned-skill", Version: "2.0.0", SourceID: "local-demo", SourceType: sourcepkg.TypeLocal, InstallEntry: "commands", Path: filepath.Join(baseDir, "source", "pinned-skill")},
 	}))
+	assert.NoErr(t, os.MkdirAll(helloInstalled, 0o755))
+	assert.NoErr(t, os.MkdirAll(pinnedInstalled, 0o755))
+	assert.NoErr(t, os.MkdirAll(brokenInstalled, 0o755))
 
 	output := runAppInDirWithStdout(t, baseDir, []string{"update", "--agent", "claude-code"})
 
-	assert.Contains(t, output, "updated hello-skill")
-	assert.Contains(t, output, "skipped pinned-skill")
-	assert.Contains(t, output, "update failed broken-skill")
+	assert.Contains(t, output, "updated hello-skill "+helloInstalled)
+	assert.Contains(t, output, "skipped pinned-skill pinned")
+	assert.Contains(t, output, "update failed broken-skill installed skill not found in source index: broken-skill")
+}
+func TestUpdateCommand_PrintsCleanupFailuresWithoutDroppingSuccessfulUpdate(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	config := cfg.DefaultConfig()
+	config.AgentTools["claude-code"] = cfg.AgentToolConfig{Dirname: ".claude", UserDir: filepath.Join(baseDir, "user-claude"), ProjectDir: filepath.Join(baseDir, "project-claude")}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
+
+	cleanupInstalled := filepath.Join(baseDir, "project-claude", "skills", "local-demo--renamed--shared-skill")
+	prevFactory := newUpdateService
+	newUpdateService = func(configFile string, baseDir string) updateRunner {
+		return updateRunnerStub{runFn: func(req updateapp.Req) (updateapp.Result, error) {
+			return updateapp.Result{
+				Updated: []installapp.RuntimeRecord{{Record: lockpkg.Record{SkillID: "shared-skill"}, InstalledPath: cleanupInstalled}},
+				CleanupFailed: []updateapp.FailedItem{{SkillID: "shared-skill", Reason: "cleanup failed"}},
+			}, nil
+		}}
+	}
+	defer func() {
+		newUpdateService = prevFactory
+	}()
+
+	output := runAppInDirWithStdout(t, baseDir, []string{"update", "--agent", "claude-code"})
+
+	assert.Contains(t, output, "updated shared-skill "+cleanupInstalled)
+	assert.Contains(t, output, "cleanup failed shared-skill cleanup failed")
 }
 
 

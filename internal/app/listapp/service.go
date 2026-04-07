@@ -2,8 +2,12 @@ package listapp
 
 import (
 	"os"
+	"path/filepath"
 	"sort"
+	"strings"
 
+	"github.com/inhere/skillc/internal/domain/agent"
+	cfg "github.com/inhere/skillc/internal/domain/config"
 	lockpkg "github.com/inhere/skillc/internal/domain/lock"
 	"github.com/inhere/skillc/internal/infra/lockstore"
 )
@@ -26,6 +30,8 @@ type Item struct {
 type Service struct {
 	lockFile string
 	store    *lockstore.Store
+	config   cfg.Config
+	workDir  string
 }
 
 func NewService(lockFile string) *Service {
@@ -33,6 +39,13 @@ func NewService(lockFile string) *Service {
 		lockFile: lockFile,
 		store:    lockstore.NewStore(),
 	}
+}
+
+func (s *Service) WithRuntime(config cfg.Config, workDir string) *Service {
+	clone := *s
+	clone.config = config
+	clone.workDir = workDir
+	return &clone
 }
 
 func (s *Service) List(agentName string, scope string) ([]Item, error) {
@@ -45,14 +58,23 @@ func (s *Service) List(agentName string, scope string) ([]Item, error) {
 	}
 
 	items := make([]Item, 0)
-	for _, record := range records {
-		if agentName != "" && record.Agent != agentName {
+	for scopeKey, grouped := range records {
+		recordScope := scopeFromKey(scopeKey)
+		if scope != "" && string(recordScope) != scope {
 			continue
 		}
-		if scope != "" && record.Scope != scope {
-			continue
+		for _, record := range grouped {
+			for _, currentAgent := range record.Agents {
+				if agentName != "" && currentAgent != agentName {
+					continue
+				}
+				item, err := s.toItem(scopeKey, recordScope, record, currentAgent)
+				if err != nil {
+					return nil, err
+				}
+				items = append(items, item)
+			}
 		}
-		items = append(items, toItem(record))
 	}
 
 	sort.Slice(items, func(i, j int) bool {
@@ -64,28 +86,86 @@ func (s *Service) List(agentName string, scope string) ([]Item, error) {
 		if right == "" {
 			right = items[j].SkillID
 		}
+		if left == right {
+			return items[i].Agent < items[j].Agent
+		}
 		return left < right
 	})
 	return items, nil
 }
 
-func toItem(record lockpkg.Record) Item {
+func (s *Service) toItem(scopeKey string, scope agent.Scope, record lockpkg.Record, agentName string) (Item, error) {
+	installedPath, err := s.resolveInstalledPath(scopeKey, scope, agentName, record)
+	if err != nil {
+		return Item{}, err
+	}
 	status := "installed"
-	if _, err := os.Stat(record.InstalledPath); err != nil {
-		status = "missing"
+	if _, err := os.Stat(installedPath); err != nil {
+		if os.IsNotExist(err) {
+			status = "missing"
+		} else {
+			return Item{}, err
+		}
 	}
 	return Item{
 		SkillID:             record.SkillID,
 		QualifiedName:       record.QualifiedName,
 		SourceQualifiedName: record.SourceQualifiedName,
-		Agent:               record.Agent,
-		Scope:               record.Scope,
+		Agent:               agentName,
+		Scope:               string(scope),
 		Version:             record.Version,
 		SourceID:            record.SourceID,
 		SourceType:          record.SourceType,
-		InstalledPath:       record.InstalledPath,
+		InstalledPath:       installedPath,
 		Checksum:            record.Checksum,
 		UpdatedAt:           record.UpdatedAt.UTC().Format("2006-01-02T15:04:05Z07:00"),
 		Status:              status,
+	}, nil
+}
+
+func (s *Service) resolveInstalledPath(scopeKey string, scope agent.Scope, agentName string, record lockpkg.Record) (string, error) {
+	baseDir := s.runtimeWorkDir()
+	if scope == agent.ScopeProject {
+		baseDir = scopeKey
 	}
+	targetRoot, err := agent.ResolveInstallPath(s.runtimeConfig(), baseDir, agentName, scope)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(targetRoot, sourceScopedInstallDir(record.SkillID, record.SourceQualifiedName, record.SourceID)), nil
+}
+
+func (s *Service) runtimeConfig() cfg.Config {
+	if len(s.config.AgentTools) != 0 {
+		return s.config
+	}
+	return cfg.DefaultConfig()
+}
+
+func (s *Service) runtimeWorkDir() string {
+	if strings.TrimSpace(s.workDir) != "" {
+		return s.workDir
+	}
+	cwd, err := os.Getwd()
+	if err == nil && strings.TrimSpace(cwd) != "" {
+		return cwd
+	}
+	return filepath.Dir(s.lockFile)
+}
+
+func scopeFromKey(scopeKey string) agent.Scope {
+	if scopeKey == lockpkg.GlobalKey {
+		return agent.ScopeUser
+	}
+	return agent.ScopeProject
+}
+
+func sourceScopedInstallDir(skillID string, sourceQualifiedName string, sourceID string) string {
+	if sourceQualifiedName != "" {
+		return strings.ReplaceAll(sourceQualifiedName, "/", "--")
+	}
+	if sourceID != "" {
+		return sourceID + "--" + skillID
+	}
+	return skillID
 }

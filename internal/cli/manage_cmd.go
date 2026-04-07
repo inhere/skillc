@@ -72,6 +72,14 @@ func buildShowCommand() *gcli.Command {
 	}
 }
 
+type updateRunner interface {
+	Run(updateapp.Req) (updateapp.Result, error)
+}
+
+var newUpdateService = func(configFile string, baseDir string) updateRunner {
+	return updateapp.NewService(configFile, baseDir)
+}
+
 type ManageOptions struct {
 	Scope      string
 	Agent      string
@@ -212,7 +220,6 @@ func buildUpdateCommand() *gcli.Command {
 		Desc: "Update installed skills",
 		Config: func(c *gcli.Command) {
 			opts.bindCommand(c)
-			c.BoolOpt(&opts.Yes, "yes", "y", false, "skip confirmation prompt")
 		},
 		Func: func(c *gcli.Command, _ []string) error {
 			_, cwd, err := loadConfig()
@@ -221,7 +228,7 @@ func buildUpdateCommand() *gcli.Command {
 				return err
 			}
 
-			result, err := updateapp.NewService(defaultConfigFile(cwd), cwd).Run(updateapp.Req{
+			result, err := newUpdateService(defaultConfigFile(cwd), cwd).Run(updateapp.Req{
 				Agent:   opts.Agent,
 				Scope:   opts.Scope,
 				WorkDir: cwd,
@@ -237,6 +244,11 @@ func buildUpdateCommand() *gcli.Command {
 			}
 			for _, skipped := range result.Skipped {
 				if err := WriteLine(os.Stdout, fmt.Sprintf("skipped %s %s", skipped.SkillID, skipped.Reason)); err != nil {
+					return err
+				}
+			}
+			for _, failed := range result.CleanupFailed {
+				if err := WriteLine(os.Stdout, fmt.Sprintf("cleanup failed %s %s", failed.SkillID, failed.Reason)); err != nil {
 					return err
 				}
 			}
@@ -262,7 +274,7 @@ func buildUninstallCommand() *gcli.Command {
 		},
 		Func: func(c *gcli.Command, _ []string) error {
 			skillIDs := c.Arg("skill-id").Strings()
-			config, _, err := loadConfig()
+			config, cwd, err := loadConfig()
 			if err != nil {
 				slog.Error(err)
 				return err
@@ -272,7 +284,7 @@ func buildUninstallCommand() *gcli.Command {
 				return err
 			}
 
-			svc := installapp.NewService(config.LockFile)
+			svc := installapp.NewService(config.LockFile).WithRuntime(config, cwd)
 			if err := svc.UninstallMulti(skillIDs, opts.Agent, scope); err != nil {
 				slog.Error(err)
 				return err
@@ -293,7 +305,7 @@ func buildListCommand() *gcli.Command {
 			opts.bindCommand(c)
 		},
 		Func: func(c *gcli.Command, _ []string) error {
-			config, _, err := loadConfig()
+			config, cwd, err := loadConfig()
 			if err != nil {
 				slog.Error(err)
 				return err
@@ -304,7 +316,7 @@ func buildListCommand() *gcli.Command {
 				return err
 			}
 
-			items, err := listapp.NewService(config.LockFile).List(opts.Agent, string(scope))
+			items, err := listapp.NewService(config.LockFile).WithRuntime(config, cwd).List(opts.Agent, string(scope))
 			if err != nil {
 				slog.Error(err)
 				return err

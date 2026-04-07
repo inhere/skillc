@@ -194,12 +194,15 @@ MVP 先打通 `source -> index -> install -> lock` 主链路，再扩展 `regist
 
 职责：
 - 维护已安装 Skill 记录
+- 按 scope 分组持久化：global 写入顶层 `__global__`，project 写入绝对项目路径 key
 - 记录用户可见的限定名与恢复所需来源信息
 - 提供查询、追加、删除、批量恢复输入
 - 原子写入与并发保护
 
 边界：
 - 只记录“安装事实”
+- `agents []string` 持久化每条 skill 当前挂载到哪些 agent
+- 不持久化 `InstalledPath`；运行时按 `scope key + agent + source-qualified skill id` 解析安装目录
 - restore 继续基于 `SourceID + InstallEntry` 还原实际复制入口
 - 不负责重新解析来源数据
 
@@ -275,18 +278,17 @@ type Skill struct {
 ### 5.5 LockRecord
 
 ```go
+type LockFile map[string][]LockRecord // "__global__" or absolute project path
+
 type LockRecord struct {
     SkillID             string
     QualifiedName       string
     SourceQualifiedName string
-    Agent               string
-    Scope               string // global | project
     Version             string
     SourceID            string
     SourceType          string
     InstallEntry        string
-    ResolvedRef         string
-    InstalledPath       string
+    Agents              []string
     Checksum            string
     InstalledAt         time.Time
     UpdatedAt           time.Time
@@ -323,6 +325,8 @@ type InstallPlan struct {
 
 3. **LockRecord 是安装事实最小闭包**
    - 既保留用户可见限定名，也保留恢复安装所必需的信息
+   - lock 顶层按 `__global__` / 绝对项目路径分组，单条 record 用 `agents[]` 表示多 agent 安装状态
+   - `InstalledPath` 不落盘，运行时统一推导，避免路径快照与当前 agent 目录配置漂移
    - restore 仍以 `SourceID + InstallEntry` 为准，避免展示名称漂移影响恢复语义
 
 4. **路径解析统一收口**
@@ -403,8 +407,8 @@ type InstallPlan struct {
 3. 过滤 pinned 项并记录 skip 原因
 4. 聚合待更新项涉及的 source，逐个执行 `source sync`
 5. 重新加载索引并按 `SkillID + QualifiedName / SourceQualifiedName / SourceID` 匹配最新 Skill
-6. 调用 install service 按已记录 `InstalledPath` 原位重装
-7. 汇总 updated / skipped / failed 结果并由 CLI 输出
+6. 运行时基于 lock key、agent 和 source-qualified install naming rule 重新计算目标安装路径后重装
+7. 汇总 updated / skipped / failed / cleanup-failed 结果并由 CLI 输出；其中 cleanup-failed 表示重装已成功、旧目录清理失败，不应回退为 update failed
 
 ---
 

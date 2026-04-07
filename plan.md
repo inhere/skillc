@@ -533,7 +533,7 @@
 
 **Verification note (2026-04-03):** Focused CLI install tests pass for batch targets with partial-success output, explicit collection mode, prompt-vs-`--yes` behavior, and installapp/searchapp regressions. `go test ./...` was re-run and still fails only at the pre-existing unrelated baseline `internal/cli/app_test.go:336` (`TestSourceAddLocalCommand_WithSyncRebuildsIndexForSearch`).
 
-### Task 29: Add installed skill update flow
+### Task 29: Add installed skill update flow ✅ Completed
 
 **Files:**
 - Create: `internal/app/updateapp/service.go`
@@ -545,9 +545,11 @@
 - Modify: `arch.md`
 - Modify: `plan.md`
 
-**Design note (2026-04-06):** `skillc update` now uses a lock-first workflow. It selects installed skills from the lock file when present, falls back to scanning the installed agent directory when the lock is missing or empty, skips pinned or ambiguous entries, syncs each referenced source once, reloads the shared index, and reinstalls matching skills in place via recorded `InstalledPath` without version comparison.
+**Design note (2026-04-06):** `skillc update` now uses a lock-first workflow. It selects installed skills from the grouped lock file when present, expands each grouped record into per-agent update work, falls back to scanning the installed agent directory when the lock is missing or empty, skips pinned or ambiguous entries, syncs each referenced source once, reloads the shared index, and recomputes target install paths at runtime from the lock key + agent + install-dir naming rule instead of persisting `InstalledPath` in the lock file.
 
-**Verification note (2026-04-06):** Focused regressions pass for `internal/app/installapp`, `internal/app/updateapp`, and `internal/cli`, including CLI output for updated / skipped / failed items. Full regression `go test ./...` now passes too.
+**Verification note (2026-04-07):** Added rename-path regressions in `internal/app/updateapp/service_test.go` for success, reinstall-failure, and cleanup-failure paths. `skillc update` now preserves the old installed directory until `ReinstallAtPath` succeeds, keeps successful rename updates in `Updated` even when old-path cleanup fails, reports cleanup problems separately via `CleanupFailed`, and prints `cleanup failed ...` lines from `internal/cli/manage_cmd.go`. Focused `internal/app/updateapp` and `internal/cli` regressions pass, and full regression `go test ./...` passes too.
+
+**Lockfile redesign follow-up (2026-04-06):** CLI fixtures and docs now reflect the grouped lock layout: top-level keys are `__global__` or absolute project paths, each skill record persists `agents[]`, restore output is emitted per runtime agent/scope pair, and `InstalledPath` is resolved at runtime instead of stored in the lock file.
 
 - [x] **Step 1: Write the failing tests**
 - [x] **Step 2: Run tests to verify they fail**

@@ -60,7 +60,7 @@ name: Skill B
 	assert.Len(t, items, 2)
 	assert.Eq(t, "workflow-repo", items[0].Collection)
 	assert.Eq(t, "workflow-repo/skill-a", items[0].QualifiedName)
-	assert.Eq(t, "workflow-repo/workflow-repo/skill-a", items[0].SourceQualifiedName)
+	assert.Eq(t, "workflow-repo/skill-a", items[0].SourceQualifiedName)
 	assert.Eq(t, "abc12345", items[1].Version)
 }
 
@@ -78,6 +78,7 @@ name: Frontend Design
 	assert.Len(t, items, 1)
 	assert.Eq(t, "workflow-repo", items[0].Collection)
 	assert.Eq(t, "workflow-repo/frontend-design", items[0].QualifiedName)
+	assert.Eq(t, "workflow-repo/frontend-design", items[0].SourceQualifiedName)
 }
 
 func TestScanner_ScanUsesParentNameForMultipleSkillsDirectories(t *testing.T) {

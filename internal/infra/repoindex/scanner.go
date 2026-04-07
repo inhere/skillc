@@ -149,7 +149,7 @@ func qualifiedName(collection, id string) string {
 }
 
 func sourceQualifiedName(sourceName, collection, id string) string {
-	if collection == "" {
+	if collection == "" || collection == sourceName {
 		return sourceName + "/" + id
 	}
 	return sourceName + "/" + collection + "/" + id

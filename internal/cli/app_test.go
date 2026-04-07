@@ -418,7 +418,7 @@ func TestListCommand_ReturnsEmptyWhenLockFileMissing(t *testing.T) {
 
 	output := runAppInDirWithStdout(t, baseDir, []string{"list", "--agent", "claude-code"})
 
-	assert.Eq(t, "", output)
+	assert.Eq(t, "no skills found\n", output)
 }
 
 func TestListCommand_ListsInstalledSkills(t *testing.T) {
@@ -611,8 +611,10 @@ func runInDirWithIO(t *testing.T, dir string, input string, fn func() error) str
 	stdoutR, stdoutW, err := os.Pipe()
 	assert.NoErr(t, err)
 	os.Stdout = stdoutW
+	ccolor.SetOutput(stdoutW)
 	defer func() {
 		os.Stdout = oldStdout
+		ccolor.SetOutput(oldStdout)
 	}()
 
 	oldStderr := os.Stderr

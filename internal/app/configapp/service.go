@@ -23,7 +23,7 @@ func NewService(configFile string, baseDir string) *Service {
 
 func (s *Service) Init() (cfg.Config, error) {
 	data := cfg.DefaultConfig()
-	if err := s.store.Save(s.configFile, data); err != nil {
+	if err := s.store.Save(s.configFile, data, s.baseDir); err != nil {
 		return cfg.Config{}, err
 	}
 	return s.Show()
@@ -80,7 +80,7 @@ func (s *Service) Set(key string, value string) error {
 		return errors.New("unsupported config key: " + key)
 	}
 
-	return s.store.Save(s.configFile, data)
+	return s.store.Save(s.configFile, data, s.baseDir)
 }
 
 // ConfigFile config file path

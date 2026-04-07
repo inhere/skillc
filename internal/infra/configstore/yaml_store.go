@@ -80,21 +80,35 @@ func (s *YAMLStore) Load(path string, baseDir string) (cfg.Config, error) {
 	return expandRuntimePaths(out, baseDir)
 }
 
-func (s *YAMLStore) Save(path string, data cfg.Config) error {
+func (s *YAMLStore) Save(path string, data cfg.Config, runtimeBaseDir ...string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+
+	baseDir := filepath.Dir(path)
+	if len(runtimeBaseDir) > 0 && runtimeBaseDir[0] != "" {
+		baseDir = runtimeBaseDir[0]
+	}
+
+	existingRaw, hasExisting, err := loadRawConfig(path)
+	if err != nil {
+		return err
+	}
+	persisted, err := compactRuntimePaths(cloneConfig(data), baseDir, existingRaw, hasExisting)
+	if err != nil {
 		return err
 	}
 
 	loader := newYamlLoader()
 	loader.SetData(map[string]any{
-		"proxy_url":          data.ProxyURL,
-		"agent_tools":        data.AgentTools,
-		"lock_file":          data.LockFile,
-		"repo_cache_dir":     data.RepoCacheDir,
-		"skill_cache_dir":    data.SkillCacheDir,
-		"registry_cache_dir": data.RegistryCacheDir,
-		"index_file":         data.IndexFile,
-		"sources":            toSourceRecords(data.Sources),
+		"proxy_url":          persisted.ProxyURL,
+		"agent_tools":        persisted.AgentTools,
+		"lock_file":          persisted.LockFile,
+		"repo_cache_dir":     persisted.RepoCacheDir,
+		"skill_cache_dir":    persisted.SkillCacheDir,
+		"registry_cache_dir": persisted.RegistryCacheDir,
+		"index_file":         persisted.IndexFile,
+		"sources":            toSourceRecords(persisted.Sources),
 	})
 	return loader.DumpToFile(path, gkconfig.Yaml)
 }
@@ -124,6 +138,121 @@ func mergeDefaults(dst *cfg.Config, defaults cfg.Config) {
 	if dst.Sources == nil {
 		dst.Sources = defaults.Sources
 	}
+}
+
+func loadRawConfig(path string) (rawConfig, bool, error) {
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return rawConfig{}, false, nil
+	} else if err != nil {
+		return rawConfig{}, false, err
+	}
+
+	loader := newYamlLoader()
+	if err := loader.LoadFiles(path); err != nil {
+		return rawConfig{}, false, err
+	}
+
+	var raw rawConfig
+	if err := loader.Decode(&raw); err != nil {
+		return rawConfig{}, false, err
+	}
+	return raw, true, nil
+}
+
+func cloneConfig(data cfg.Config) cfg.Config {
+	clone := data
+	if data.AgentTools != nil {
+		clone.AgentTools = make(map[string]cfg.AgentToolConfig, len(data.AgentTools))
+		for name, tool := range data.AgentTools {
+			clone.AgentTools[name] = tool
+		}
+	}
+	if data.Sources != nil {
+		clone.Sources = append([]domainsource.Source(nil), data.Sources...)
+	}
+	return clone
+}
+
+func compactRuntimePaths(data cfg.Config, baseDir string, existing rawConfig, hasExisting bool) (cfg.Config, error) {
+	defaults := cfg.DefaultConfig()
+	var err error
+
+	data.LockFile, err = compactPath(data.LockFile, existing.LockFile, defaults.LockFile, baseDir, hasExisting)
+	if err != nil {
+		return cfg.Config{}, err
+	}
+	data.RepoCacheDir, err = compactPath(data.RepoCacheDir, existing.RepoCacheDir, defaults.RepoCacheDir, baseDir, hasExisting)
+	if err != nil {
+		return cfg.Config{}, err
+	}
+	data.SkillCacheDir, err = compactPath(data.SkillCacheDir, existing.SkillCacheDir, defaults.SkillCacheDir, baseDir, hasExisting)
+	if err != nil {
+		return cfg.Config{}, err
+	}
+	data.RegistryCacheDir, err = compactPath(data.RegistryCacheDir, existing.RegistryCacheDir, defaults.RegistryCacheDir, baseDir, hasExisting)
+	if err != nil {
+		return cfg.Config{}, err
+	}
+	data.IndexFile, err = compactPath(data.IndexFile, existing.IndexFile, defaults.IndexFile, baseDir, hasExisting)
+	if err != nil {
+		return cfg.Config{}, err
+	}
+
+	for name, tool := range data.AgentTools {
+		var existingTool cfg.AgentToolConfig
+		if hasExisting && existing.AgentTools != nil {
+			existingTool = existing.AgentTools[name]
+		}
+		defaultTool, hasDefault := defaults.AgentTools[name]
+		if tool.UserDir != "" {
+			defaultRaw := ""
+			if hasDefault {
+				defaultRaw = defaultTool.UserDir
+			}
+			tool.UserDir, err = compactPath(tool.UserDir, existingTool.UserDir, defaultRaw, baseDir, hasExisting)
+			if err != nil {
+				return cfg.Config{}, err
+			}
+		}
+		if tool.ProjectDir != "" {
+			defaultRaw := ""
+			if hasDefault {
+				defaultRaw = defaultTool.ProjectDir
+			}
+			tool.ProjectDir, err = compactPath(tool.ProjectDir, existingTool.ProjectDir, defaultRaw, baseDir, hasExisting)
+			if err != nil {
+				return cfg.Config{}, err
+			}
+		}
+		data.AgentTools[name] = tool
+	}
+
+	return data, nil
+}
+
+func compactPath(current string, existingRaw string, defaultRaw string, baseDir string, hasExisting bool) (string, error) {
+	if current == "" {
+		return "", nil
+	}
+	if hasExisting && existingRaw != "" {
+		expandedExisting, err := fsx.ExpandPath(existingRaw, baseDir)
+		if err != nil {
+			return "", err
+		}
+		if current == expandedExisting {
+			return existingRaw, nil
+		}
+	}
+	if defaultRaw != "" {
+		expandedDefault, err := fsx.ExpandPath(defaultRaw, baseDir)
+		if err != nil {
+			return "", err
+		}
+		if current == expandedDefault {
+			return defaultRaw, nil
+		}
+	}
+	return current, nil
 }
 
 func expandRuntimePaths(data cfg.Config, baseDir string) (cfg.Config, error) {

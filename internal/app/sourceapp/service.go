@@ -69,7 +69,7 @@ func (s *Service) AddLocal(path string) (domainsource.Source, error) {
 	}
 
 	sourcestore.Add(&data, src)
-	if err := s.store.Save(s.configFile, data); err != nil {
+	if err := s.store.Save(s.configFile, data, s.baseDir); err != nil {
 		return domainsource.Source{}, err
 	}
 	return src, nil
@@ -90,7 +90,7 @@ func (s *Service) AddGit(url string, ref string) (domainsource.Source, error) {
 	}
 
 	sourcestore.Add(&data, src)
-	if err := s.store.Save(s.configFile, data); err != nil {
+	if err := s.store.Save(s.configFile, data, s.baseDir); err != nil {
 		return domainsource.Source{}, err
 	}
 	return src, nil
@@ -113,7 +113,7 @@ func (s *Service) Remove(id string) error {
 	if !sourcestore.Remove(&data, id) {
 		return fmt.Errorf("source not found: %s", id)
 	}
-	if err := s.store.Save(s.configFile, data); err != nil {
+	if err := s.store.Save(s.configFile, data, s.baseDir); err != nil {
 		return err
 	}
 	return s.rebuildIndex(data)
@@ -151,7 +151,7 @@ func (s *Service) Sync(id string) error {
 			data.Sources[i].Status = "ready"
 			data.Sources[i].ErrorMessage = ""
 			data.Sources[i].LastSyncAt = s.now().UTC().Format(time.RFC3339)
-			if err := s.store.Save(s.configFile, data); err != nil {
+			if err := s.store.Save(s.configFile, data, s.baseDir); err != nil {
 				return err
 			}
 			return s.rebuildIndex(data)
@@ -165,7 +165,7 @@ func (s *Service) Sync(id string) error {
 		if err != nil {
 			data.Sources[i].Status = "error"
 			data.Sources[i].ErrorMessage = err.Error()
-			_ = s.store.Save(s.configFile, data)
+			_ = s.store.Save(s.configFile, data, s.baseDir)
 			return err
 		}
 
@@ -174,7 +174,7 @@ func (s *Service) Sync(id string) error {
 		data.Sources[i].LastSyncAt = s.now().UTC().Format(time.RFC3339)
 		data.Sources[i].Status = "ready"
 		data.Sources[i].ErrorMessage = ""
-		if err := s.store.Save(s.configFile, data); err != nil {
+		if err := s.store.Save(s.configFile, data, s.baseDir); err != nil {
 			return err
 		}
 		return s.rebuildIndex(data)

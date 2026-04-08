@@ -21,3 +21,17 @@ type AgentToolConfig struct {
 	UserDir    string `yaml:"user_dir,omitempty"`
 	ProjectDir string `yaml:"project_dir,omitempty"`
 }
+
+func (atc *AgentToolConfig) GetUserDir() string {
+	if atc.UserDir == "" {
+		return "~/." + atc.Dirname
+	}
+	return atc.UserDir
+}
+
+func (atc *AgentToolConfig) GetProjectDir() string {
+	if atc.ProjectDir == "" {
+		return "." + atc.Dirname
+	}
+	return atc.ProjectDir
+}

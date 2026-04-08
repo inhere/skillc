@@ -14,9 +14,9 @@ func ResolveInstallPath(config cfg.Config, baseDir string, agentName string, sco
 		return "", fmt.Errorf("unsupported agent: %s", agentName)
 	}
 
-	path := tool.UserDir
+	path := tool.GetUserDir()
 	if scope == ScopeProject {
-		path = tool.ProjectDir
+		path = tool.GetProjectDir()
 	}
 
 	expanded, err := fsx.ExpandPath(path, baseDir)

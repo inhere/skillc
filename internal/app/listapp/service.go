@@ -132,7 +132,13 @@ func (s *Service) resolveInstalledPath(scopeKey string, scope agent.Scope, agent
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(targetRoot, sourceScopedInstallDir(record.SkillID, record.SourceQualifiedName, record.SourceID)), nil
+	flatPath := filepath.Join(targetRoot, record.SkillID)
+	legacyPath := filepath.Join(targetRoot, legacyInstallDir(record.SkillID, record.SourceQualifiedName, record.SourceID))
+	resolvedPath, err := preferExistingInstallPath(flatPath, legacyPath)
+	if err != nil {
+		return "", err
+	}
+	return resolvedPath, nil
 }
 
 func (s *Service) runtimeConfig() cfg.Config {
@@ -153,14 +159,7 @@ func (s *Service) runtimeWorkDir() string {
 	return filepath.Dir(s.lockFile)
 }
 
-func scopeFromKey(scopeKey string) agent.Scope {
-	if scopeKey == lockpkg.GlobalKey {
-		return agent.ScopeUser
-	}
-	return agent.ScopeProject
-}
-
-func sourceScopedInstallDir(skillID string, sourceQualifiedName string, sourceID string) string {
+func legacyInstallDir(skillID string, sourceQualifiedName string, sourceID string) string {
 	if sourceQualifiedName != "" {
 		return strings.ReplaceAll(sourceQualifiedName, "/", "--")
 	}
@@ -168,4 +167,28 @@ func sourceScopedInstallDir(skillID string, sourceQualifiedName string, sourceID
 		return sourceID + "--" + skillID
 	}
 	return skillID
+}
+
+func preferExistingInstallPath(flatPath string, legacyPath string) (string, error) {
+	if _, err := os.Stat(flatPath); err == nil {
+		return flatPath, nil
+	} else if !os.IsNotExist(err) {
+		return "", err
+	}
+	if legacyPath == flatPath {
+		return flatPath, nil
+	}
+	if _, err := os.Stat(legacyPath); err == nil {
+		return legacyPath, nil
+	} else if !os.IsNotExist(err) {
+		return "", err
+	}
+	return flatPath, nil
+}
+
+func scopeFromKey(scopeKey string) agent.Scope {
+	if scopeKey == lockpkg.GlobalKey {
+		return agent.ScopeUser
+	}
+	return agent.ScopeProject
 }

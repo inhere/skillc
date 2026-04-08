@@ -108,8 +108,8 @@ func TestInstallCommand_InstallsIndexedSkill(t *testing.T) {
 	output := runAppInDirWithStdout(t, baseDir, []string{"install", "--yes", "--agent", "claude-code", "hello-skill"})
 
 	assert.Contains(t, output, "hello-skill")
-	assert.Contains(t, output, filepath.Join(baseDir, "project-claude", "skills", "local-demo--hello-skill"))
-	data, err := os.ReadFile(filepath.Join(baseDir, "project-claude", "skills", "local-demo--hello-skill", "hello.txt"))
+	assert.Contains(t, output, filepath.Join(baseDir, "project-claude", "skills", "hello-skill"))
+	data, err := os.ReadFile(filepath.Join(baseDir, "project-claude", "skills", "hello-skill", "hello.txt"))
 	assert.NoErr(t, err)
 	assert.Eq(t, "hello", string(data))
 }
@@ -137,10 +137,10 @@ func TestInstallCommand_BatchTargetsWithYesReportsResolveAndInstallFailures(t *t
 	assert.Contains(t, output, "hello-skill")
 	assert.Contains(t, output, "resolve failed missing-skill")
 	assert.Contains(t, output, "install failed world-skill")
-	data, err := os.ReadFile(filepath.Join(baseDir, "project-claude", "skills", "local-demo--hello-skill", "hello.txt"))
+	data, err := os.ReadFile(filepath.Join(baseDir, "project-claude", "skills", "hello-skill", "hello.txt"))
 	assert.NoErr(t, err)
 	assert.Eq(t, "hello", string(data))
-	_, err = os.Stat(filepath.Join(baseDir, "project-claude", "skills", "local-demo--world-skill", "hello.txt"))
+	_, err = os.Stat(filepath.Join(baseDir, "project-claude", "skills", "world-skill", "hello.txt"))
 	assert.True(t, os.IsNotExist(err))
 }
 
@@ -169,10 +169,10 @@ func TestInstallCommand_CollectionModeInstallsCollectionTarget(t *testing.T) {
 
 	assert.Contains(t, output, "hello-skill")
 	assert.Contains(t, output, "world-skill")
-	helloData, err := os.ReadFile(filepath.Join(baseDir, "project-claude", "skills", "repo-a--marketplaces--hello-skill", "hello.txt"))
+	helloData, err := os.ReadFile(filepath.Join(baseDir, "project-claude", "skills", "hello-skill", "hello.txt"))
 	assert.NoErr(t, err)
 	assert.Eq(t, "hello", string(helloData))
-	worldData, err := os.ReadFile(filepath.Join(baseDir, "project-claude", "skills", "repo-a--marketplaces--world-skill", "world.txt"))
+	worldData, err := os.ReadFile(filepath.Join(baseDir, "project-claude", "skills", "world-skill", "world.txt"))
 	assert.NoErr(t, err)
 	assert.Eq(t, "world", string(worldData))
 }
@@ -204,7 +204,7 @@ func TestInstallCommand_PromptsBeforeInstallWithoutYes(t *testing.T) {
 
 	assert.Contains(t, output, "Continue? [y/N]")
 	assert.Contains(t, output, "install cancelled")
-	_, err := os.Stat(filepath.Join(baseDir, "project-claude", "skills", "local-demo--hello-skill", "hello.txt"))
+	_, err := os.Stat(filepath.Join(baseDir, "project-claude", "skills", "hello-skill", "hello.txt"))
 	assert.True(t, os.IsNotExist(err))
 }
 
@@ -214,8 +214,8 @@ func TestInstallCommand_RestoresFromLockFileWhenNoArgs(t *testing.T) {
 	lockFile := filepath.Join(baseDir, "skillc-install.lock")
 	sourceDir := filepath.Join(baseDir, "cache", "hello-skill")
 	commandsDir := filepath.Join(sourceDir, "commands")
-	claudeInstalledPath := filepath.Join(baseDir, "project-claude", "skills", "local-demo--hello-skill")
-	agentsInstalledPath := filepath.Join(baseDir, ".agents", "skills", "local-demo--hello-skill")
+	claudeInstalledPath := filepath.Join(baseDir, "project-claude", "skills", "hello-skill")
+	agentsInstalledPath := filepath.Join(baseDir, ".agents", "skills", "hello-skill")
 	assert.NoErr(t, os.MkdirAll(commandsDir, 0o755))
 	assert.NoErr(t, os.WriteFile(filepath.Join(commandsDir, "hello.txt"), []byte("restored"), 0o644))
 
@@ -425,7 +425,7 @@ func TestListCommand_ListsInstalledSkills(t *testing.T) {
 	baseDir := t.TempDir()
 	configFile := filepath.Join(baseDir, "skillc.yaml")
 	lockFile := filepath.Join(baseDir, "skillc-install.lock")
-	installedPath := filepath.Join(baseDir, "project-claude", "skills", "local-demo--hello-skill")
+	installedPath := filepath.Join(baseDir, "project-claude", "skills", "hello-skill")
 	assert.NoErr(t, os.MkdirAll(installedPath, 0o755))
 	assert.NoErr(t, os.WriteFile(filepath.Join(installedPath, "hello.txt"), []byte("hello"), 0o644))
 
@@ -453,7 +453,7 @@ func TestUninstallCommand_RemovesInstalledSkill(t *testing.T) {
 	baseDir := t.TempDir()
 	configFile := filepath.Join(baseDir, "skillc.yaml")
 	lockFile := filepath.Join(baseDir, "skillc-install.lock")
-	installedPath := filepath.Join(baseDir, "project-claude", "skills", "local-demo--hello-skill")
+	installedPath := filepath.Join(baseDir, "project-claude", "skills", "hello-skill")
 	assert.NoErr(t, os.MkdirAll(installedPath, 0o755))
 	assert.NoErr(t, os.WriteFile(filepath.Join(installedPath, "hello.txt"), []byte("hello"), 0o644))
 
@@ -487,9 +487,9 @@ func TestUpdateCommand_PrintsUpdatedSkippedAndFailedItems(t *testing.T) {
 	indexFile := filepath.Join(baseDir, "cache", "index.json")
 	helloSource := filepath.Join(baseDir, "source", "hello-skill")
 	helloCommands := filepath.Join(helloSource, "commands")
-	helloInstalled := filepath.Join(baseDir, "project-claude", "skills", "local-demo--hello-skill")
-	pinnedInstalled := filepath.Join(baseDir, "project-claude", "skills", "local-demo--pinned-skill")
-	brokenInstalled := filepath.Join(baseDir, "project-claude", "skills", "local-demo--broken-skill")
+	helloInstalled := filepath.Join(baseDir, "project-claude", "skills", "hello-skill")
+	pinnedInstalled := filepath.Join(baseDir, "project-claude", "skills", "pinned-skill")
+	brokenInstalled := filepath.Join(baseDir, "project-claude", "skills", "broken-skill")
 	assert.NoErr(t, os.MkdirAll(helloCommands, 0o755))
 	assert.NoErr(t, os.WriteFile(filepath.Join(helloCommands, "hello.txt"), []byte("updated"), 0o644))
 	assert.NoErr(t, os.WriteFile(filepath.Join(helloSource, "SKILL.md"), []byte(`---
@@ -537,7 +537,7 @@ func TestUpdateCommand_PrintsCleanupFailuresWithoutDroppingSuccessfulUpdate(t *t
 	config.AgentTools["claude-code"] = cfg.AgentToolConfig{Dirname: ".claude", UserDir: filepath.Join(baseDir, "user-claude"), ProjectDir: filepath.Join(baseDir, "project-claude")}
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
 
-	cleanupInstalled := filepath.Join(baseDir, "project-claude", "skills", "local-demo--renamed--shared-skill")
+	cleanupInstalled := filepath.Join(baseDir, "project-claude", "skills", "shared-skill")
 	prevFactory := newUpdateService
 	newUpdateService = func(configFile string, baseDir string) updateRunner {
 		return updateRunnerStub{runFn: func(req updateapp.Req) (updateapp.Result, error) {

@@ -181,6 +181,9 @@ MVP 先打通 `source -> index -> install -> lock` 主链路，再扩展 `regist
 - 生成安装计划
 - 做冲突检测
 - 执行复制安装
+- 安装目录统一落到目标 agent 的 `skills/{skillID}`
+- 若同一 scope 下已存在来自不同 source 的同名 `skillID`，直接拒绝安装，避免覆盖
+- list / uninstall / update 需兼容旧的 source-scoped 目录名，并在更新过程中迁移到扁平目录
 - 支持 skill 级与 collection 级安装/卸载
 - 支持 source 限定的歧义消解
 - 支持卸载与批量恢复
@@ -202,7 +205,9 @@ MVP 先打通 `source -> index -> install -> lock` 主链路，再扩展 `regist
 边界：
 - 只记录“安装事实”
 - `agents []string` 持久化每条 skill 当前挂载到哪些 agent
-- 不持久化 `InstalledPath`；运行时按 `scope key + agent + source-qualified skill id` 解析安装目录
+- 不持久化 `InstalledPath`；运行时按 `scope key + agent + skillID` 解析安装目录
+- 安装目录统一落到 `skills/{skillID}`；若不同 source 出现同名 `SkillID`，安装阶段直接拒绝，避免目录覆盖
+- 对历史 source-scoped 目录保持兼容：list / uninstall 优先识别已存在的旧目录，update 在成功重装到扁平目录后再清理旧目录
 - restore 继续基于 `SourceID + InstallEntry` 还原实际复制入口
 - 不负责重新解析来源数据
 
@@ -326,7 +331,9 @@ type InstallPlan struct {
 3. **LockRecord 是安装事实最小闭包**
    - 既保留用户可见限定名，也保留恢复安装所必需的信息
    - lock 顶层按 `__global__` / 绝对项目路径分组，单条 record 用 `agents[]` 表示多 agent 安装状态
-   - `InstalledPath` 不落盘，运行时统一推导，避免路径快照与当前 agent 目录配置漂移
+   - `InstalledPath` 不落盘，运行时统一推导为目标 agent 下的 `skills/{skillID}`，避免路径快照与当前 agent 目录配置漂移
+   - 若同一 scope 下出现来自不同 source 的同名 `skillID`，安装阶段直接拒绝，避免扁平目录发生覆盖
+   - 对历史 source-scoped 目录保持读取与迁移兼容，避免升级后误报 missing 或遗留孤儿目录
    - restore 仍以 `SourceID + InstallEntry` 为准，避免展示名称漂移影响恢复语义
 
 4. **路径解析统一收口**
@@ -379,7 +386,7 @@ type InstallPlan struct {
 4. 若缓存过期，先同步相关来源
 5. 通过 agent adapter 解析目标目录
 6. 生成 `InstallPlan`
-7. 检测路径冲突
+7. 检测路径冲突；安装目录固定为 `skills/{skillID}`，若不同 source 命中同一 `skillID` 则直接报冲突
 8. 执行复制安装
 9. 计算 checksum
 10. 原子写 lock file
@@ -401,13 +408,15 @@ type InstallPlan struct {
 - lock 缺失或为空时，按 `agent + scope` 扫描已安装目录，并基于索引唯一匹配回退
 - 执行更新前自动同步相关来源
 - 当前版本不做版本比较，仅执行“同步来源 + 原位重装”
+- update / list / restore 与 install 共用同一目录语义，目标路径始终为目标 agent 下的 `skills/{skillID}`
+- 对旧的 source-scoped 安装目录保持兼容：lock-first 更新优先识别旧目录作为来源，成功重装到扁平目录后再清理旧目录
 
 1. 读取配置与 lock file
 2. 按 `agent + scope` 收集已安装记录；若 lock 缺失或为空，则扫描已安装目录回退
 3. 过滤 pinned 项并记录 skip 原因
 4. 聚合待更新项涉及的 source，逐个执行 `source sync`
 5. 重新加载索引并按 `SkillID + QualifiedName / SourceQualifiedName / SourceID` 匹配最新 Skill
-6. 运行时基于 lock key、agent 和 source-qualified install naming rule 重新计算目标安装路径后重装
+6. 运行时基于 lock key、agent 和 `skillID` 重新计算目标安装路径后重装
 7. 汇总 updated / skipped / failed / cleanup-failed 结果并由 CLI 输出；其中 cleanup-failed 表示重装已成功、旧目录清理失败，不应回退为 update failed
 
 ---

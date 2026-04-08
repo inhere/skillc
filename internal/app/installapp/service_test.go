@@ -43,6 +43,7 @@ func TestService_RunInstallsIndexedSkill(t *testing.T) {
 	assert.Eq(t, "hello-skill", result.Installed[0].SkillID)
 	assert.Eq(t, "claude-code", result.Installed[0].Agent)
 	assert.Eq(t, "project", result.Installed[0].Scope)
+	assert.Eq(t, filepath.Join(baseDir, ".claude", "skills", "hello-skill"), result.Installed[0].InstalledPath)
 
 	data, err := os.ReadFile(filepath.Join(result.Installed[0].InstalledPath, "hello.txt"))
 	assert.NoErr(t, err)
@@ -245,7 +246,7 @@ func TestService_ReinstallAtPathUpdatesExistingLockRecord(t *testing.T) {
 	assert.Eq(t, []string{"claude-code"}, locks[projectKey][0].Agents)
 }
 
-func TestService_InstallKeepsSameIDFromDifferentSourcesDistinct(t *testing.T) {
+func TestService_InstallRejectsSameIDFromDifferentSources(t *testing.T) {
 	baseDir := t.TempDir()
 	lockFile := filepath.Join(baseDir, "skillc-install.lock")
 	service := NewService(lockFile)
@@ -258,21 +259,20 @@ func TestService_InstallKeepsSameIDFromDifferentSourcesDistinct(t *testing.T) {
 
 	first, err := service.Install(skill.Skill{ID: "ship", QualifiedName: "shared/ship", SourceQualifiedName: "repo-a/shared/ship", Version: "1.0.0", SourceID: "src-a", SourceType: sourcepkg.TypeLocal, InstallEntry: "commands", Path: firstSourceDir}, "claude-code", agent.ScopeProject, projectKey, targetRoot)
 	assert.NoErr(t, err)
-	second, err := service.Install(skill.Skill{ID: "ship", QualifiedName: "shared/ship", SourceQualifiedName: "repo-b/shared/ship", Version: "1.0.0", SourceID: "src-b", SourceType: sourcepkg.TypeLocal, InstallEntry: "commands", Path: secondSourceDir}, "claude-code", agent.ScopeProject, projectKey, targetRoot)
-	assert.NoErr(t, err)
-	assert.NotEq(t, first.InstalledPath, second.InstalledPath)
+	assert.Eq(t, filepath.Join(targetRoot, "ship"), first.InstalledPath)
 
-	firstData, err := os.ReadFile(filepath.Join(first.InstalledPath, "source.txt"))
+	second, err := service.Install(skill.Skill{ID: "ship", QualifiedName: "shared/ship", SourceQualifiedName: "repo-b/shared/ship", Version: "1.0.0", SourceID: "src-b", SourceType: sourcepkg.TypeLocal, InstallEntry: "commands", Path: secondSourceDir}, "claude-code", agent.ScopeProject, projectKey, targetRoot)
+	assert.Err(t, err)
+	assert.Contains(t, err.Error(), "ship")
+	assert.Eq(t, RuntimeRecord{}, second)
+
+	data, err := os.ReadFile(filepath.Join(first.InstalledPath, "source.txt"))
 	assert.NoErr(t, err)
-	secondData, err := os.ReadFile(filepath.Join(second.InstalledPath, "source.txt"))
-	assert.NoErr(t, err)
-	assert.Eq(t, "repo-a", string(firstData))
-	assert.Eq(t, "repo-b", string(secondData))
+	assert.Eq(t, "repo-a", string(data))
 
 	locks := mustLoadLockFile(t, service, lockFile)
-	assert.Len(t, locks[projectKey], 2)
+	assert.Len(t, locks[projectKey], 1)
 	assert.Eq(t, "repo-a/shared/ship", locks[projectKey][0].SourceQualifiedName)
-	assert.Eq(t, "repo-b/shared/ship", locks[projectKey][1].SourceQualifiedName)
 }
 
 func TestService_UninstallRemovesOnlyTargetAgentAndKeepsGroupedRecord(t *testing.T) {
@@ -347,17 +347,18 @@ func TestService_UninstallProjectScopeDoesNotTouchOtherProjectKeys(t *testing.T)
 	assert.Eq(t, []string{"claude-code"}, locks[projectBKey][0].Agents)
 }
 
-func TestService_RestoreUsesGroupedScopeKeysAndExpandsAgents(t *testing.T) {
+func TestService_UninstallRemovesLegacySourceScopedDir(t *testing.T) {
 	baseDir := t.TempDir()
 	lockFile := filepath.Join(baseDir, "skillc-install.lock")
-	sourceDir := createSkillSource(t, baseDir, filepath.Join("source", "hello-skill"), "hello.txt", "restored")
 	service := NewService(lockFile)
 	config := testConfig(baseDir)
-	projectDir := filepath.Join(baseDir, "workspace")
-	projectKey, err := resolveScopeKey(agent.ScopeProject, projectDir)
+	projectKey, err := resolveScopeKey(agent.ScopeProject, baseDir)
 	assert.NoErr(t, err)
+	legacyDir := filepath.Join(baseDir, ".claude", "skills", "repo-a--marketplaces--hello-skill")
+	assert.NoErr(t, os.MkdirAll(legacyDir, 0o755))
+	assert.NoErr(t, os.WriteFile(filepath.Join(legacyDir, "hello.txt"), []byte("hello"), 0o644))
 	assert.NoErr(t, service.store.Save(lockFile, lockpkg.File{
-		lockpkg.GlobalKey: {
+		projectKey: {
 			{
 				SkillID:             "hello-skill",
 				QualifiedName:       "marketplaces/hello-skill",
@@ -369,35 +370,18 @@ func TestService_RestoreUsesGroupedScopeKeysAndExpandsAgents(t *testing.T) {
 				Agents:              []string{"claude-code"},
 			},
 		},
-		projectKey: {
-			{
-				SkillID:             "hello-skill",
-				QualifiedName:       "marketplaces/hello-skill",
-				SourceQualifiedName: "repo-a/marketplaces/hello-skill",
-				Version:             "1.0.0",
-				SourceID:            "local-demo",
-				SourceType:          "local",
-				InstallEntry:        "commands",
-				Agents:              []string{"claude-code", "codex"},
-			},
-		},
 	}))
 
 	runtimeSvc := service.WithRuntime(config, baseDir)
-	restored, err := runtimeSvc.Restore(map[string]string{"local-demo": sourceDir})
-	assert.NoErr(t, err)
-	assert.Len(t, restored, 3)
+	assert.NoErr(t, runtimeSvc.Uninstall("marketplaces/hello-skill", "claude-code", agent.ScopeProject))
 
-	installDir := sourceScopedInstallDir("hello-skill", "repo-a/marketplaces/hello-skill", "local-demo")
-	userPath := filepath.Join(baseDir, ".claude-user", "skills", installDir)
-	projectClaudePath := filepath.Join(projectDir, ".claude", "skills", installDir)
-	projectCodexPath := filepath.Join(projectDir, ".codex", "skills", installDir)
-	for _, path := range []string{userPath, projectClaudePath, projectCodexPath} {
-		data, err := os.ReadFile(filepath.Join(path, "hello.txt"))
-		assert.NoErr(t, err)
-		assert.Eq(t, "restored", string(data))
-	}
+	_, err = os.Stat(legacyDir)
+	assert.True(t, os.IsNotExist(err))
+	locks := mustLoadLockFile(t, service, lockFile)
+	_, ok := locks[projectKey]
+	assert.False(t, ok)
 }
+
 
 func testConfig(baseDir string) cfg.Config {
 	return cfg.Config{

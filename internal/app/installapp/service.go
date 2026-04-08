@@ -150,11 +150,6 @@ func (s *Service) Install(item skill.Skill, agentName string, scope agent.Scope,
 	}
 
 	records := append([]lockpkg.Record(nil), locks[scopeKey]...)
-	targetPath := installTargetPath(item, targetRoot)
-	if err := s.installer.Install(filepath.Join(item.Path, item.InstallEntry), targetPath); err != nil {
-		return RuntimeRecord{}, err
-	}
-
 	now := s.now()
 	record := lockpkg.Record{
 		SkillID:             item.ID,
@@ -167,6 +162,14 @@ func (s *Service) Install(item skill.Skill, agentName string, scope agent.Scope,
 		Agents:              []string{agentName},
 		InstalledAt:         now,
 		UpdatedAt:           now,
+	}
+	if conflict, ok := findConflictingSkillSource(records, record); ok {
+		return RuntimeRecord{}, fmt.Errorf("skill already installed from another source: %s (%s)", item.ID, conflict.SourceQualifiedName)
+	}
+
+	targetPath := installTargetPath(item, targetRoot)
+	if err := s.installer.Install(filepath.Join(item.Path, item.InstallEntry), targetPath); err != nil {
+		return RuntimeRecord{}, err
 	}
 
 	records, record = upsertRecord(records, record)
@@ -364,7 +367,13 @@ func (s *Service) resolveInstalledPath(scopeKey string, scope agent.Scope, agent
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(targetRoot, sourceScopedInstallDir(record.SkillID, record.SourceQualifiedName, record.SourceID)), nil
+	flatPath := filepath.Join(targetRoot, record.SkillID)
+	legacyPath := filepath.Join(targetRoot, legacyInstallDir(record.SkillID, record.SourceQualifiedName, record.SourceID))
+	resolvedPath, err := preferExistingInstallPath(flatPath, legacyPath)
+	if err != nil {
+		return "", err
+	}
+	return resolvedPath, nil
 }
 
 func (s *Service) runtimeConfig() cfg.Config {
@@ -421,10 +430,23 @@ func sameInstallIdentity(current lockpkg.Record, next lockpkg.Record) bool {
 }
 
 func installTargetPath(item skill.Skill, targetRoot string) string {
-	return filepath.Join(targetRoot, sourceScopedInstallDir(item.ID, item.SourceQualifiedName, item.SourceID))
+	return filepath.Join(targetRoot, item.ID)
 }
 
-func sourceScopedInstallDir(skillID string, sourceQualifiedName string, sourceID string) string {
+func findConflictingSkillSource(records []lockpkg.Record, next lockpkg.Record) (lockpkg.Record, bool) {
+	for _, record := range records {
+		if record.SkillID != next.SkillID {
+			continue
+		}
+		if sameInstallIdentity(record, next) {
+			return lockpkg.Record{}, false
+		}
+		return record, true
+	}
+	return lockpkg.Record{}, false
+}
+
+func legacyInstallDir(skillID string, sourceQualifiedName string, sourceID string) string {
 	if sourceQualifiedName != "" {
 		return strings.ReplaceAll(sourceQualifiedName, "/", "--")
 	}
@@ -432,6 +454,23 @@ func sourceScopedInstallDir(skillID string, sourceQualifiedName string, sourceID
 		return sourceID + "--" + skillID
 	}
 	return skillID
+}
+
+func preferExistingInstallPath(flatPath string, legacyPath string) (string, error) {
+	if _, err := os.Stat(flatPath); err == nil {
+		return flatPath, nil
+	} else if !os.IsNotExist(err) {
+		return "", err
+	}
+	if legacyPath == flatPath {
+		return flatPath, nil
+	}
+	if _, err := os.Stat(legacyPath); err == nil {
+		return legacyPath, nil
+	} else if !os.IsNotExist(err) {
+		return "", err
+	}
+	return flatPath, nil
 }
 
 func sourcePathMap(config cfg.Config) map[string]string {

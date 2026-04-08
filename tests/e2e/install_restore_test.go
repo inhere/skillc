@@ -52,7 +52,7 @@ func TestInstallListAndRestoreFlow(t *testing.T) {
 	assert.Eq(t, "installed", listed[0].Status)
 
 	assert.NoErr(t, installer.WithRuntime(config, baseDir).Uninstall("marketplaces/hello-skill", "claude-code", agent.ScopeProject))
-	_, err = os.Stat(filepath.Join(projectRoot, "workflow-repo--marketplaces--hello-skill"))
+	_, err = os.Stat(filepath.Join(projectRoot, "hello-skill"))
 	assert.True(t, os.IsNotExist(err))
 
 	listed, err = listapp.NewService(lockFile).WithRuntime(config, baseDir).List("claude-code", "project")
@@ -61,7 +61,7 @@ func TestInstallListAndRestoreFlow(t *testing.T) {
 
 	_, err = installer.Install(item, "claude-code", agent.ScopeProject, projectKey, projectRoot)
 	assert.NoErr(t, err)
-	assert.NoErr(t, os.RemoveAll(filepath.Join(projectRoot, "workflow-repo--marketplaces--hello-skill")))
+	assert.NoErr(t, os.RemoveAll(filepath.Join(projectRoot, "hello-skill")))
 
 	listed, err = listapp.NewService(lockFile).WithRuntime(config, baseDir).List("claude-code", "project")
 	assert.NoErr(t, err)
@@ -73,7 +73,7 @@ func TestInstallListAndRestoreFlow(t *testing.T) {
 	assert.Len(t, restored, 1)
 	assert.Eq(t, "workflow-repo/marketplaces/hello-skill", restored[0].SourceQualifiedName)
 
-	data, err := os.ReadFile(filepath.Join(projectRoot, "workflow-repo--marketplaces--hello-skill", "hello.txt"))
+	data, err := os.ReadFile(filepath.Join(projectRoot, "hello-skill", "hello.txt"))
 	assert.NoErr(t, err)
 	assert.Eq(t, "hello", string(data))
 }
@@ -106,7 +106,7 @@ func TestRestoreUsesProjectKeyAsWorkdir(t *testing.T) {
 	restored, err := installapp.NewService(lockFile).WithRuntime(config, baseDir).Restore(map[string]string{"local-demo": sourceDir})
 	assert.NoErr(t, err)
 	assert.Len(t, restored, 1)
-	data, err := os.ReadFile(filepath.Join(projectDir, ".claude", "skills", "workflow-repo--marketplaces--hello-skill", "hello.txt"))
+	data, err := os.ReadFile(filepath.Join(projectDir, ".claude", "skills", "hello-skill", "hello.txt"))
 	assert.NoErr(t, err)
 	assert.Eq(t, "restored", string(data))
 }

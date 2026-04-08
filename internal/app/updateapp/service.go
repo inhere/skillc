@@ -165,17 +165,13 @@ func (s *Service) Run(req UpdateReq) (Result, error) {
 	}
 	for _, candidate := range result.Candidates {
 		oldPath := candidate.Installed.InstalledPath
-		targetPath := oldPath
-		removeOldPath := false
-		if candidate.Installed.FromLock {
-			targetPath, err = resolveLatestInstalledPath(config, req.WorkDir, candidate.Installed.ScopeKey, candidate.Installed.Agent, agent.Scope(candidate.Installed.Scope), candidate.Latest)
-			if err != nil {
-				result.UpdateFailed = append(result.UpdateFailed, UpdateItemError{SkillID: candidate.Installed.SkillID, Reason: err.Error()})
-				result.Failed = append(result.Failed, FailedItem{SkillID: candidate.Installed.SkillID, Reason: err.Error()})
-				continue
-			}
-			removeOldPath = oldPath != targetPath
+		targetPath, err := resolveLatestInstalledPath(config, req.WorkDir, candidate.Installed.ScopeKey, candidate.Installed.Agent, agent.Scope(candidate.Installed.Scope), candidate.Latest)
+		if err != nil {
+			result.UpdateFailed = append(result.UpdateFailed, UpdateItemError{SkillID: candidate.Installed.SkillID, Reason: err.Error()})
+			result.Failed = append(result.Failed, FailedItem{SkillID: candidate.Installed.SkillID, Reason: err.Error()})
+			continue
 		}
+		removeOldPath := oldPath != targetPath
 		record, err := worker.ReinstallAtPath(
 			candidate.Latest,
 			candidate.Installed.Agent,
@@ -416,60 +412,41 @@ func sameCandidateIdentity(record lockpkg.Record, item skill.Skill) bool {
 	return false
 }
 
-func matchInstalledDir(items []skill.Skill, dirName string, entryNames map[string]struct{}) []skill.Skill {
+func legacyInstallDir(skillID string, sourceQualifiedName string, sourceID string) string {
+	if sourceQualifiedName != "" {
+		return strings.ReplaceAll(sourceQualifiedName, "/", "--")
+	}
+	if sourceID != "" {
+		return sourceID + "--" + skillID
+	}
+	return skillID
+}
+
+func matchInstalledDir(items []skill.Skill, dirName string, _ map[string]struct{}) []skill.Skill {
 	matches := make([]skill.Skill, 0)
 	for _, item := range items {
-		if sourceScopedInstallDir(item) == dirName {
-			matches = append(matches, item)
-			continue
-		}
-		if item.ID != dirName {
-			continue
-		}
-		if shouldMatchPlainInstalledDir(item, items, entryNames) {
+		if item.ID == dirName || legacyInstallDir(item.ID, item.SourceQualifiedName, item.SourceID) == dirName {
 			matches = append(matches, item)
 		}
 	}
 	return matches
 }
 
-func shouldMatchPlainInstalledDir(item skill.Skill, items []skill.Skill, entryNames map[string]struct{}) bool {
-	ownScopedDir := sourceScopedInstallDir(item)
-	if _, ok := entryNames[ownScopedDir]; ok {
-		return false
+func preferExistingInstallPath(flatPath string, legacyPath string) (string, error) {
+	if _, err := os.Stat(flatPath); err == nil {
+		return flatPath, nil
+	} else if !os.IsNotExist(err) {
+		return "", err
 	}
-	for _, other := range items {
-		if other.ID != item.ID || sameSkillSource(item, other) {
-			continue
-		}
-		if _, ok := entryNames[sourceScopedInstallDir(other)]; ok {
-			return true
-		}
+	if legacyPath == flatPath {
+		return flatPath, nil
 	}
-	return true
-}
-
-func sameSkillSource(a, b skill.Skill) bool {
-	if a.SourceQualifiedName != "" || b.SourceQualifiedName != "" {
-		return a.SourceQualifiedName != "" && a.SourceQualifiedName == b.SourceQualifiedName
+	if _, err := os.Stat(legacyPath); err == nil {
+		return legacyPath, nil
+	} else if !os.IsNotExist(err) {
+		return "", err
 	}
-	if a.SourceID != "" || b.SourceID != "" {
-		return a.SourceID != "" && a.SourceID == b.SourceID
-	}
-	if a.QualifiedName != "" || b.QualifiedName != "" {
-		return a.QualifiedName != "" && a.QualifiedName == b.QualifiedName
-	}
-	return a.ID == b.ID
-}
-
-func sourceScopedInstallDir(item skill.Skill) string {
-	if item.SourceQualifiedName != "" {
-		return strings.ReplaceAll(item.SourceQualifiedName, "/", "--")
-	}
-	if item.SourceID != "" {
-		return item.SourceID + "--" + item.ID
-	}
-	return item.ID
+	return flatPath, nil
 }
 
 func failedFromSync(records []InstalledItem, syncFailed []SourceSyncError) []FailedItem {
@@ -529,7 +506,7 @@ func resolveLatestInstalledPath(config cfg.Config, workDir string, scopeKey stri
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(targetRoot, sourceScopedInstallDir(item)), nil
+	return filepath.Join(targetRoot, item.ID), nil
 }
 
 func resolveInstalledPath(config cfg.Config, workDir string, scopeKey string, agentName string, scope agent.Scope, record lockpkg.Record) (string, error) {
@@ -541,17 +518,13 @@ func resolveInstalledPath(config cfg.Config, workDir string, scopeKey string, ag
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(targetRoot, installDirName(record)), nil
-}
-
-func installDirName(record lockpkg.Record) string {
-	if record.SourceQualifiedName != "" {
-		return strings.ReplaceAll(record.SourceQualifiedName, "/", "--")
+	flatPath := filepath.Join(targetRoot, record.SkillID)
+	legacyPath := filepath.Join(targetRoot, legacyInstallDir(record.SkillID, record.SourceQualifiedName, record.SourceID))
+	resolvedPath, err := preferExistingInstallPath(flatPath, legacyPath)
+	if err != nil {
+		return "", err
 	}
-	if record.SourceID != "" {
-		return record.SourceID + "--" + record.SkillID
-	}
-	return record.SkillID
+	return resolvedPath, nil
 }
 
 func filterAgents(agents []string, agentName string) []string {

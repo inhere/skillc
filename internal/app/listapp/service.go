@@ -58,9 +58,14 @@ func (s *Service) List(agentName string, scope string) ([]Item, error) {
 	}
 
 	items := make([]Item, 0)
+	currentWorkDir := s.runtimeWorkDir()
 	for scopeKey, grouped := range records {
 		recordScope := scopeFromKey(scopeKey)
 		if scope != "" && string(recordScope) != scope {
+			continue
+		}
+		// project scope records are keyed by project dir; only show current project
+		if recordScope == agent.ScopeProject && scopeKey != currentWorkDir {
 			continue
 		}
 		for _, record := range grouped {

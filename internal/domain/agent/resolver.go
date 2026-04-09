@@ -9,7 +9,7 @@ import (
 )
 
 func ResolveInstallPath(config cfg.Config, baseDir string, agentName string, scope Scope) (string, error) {
-	tool, ok := config.AgentTools[agentName]
+	_, tool, ok := config.ResolveAgentTool(agentName)
 	if !ok {
 		return "", fmt.Errorf("unsupported agent: %s", agentName)
 	}

@@ -17,21 +17,38 @@ type Config struct {
 }
 
 type AgentToolConfig struct {
-	Dirname    string `yaml:"dirname"`
-	UserDir    string `yaml:"user_dir,omitempty"`
-	ProjectDir string `yaml:"project_dir,omitempty"`
+	Dirname    string   `yaml:"dirname"`
+	Aliases    []string `yaml:"aliases,omitempty"`
+	UserDir    string   `yaml:"user_dir,omitempty"`
+	ProjectDir string   `yaml:"project_dir,omitempty"`
+}
+
+// ResolveAgentTool looks up an agent tool by name or alias.
+// Returns the canonical name and config, or ok=false if not found.
+func (c *Config) ResolveAgentTool(nameOrAlias string) (canonicalName string, tool AgentToolConfig, ok bool) {
+	if t, exists := c.AgentTools[nameOrAlias]; exists {
+		return nameOrAlias, t, true
+	}
+	for name, t := range c.AgentTools {
+		for _, alias := range t.Aliases {
+			if alias == nameOrAlias {
+				return name, t, true
+			}
+		}
+	}
+	return "", AgentToolConfig{}, false
 }
 
 func (atc *AgentToolConfig) GetUserDir() string {
 	if atc.UserDir == "" {
-		return "~/." + atc.Dirname
+		return "~/" + atc.Dirname
 	}
 	return atc.UserDir
 }
 
 func (atc *AgentToolConfig) GetProjectDir() string {
 	if atc.ProjectDir == "" {
-		return "." + atc.Dirname
+		return atc.Dirname
 	}
 	return atc.ProjectDir
 }

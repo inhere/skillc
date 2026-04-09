@@ -12,6 +12,7 @@ func DefaultConfig() Config {
 			},
 			"claude-code": {
 				Dirname:    ".claude",
+				Aliases:    []string{"claude"},
 				UserDir:    "~/.claude",
 				ProjectDir: "./.claude",
 			},

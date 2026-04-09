@@ -191,6 +191,117 @@ func preferExistingInstallPath(flatPath string, legacyPath string) (string, erro
 	return flatPath, nil
 }
 
+// UnrecordedGroup holds skill dir names found on disk but not in the lock file.
+type UnrecordedGroup struct {
+	AgentName string
+	Skills    []string
+}
+
+// ScanUnrecorded scans the configured agent tool directories and returns skills
+// that exist on disk but have no lock file record for the given scope.
+func (s *Service) ScanUnrecorded(agentName string, scope agent.Scope) ([]UnrecordedGroup, error) {
+	recordedPaths, err := s.collectRecordedPaths(agentName, scope)
+	if err != nil {
+		return nil, err
+	}
+
+	rc := s.runtimeConfig()
+	workDir := s.runtimeWorkDir()
+
+	var groups []UnrecordedGroup
+	for name, tool := range rc.AgentTools {
+		if agentName != "" {
+			canonicalName, _, ok := rc.ResolveAgentTool(agentName)
+			if !ok || canonicalName != name {
+				continue
+			}
+		}
+
+		skillsDir, err := resolveSkillsDir(rc, workDir, name, tool, scope)
+		if err != nil || skillsDir == "" {
+			continue
+		}
+
+		entries, err := os.ReadDir(skillsDir)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return nil, err
+		}
+
+		var unrecorded []string
+		for _, entry := range entries {
+			if !entry.IsDir() {
+				continue
+			}
+			fullPath := filepath.Join(skillsDir, entry.Name())
+			if !recordedPaths[fullPath] {
+				unrecorded = append(unrecorded, entry.Name())
+			}
+		}
+		if len(unrecorded) > 0 {
+			sort.Strings(unrecorded)
+			groups = append(groups, UnrecordedGroup{AgentName: name, Skills: unrecorded})
+		}
+	}
+
+	sort.Slice(groups, func(i, j int) bool { return groups[i].AgentName < groups[j].AgentName })
+	return groups, nil
+}
+
+// collectRecordedPaths returns the set of installed paths from the lock file.
+func (s *Service) collectRecordedPaths(agentName string, scope agent.Scope) (map[string]bool, error) {
+	records, err := s.store.Load(s.lockFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return map[string]bool{}, nil
+		}
+		return nil, err
+	}
+
+	workDir := s.runtimeWorkDir()
+	rc := s.runtimeConfig()
+	paths := make(map[string]bool)
+
+	for scopeKey, grouped := range records {
+		recScope := scopeFromKey(scopeKey)
+		if recScope != scope {
+			continue
+		}
+		if recScope == agent.ScopeProject && scopeKey != workDir {
+			continue
+		}
+		for _, record := range grouped {
+			for _, ag := range record.Agents {
+				if agentName != "" {
+					canonicalName, _, ok := rc.ResolveAgentTool(agentName)
+					if !ok || canonicalName != ag {
+						continue
+					}
+				}
+				baseDir := workDir
+				if recScope == agent.ScopeProject {
+					baseDir = scopeKey
+				}
+				targetRoot, err := agent.ResolveInstallPath(rc, baseDir, ag, recScope)
+				if err != nil {
+					continue
+				}
+				flatPath := filepath.Join(targetRoot, record.SkillID)
+				legacyPath := filepath.Join(targetRoot, legacyInstallDir(record.SkillID, record.SourceQualifiedName, record.SourceID))
+				paths[flatPath] = true
+				paths[legacyPath] = true
+			}
+		}
+	}
+	return paths, nil
+}
+
+func resolveSkillsDir(rc cfg.Config, workDir string, agentName string, _ cfg.AgentToolConfig, scope agent.Scope) (string, error) {
+	return agent.ResolveInstallPath(rc, workDir, agentName, scope)
+}
+
 func scopeFromKey(scopeKey string) agent.Scope {
 	if scopeKey == lockpkg.GlobalKey {
 		return agent.ScopeUser

@@ -301,22 +301,37 @@ func buildListCommand() *gcli.Command {
 				return err
 			}
 
-			items, err := listapp.NewService(config.LockFile).WithRuntime(config, cwd).List(opts.Agent, string(scope))
+			svc := listapp.NewService(config.LockFile).WithRuntime(config, cwd)
+			items, err := svc.List(opts.Agent, string(scope))
 			if err != nil {
 				slog.Error(err)
 				return err
 			}
 			if len(items) == 0 {
 				ccolor.Warnln("no skills found")
-				return nil
+			} else {
+				tb := table.New("List Skills").SetHeads("Skill ID", "Agent", "Scope", "Status")
+				for _, item := range items {
+					tb.AddRow(item.SkillID, item.Agent, item.Scope, item.Status)
+				}
+				_, err = fmt.Fprint(os.Stdout, tb.Render())
+				if err != nil {
+					return err
+				}
 			}
 
-			tb := table.New("List Skills").SetHeads("Skill ID", "Agent", "Scope", "Status")
-			for _, item := range items {
-				tb.AddRow(item.SkillID, item.Agent, item.Scope, item.Status)
+			unrecorded, err := svc.ScanUnrecorded(opts.Agent, scope)
+			if err != nil {
+				slog.Error(err)
+				return err
 			}
-			_, err = fmt.Fprint(os.Stdout, tb.Render())
-			return err
+			if len(unrecorded) > 0 {
+				fmt.Fprintln(os.Stdout, "\nUnrecorded Skills:")
+				for _, g := range unrecorded {
+					fmt.Fprintf(os.Stdout, "  %s: %s\n", g.AgentName, strings.Join(g.Skills, ", "))
+				}
+			}
+			return nil
 		},
 	}
 }

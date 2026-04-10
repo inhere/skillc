@@ -308,16 +308,13 @@ func buildListCommand() *gcli.Command {
 				return err
 			}
 			if len(items) == 0 {
-				ccolor.Warnln("no skills found")
+				ccolor.Warnln("No skills found")
 			} else {
 				tb := table.New("List Skills").SetHeads("Skill ID", "Agent", "Scope", "Status")
 				for _, item := range items {
 					tb.AddRow(item.SkillID, item.Agent, item.Scope, item.Status)
 				}
-				_, err = fmt.Fprint(os.Stdout, tb.Render())
-				if err != nil {
-					return err
-				}
+				tb.Println()
 			}
 
 			unrecorded, err := svc.ScanUnrecorded(opts.Agent, scope)
@@ -326,9 +323,9 @@ func buildListCommand() *gcli.Command {
 				return err
 			}
 			if len(unrecorded) > 0 {
-				fmt.Fprintln(os.Stdout, "\nUnrecorded Skills:")
+				ccolor.Infof("\nUnrecorded Skills:\n")
 				for _, g := range unrecorded {
-					fmt.Fprintf(os.Stdout, "  %s: %s\n", g.AgentName, strings.Join(g.Skills, ", "))
+					ccolor.Printf("  <cyan>%-15s</> %s\n", g.AgentName, strings.Join(g.Skills, ", "))
 				}
 			}
 			return nil

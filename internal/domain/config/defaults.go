@@ -5,10 +5,11 @@ import domainsource "github.com/inhere/skillc/internal/domain/source"
 func DefaultConfig() Config {
 	return Config{
 		AgentTools: map[string]AgentToolConfig{
-			"agents": { // 通用的key agents 必定存在
+			AgentToolNameUniversal: { // 通用的key universal 必定存在
 				Dirname:    ".agents",
 				UserDir:    "~/.agents",
 				ProjectDir: ".agents",
+				Aliases:    []string{"agents"},
 			},
 			"claude-code": {
 				Dirname:    ".claude",

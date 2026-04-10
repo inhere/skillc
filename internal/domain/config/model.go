@@ -1,11 +1,19 @@
 package config
 
-import domainsource "github.com/inhere/skillc/internal/domain/source"
+import (
+	"slices"
+
+	domainsource "github.com/inhere/skillc/internal/domain/source"
+)
+
+const (
+	AgentToolNameUniversal = "universal"
+)
 
 type Config struct {
 	ProxyURL string `yaml:"proxy_url"`
 	// AgentTools is the agent tools config.
-	//  - 通用的key agents 必定存在
+	//  - 通用的key universal 必定存在
 	AgentTools map[string]AgentToolConfig `yaml:"agent_tools"`
 	// LockFile is the lock file path.
 	LockFile         string                `yaml:"lock_file"`
@@ -30,10 +38,8 @@ func (c *Config) ResolveAgentTool(nameOrAlias string) (canonicalName string, too
 		return nameOrAlias, t, true
 	}
 	for name, t := range c.AgentTools {
-		for _, alias := range t.Aliases {
-			if alias == nameOrAlias {
-				return name, t, true
-			}
+		if len(t.Aliases) > 0 && slices.Contains(t.Aliases, nameOrAlias) {
+			return name, t, true
 		}
 	}
 	return "", AgentToolConfig{}, false

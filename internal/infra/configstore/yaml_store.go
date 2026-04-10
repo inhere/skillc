@@ -116,9 +116,9 @@ func (s *YAMLStore) Save(path string, data cfg.Config, runtimeBaseDir ...string)
 func mergeDefaults(dst *cfg.Config, defaults cfg.Config) {
 	if dst.AgentTools == nil {
 		dst.AgentTools = defaults.AgentTools
-	} else if _, ok := dst.AgentTools["agents"]; !ok {
-		// 通用的key agents 必定存在
-		dst.AgentTools["agents"] = defaults.AgentTools["agents"]
+	} else if _, ok := dst.AgentTools[cfg.AgentToolNameUniversal]; !ok {
+		// 通用的key universal 必定存在
+		dst.AgentTools[cfg.AgentToolNameUniversal] = defaults.AgentTools[cfg.AgentToolNameUniversal]
 	}
 	if dst.LockFile == "" {
 		dst.LockFile = defaults.LockFile

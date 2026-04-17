@@ -347,40 +347,6 @@ func TestService_UninstallProjectScopeDoesNotTouchOtherProjectKeys(t *testing.T)
 	assert.Eq(t, []string{"claude-code"}, locks[projectBKey][0].Agents)
 }
 
-func TestService_UninstallRemovesLegacySourceScopedDir(t *testing.T) {
-	baseDir := t.TempDir()
-	lockFile := filepath.Join(baseDir, "skillc-install.lock")
-	service := NewService(lockFile)
-	config := testConfig(baseDir)
-	projectKey, err := resolveScopeKey(agent.ScopeProject, baseDir)
-	assert.NoErr(t, err)
-	legacyDir := filepath.Join(baseDir, ".claude", "skills", "repo-a--marketplaces--hello-skill")
-	assert.NoErr(t, os.MkdirAll(legacyDir, 0o755))
-	assert.NoErr(t, os.WriteFile(filepath.Join(legacyDir, "hello.txt"), []byte("hello"), 0o644))
-	assert.NoErr(t, service.store.Save(lockFile, lockpkg.File{
-		projectKey: {
-			{
-				SkillID:             "hello-skill",
-				QualifiedName:       "marketplaces/hello-skill",
-				SourceQualifiedName: "repo-a/marketplaces/hello-skill",
-				Version:             "1.0.0",
-				SourceID:            "local-demo",
-				SourceType:          "local",
-				InstallEntry:        "commands",
-				Agents:              []string{"claude-code"},
-			},
-		},
-	}))
-
-	runtimeSvc := service.WithRuntime(config, baseDir)
-	assert.NoErr(t, runtimeSvc.Uninstall("marketplaces/hello-skill", "claude-code", agent.ScopeProject))
-
-	_, err = os.Stat(legacyDir)
-	assert.True(t, os.IsNotExist(err))
-	locks := mustLoadLockFile(t, service, lockFile)
-	_, ok := locks[projectKey]
-	assert.False(t, ok)
-}
 
 
 func testConfig(baseDir string) cfg.Config {

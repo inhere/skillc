@@ -218,6 +218,7 @@ func buildUpdateCommand() *gcli.Command {
 	return &gcli.Command{
 		Name: "update",
 		Desc: "Update installed skills",
+		Aliases: []string{"up"},
 		Config: func(c *gcli.Command) {
 			opts.bindCommand(c)
 			c.StrOpt(&target, "target", "t", "", "skill id to update (default: update all)")

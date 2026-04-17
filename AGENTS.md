@@ -8,6 +8,15 @@
 - install/restore 相关逻辑必须保持 `InstallEntry` 语义一致：写入 lock，restore 时基于 `SourceID + InstallEntry` 还原实际复制入口。
 - 完成涉及 MVP 主链路的改动后，至少运行 `go test ./...` 再宣称完成。
 - 如果有设计或开发方案，需要整理输出到 docs 目录下
+- 当前正在进行 v0 版本开发，因此，只要确认进行调整的无需保留兼容处理。
+
+## 正在进行的工作
+
+> **IMPORTANT**: 需要实时更新，正在进行的工作和关键md文档链接；**已完成的需要移除**，不能一直累计，总数不能超过10条。
+
+<!-- PROCESSING WORKS:START -->
+
+<!-- PROCESSING WORKS:END -->
 
 ## gcli 使用
 

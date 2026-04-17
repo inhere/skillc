@@ -390,14 +390,6 @@ func sameCandidateIdentity(record lockpkg.Record, item skill.Skill) bool {
 	return false
 }
 
-func legacyInstallDir(skillID string, sourceQualifiedName string, sourceID string) string {
-	return apputil.LegacyInstallDir(skillID, sourceQualifiedName, sourceID)
-}
-
-func preferExistingInstallPath(flatPath string, legacyPath string) (string, error) {
-	return apputil.PreferExistingInstallPath(flatPath, legacyPath)
-}
-
 func parseScope(value string) (agent.Scope, error) {
 	return apputil.ParseScope(value)
 }
@@ -413,7 +405,7 @@ func scopeFromKey(scopeKey string) agent.Scope {
 func matchInstalledDir(items []skill.Skill, dirName string, _ map[string]struct{}) []skill.Skill {
 	matches := make([]skill.Skill, 0)
 	for _, item := range items {
-		if item.ID == dirName || legacyInstallDir(item.ID, item.SourceQualifiedName, item.SourceID) == dirName {
+		if item.ID == dirName {
 			matches = append(matches, item)
 		}
 	}
@@ -458,9 +450,7 @@ func resolveInstalledPath(config cfg.Config, workDir string, scopeKey string, ag
 	if err != nil {
 		return "", err
 	}
-	flatPath := filepath.Join(targetRoot, record.SkillID)
-	legacyPath := filepath.Join(targetRoot, legacyInstallDir(record.SkillID, record.SourceQualifiedName, record.SourceID))
-	return preferExistingInstallPath(flatPath, legacyPath)
+	return filepath.Join(targetRoot, record.SkillID), nil
 }
 
 func filterAgents(agents []string, agentName string) []string {

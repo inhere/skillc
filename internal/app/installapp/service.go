@@ -388,9 +388,7 @@ func (s *Service) resolveInstalledPath(scopeKey string, scope agent.Scope, agent
 	if err != nil {
 		return "", err
 	}
-	flatPath := filepath.Join(targetRoot, record.SkillID)
-	legacyPath := filepath.Join(targetRoot, apputil.LegacyInstallDir(record.SkillID, record.SourceQualifiedName, record.SourceID))
-	return apputil.PreferExistingInstallPath(flatPath, legacyPath)
+	return filepath.Join(targetRoot, record.SkillID), nil
 }
 
 func (s *Service) runtimeConfig() cfg.Config {
@@ -461,14 +459,6 @@ func findConflictingSkillSource(records []lockpkg.Record, next lockpkg.Record) (
 		return record, true
 	}
 	return lockpkg.Record{}, false
-}
-
-func legacyInstallDir(skillID string, sourceQualifiedName string, sourceID string) string {
-	return apputil.LegacyInstallDir(skillID, sourceQualifiedName, sourceID)
-}
-
-func preferExistingInstallPath(flatPath string, legacyPath string) (string, error) {
-	return apputil.PreferExistingInstallPath(flatPath, legacyPath)
 }
 
 func sourcePathMap(config cfg.Config) map[string]string {

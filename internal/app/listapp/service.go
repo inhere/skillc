@@ -138,9 +138,7 @@ func (s *Service) resolveInstalledPath(scopeKey string, scope agent.Scope, agent
 	if err != nil {
 		return "", err
 	}
-	flatPath := filepath.Join(targetRoot, record.SkillID)
-	legacyPath := filepath.Join(targetRoot, apputil.LegacyInstallDir(record.SkillID, record.SourceQualifiedName, record.SourceID))
-	return apputil.PreferExistingInstallPath(flatPath, legacyPath)
+	return filepath.Join(targetRoot, record.SkillID), nil
 }
 
 func (s *Service) runtimeConfig() cfg.Config {
@@ -159,14 +157,6 @@ func (s *Service) runtimeWorkDir() string {
 		return cwd
 	}
 	return filepath.Dir(s.lockFile)
-}
-
-func legacyInstallDir(skillID string, sourceQualifiedName string, sourceID string) string {
-	return apputil.LegacyInstallDir(skillID, sourceQualifiedName, sourceID)
-}
-
-func preferExistingInstallPath(flatPath string, legacyPath string) (string, error) {
-	return apputil.PreferExistingInstallPath(flatPath, legacyPath)
 }
 
 func scopeFromKey(scopeKey string) agent.Scope {
@@ -264,9 +254,7 @@ func (s *Service) collectRecordedPaths(agentName string, scope agent.Scope) (map
 					continue
 				}
 				flatPath := filepath.Join(targetRoot, record.SkillID)
-				legacyPath := filepath.Join(targetRoot, legacyInstallDir(record.SkillID, record.SourceQualifiedName, record.SourceID))
-				paths[flatPath] = true
-				paths[legacyPath] = true
+			paths[flatPath] = true
 			}
 		}
 	}

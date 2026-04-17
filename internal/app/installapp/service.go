@@ -126,30 +126,53 @@ func (s *Service) RunResolved(config cfg.Config, req InstallReq, items []skill.S
 	}, nil
 }
 
-// InstallMulti installs multiple skills.
+// InstallMulti installs multiple skills with a single lock file load/save.
 func (s *Service) InstallMulti(items []skill.Skill, agentName string, scope agent.Scope, scopeKey string, targetRoot string) (BatchInstallResult, error) {
 	result := BatchInstallResult{
 		Installed: make([]RuntimeRecord, 0, len(items)),
 		Failed:    make([]InstallItemError, 0),
 	}
+
+	locks, err := s.loadLockFile()
+	if err != nil {
+		return result, err
+	}
+
 	for _, item := range items {
-		record, err := s.Install(item, agentName, scope, scopeKey, targetRoot)
+		record, err := s.installInto(item, agentName, scope, scopeKey, targetRoot, locks)
 		if err != nil {
 			result.Failed = append(result.Failed, InstallItemError{SkillID: item.ID, Reason: err.Error()})
 			continue
 		}
 		result.Installed = append(result.Installed, record)
 	}
+
+	if len(result.Installed) > 0 {
+		if err := s.store.Save(s.lockFile, locks); err != nil {
+			return result, err
+		}
+	}
 	return result, nil
 }
 
-// Install installs a skill.
+// Install installs a single skill.
 func (s *Service) Install(item skill.Skill, agentName string, scope agent.Scope, scopeKey string, targetRoot string) (RuntimeRecord, error) {
 	locks, err := s.loadLockFile()
 	if err != nil {
 		return RuntimeRecord{}, err
 	}
+	record, err := s.installInto(item, agentName, scope, scopeKey, targetRoot, locks)
+	if err != nil {
+		return RuntimeRecord{}, err
+	}
+	if err := s.store.Save(s.lockFile, locks); err != nil {
+		return RuntimeRecord{}, err
+	}
+	return record, nil
+}
 
+// installInto installs a skill into the provided locks map without saving.
+func (s *Service) installInto(item skill.Skill, agentName string, scope agent.Scope, scopeKey string, targetRoot string, locks lockpkg.File) (RuntimeRecord, error) {
 	records := append([]lockpkg.Record(nil), locks[scopeKey]...)
 	now := s.now()
 	record := lockpkg.Record{
@@ -178,9 +201,6 @@ func (s *Service) Install(item skill.Skill, agentName string, scope agent.Scope,
 		delete(locks, scopeKey)
 	} else {
 		locks[scopeKey] = records
-	}
-	if err := s.store.Save(s.lockFile, locks); err != nil {
-		return RuntimeRecord{}, err
 	}
 	return newRuntimeRecord(record, agentName, scope, targetPath), nil
 }

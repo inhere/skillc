@@ -337,3 +337,47 @@ func TestService_SyncLocalWithoutGitDirSkipsPull(t *testing.T) {
 	assert.NoErr(t, err)
 	assert.False(t, pulled)
 }
+
+func TestService_MatchSourcesPartialID(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	skillsA := filepath.Join(baseDir, "golang-edge-skills")
+	skillsB := filepath.Join(baseDir, "golang-base-skills")
+	skillsC := filepath.Join(baseDir, "python-skills")
+	for _, d := range []string{skillsA, skillsB, skillsC} {
+		assert.NoErr(t, os.MkdirAll(d, 0o755))
+	}
+
+	service := NewService(configFile, baseDir)
+	_, err := service.AddLocal(skillsA)
+	assert.NoErr(t, err)
+	_, err = service.AddLocal(skillsB)
+	assert.NoErr(t, err)
+	_, err = service.AddLocal(skillsC)
+	assert.NoErr(t, err)
+
+	list, err := service.List()
+	assert.NoErr(t, err)
+	assert.Len(t, list, 3)
+
+	// 精确匹配
+	matches, err := service.MatchSources(list[0].ID)
+	assert.NoErr(t, err)
+	assert.Len(t, matches, 1)
+	assert.Eq(t, list[0].ID, matches[0].ID)
+
+	// 部分匹配多个
+	matches, err = service.MatchSources("golang")
+	assert.NoErr(t, err)
+	assert.Len(t, matches, 2)
+
+	// 部分匹配单个
+	matches, err = service.MatchSources("edge")
+	assert.NoErr(t, err)
+	assert.Len(t, matches, 1)
+
+	// 无匹配
+	matches, err = service.MatchSources("rust")
+	assert.NoErr(t, err)
+	assert.Len(t, matches, 0)
+}

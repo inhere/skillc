@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/gookit/goutil/x/ccolor"
@@ -124,6 +125,28 @@ func (s *Service) Remove(id string) error {
 		return err
 	}
 	return s.rebuildIndex(data)
+}
+
+// MatchSources 按部分 ID 匹配源（大小写不敏感包含匹配）。
+// 精确匹配优先：若有一个源完全等于 partial，直接返回该单个源。
+func (s *Service) MatchSources(partial string) ([]domainsource.Source, error) {
+	list, err := s.List()
+	if err != nil {
+		return nil, err
+	}
+	lower := strings.ToLower(partial)
+	for _, src := range list {
+		if strings.ToLower(src.ID) == lower {
+			return []domainsource.Source{src}, nil
+		}
+	}
+	var matches []domainsource.Source
+	for _, src := range list {
+		if strings.Contains(strings.ToLower(src.ID), lower) {
+			matches = append(matches, src)
+		}
+	}
+	return matches, nil
 }
 
 // SyncAll 同步所有源

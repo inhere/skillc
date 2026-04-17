@@ -48,8 +48,9 @@ func buildSourceCommand() *gcli.Command {
 	cmd.Add(buildSourceSyncCommand())
 
 	cmd.Add(&gcli.Command{
-		Name: "status",
-		Desc: "Show source status",
+		Name:    "status",
+		Desc:    "Show source status",
+		Aliases: []string{"st"},
 		Func: func(c *gcli.Command, args []string) error {
 			service := newSourceService()
 			list, err := service.List()
@@ -67,8 +68,8 @@ func buildSourceCommand() *gcli.Command {
 	})
 
 	cmd.Add(&gcli.Command{
-		Name: "remove",
-		Desc: "Remove source by id",
+		Name:    "remove",
+		Desc:    "Remove source by id",
 		Aliases: []string{"rm"},
 		Config: func(c *gcli.Command) {
 			c.AddArg("id", "source id", true)
@@ -92,8 +93,8 @@ func buildSourceSyncCommand() *gcli.Command {
 	var syncAll bool
 
 	return &gcli.Command{
-		Name: "sync",
-		Desc: "Sync update sources",
+		Name:    "sync",
+		Desc:    "Sync update sources",
 		Aliases: []string{"up"},
 		Config: func(c *gcli.Command) {
 			c.BoolOpt(&syncAll, "all", "a", false, "sync all sources")
@@ -116,23 +117,57 @@ func buildSourceSyncCommand() *gcli.Command {
 				return nil
 			}
 
-			// 同步指定源
-			if err := service.Sync(sourceID); err != nil {
-				return err
-			}
-
-			list, err := service.List()
+			// 解析部分匹配
+			matched, err := service.MatchSources(sourceID)
 			if err != nil {
 				return err
 			}
-			for _, src := range list {
-				if src.ID == sourceID {
-					ccolor.Infof("synced %s  status=%s\n", src.ID, src.Status)
+			switch len(matched) {
+			case 0:
+				return fmt.Errorf("source not found: %s", sourceID)
+			case 1:
+				exactID := matched[0].ID
+				if exactID != sourceID {
+					ccolor.Infof("matched: %s\n", exactID)
+				}
+				if err := service.Sync(exactID); err != nil {
+					return err
+				}
+				// re-query status after sync
+				list, err := service.List()
+				if err != nil {
+					return err
+				}
+				for _, src := range list {
+					if src.ID == exactID {
+						ccolor.Infof("synced %s  status=%s\n", src.ID, src.Status)
+						return nil
+					}
+				}
+				ccolor.Infof("synced %s\n", exactID)
+				return nil
+			default:
+				ccolor.Warnf("multiple sources matched %q:\n", sourceID)
+				for _, src := range matched {
+					ccolor.Infof("  - %s (%s)\n", src.ID, src.Type)
+				}
+				confirmed, err := confirmPrompt(os.Stdin, os.Stdout, fmt.Sprintf("Sync all %d matched sources?", len(matched)))
+				if err != nil {
+					return err
+				}
+				if !confirmed {
+					ccolor.Warnln("cancelled")
 					return nil
 				}
+				for _, src := range matched {
+					if err := service.Sync(src.ID); err != nil {
+						ccolor.Errorf("failed to sync %s: %v\n", src.ID, err)
+						continue
+					}
+					ccolor.Infof("synced %s\n", src.ID)
+				}
+				return nil
 			}
-			ccolor.Infof("synced %s\n", sourceID)
-			return nil
 		},
 	}
 }

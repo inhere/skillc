@@ -201,7 +201,11 @@ func splitInstallTargets(value string) []string {
 }
 
 func confirmInstall(in *os.File, out *os.File) (bool, error) {
-	if _, err := fmt.Fprint(out, "Continue? [y/N] "); err != nil {
+	return confirmPrompt(in, out, "Continue?")
+}
+
+func confirmPrompt(in *os.File, out *os.File, prompt string) (bool, error) {
+	if _, err := fmt.Fprintf(out, "%s [y/N] ", prompt); err != nil {
 		return false, err
 	}
 	answer, err := bufio.NewReader(in).ReadString('\n')

@@ -308,13 +308,16 @@ func buildListCommand() *gcli.Command {
 				return err
 			}
 			if len(items) == 0 {
-				ccolor.Warnln("No skills found")
+				ccolor.Warnln("no skills found")
 			} else {
 				tb := table.New("List Skills").SetHeads("Skill ID", "Agent", "Scope", "Status")
 				for _, item := range items {
 					tb.AddRow(item.SkillID, item.Agent, item.Scope, item.Status)
 				}
-				tb.Println()
+				_, err = fmt.Fprint(os.Stdout, tb.Render())
+				if err != nil {
+					return err
+				}
 			}
 
 			unrecorded, err := svc.ScanUnrecorded(opts.Agent, scope)

@@ -169,7 +169,7 @@ func legacyInstallDir(skillID string, sourceQualifiedName string, sourceID strin
 		return strings.ReplaceAll(sourceQualifiedName, "/", "--")
 	}
 	if sourceID != "" {
-		return sourceID + "-" + skillID
+		return sourceID + "--" + skillID
 	}
 	return skillID
 }

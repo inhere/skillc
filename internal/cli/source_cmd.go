@@ -40,8 +40,8 @@ func buildSourceCommand() *gcli.Command {
 			for _, src := range list {
 				tb.AddRow(src.ID, src.Type, src.Status, src.Path)
 			}
-			tb.Println()
-			return nil
+			_, err = fmt.Fprint(os.Stdout, tb.Render())
+			return err
 		},
 	})
 
@@ -61,8 +61,8 @@ func buildSourceCommand() *gcli.Command {
 			for _, src := range list {
 				tb.AddRow(src.ID, src.Status, src.ErrorMessage)
 			}
-			tb.Println()
-			return nil
+			_, err = fmt.Fprint(os.Stdout, tb.Render())
+			return err
 		},
 	})
 
@@ -94,6 +94,7 @@ func buildSourceSyncCommand() *gcli.Command {
 	return &gcli.Command{
 		Name: "sync",
 		Desc: "Sync update sources",
+		Aliases: []string{"up"},
 		Config: func(c *gcli.Command) {
 			c.BoolOpt(&syncAll, "all", "a", false, "sync all sources")
 			c.AddArg("id", "source id")

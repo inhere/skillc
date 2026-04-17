@@ -10,6 +10,14 @@ import (
 	"github.com/gookit/slog"
 )
 
+func truncateStr(s string, max int) string {
+	runes := []rune(s)
+	if len(runes) <= max {
+		return s
+	}
+	return string(runes[:max-1]) + "…"
+}
+
 func buildCollectionCommand() *gcli.Command {
 	cmd := &gcli.Command{
 		Name: "collection",
@@ -62,7 +70,7 @@ func buildCollectionCommand() *gcli.Command {
 
 			tb := table.New("Collection Skills").SetHeads("Name", "Description")
 			for _, item := range items {
-				tb.AddRow(item.Name, item.Description)
+				tb.AddRow(item.Name, truncateStr(item.Description, 60))
 			}
 			_, err = fmt.Fprint(os.Stdout, tb.Render())
 			return err

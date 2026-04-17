@@ -1,8 +1,6 @@
 package cli
 
 import (
-	"fmt"
-
 	"github.com/gookit/gcli/v3"
 	"github.com/gookit/gcli/v3/show"
 	"github.com/gookit/goutil/x/ccolor"
@@ -52,17 +50,18 @@ func buildConfigCommand() *gcli.Command {
 	cmd.Add(&gcli.Command{
 		Name: "get",
 		Desc: "Get config value by key",
+		Config: func(c *gcli.Command) {
+			c.AddArg("key", "config key", true)
+		},
 		Func: func(c *gcli.Command, args []string) error {
-			if len(args) < 1 {
-				return fmt.Errorf("config key is required")
-			}
+			key := c.Arg("key").String()
 			service := newConfigService()
-			value, err := service.Get(args[0])
+			value, err := service.Get(key)
 			if err != nil {
 				slog.Error(err)
 				return err
 			}
-			ccolor.Infof("%s=%s\n", args[0], value)
+			ccolor.Infof("%s=%s\n", key, value)
 			return nil
 		},
 	})
@@ -70,12 +69,15 @@ func buildConfigCommand() *gcli.Command {
 	cmd.Add(&gcli.Command{
 		Name: "set",
 		Desc: "Set config value by key",
+		Config: func(c *gcli.Command) {
+			c.AddArg("key", "config key", true)
+			c.AddArg("value", "config value", true)
+		},
 		Func: func(c *gcli.Command, args []string) error {
-			if len(args) < 2 {
-				return fmt.Errorf("config key and value are required")
-			}
+			key := c.Arg("key").String()
+			value := c.Arg("value").String()
 			service := newConfigService()
-			if err := service.Set(args[0], args[1]); err != nil {
+			if err := service.Set(key, value); err != nil {
 				slog.Error(err)
 				return err
 			}

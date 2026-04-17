@@ -15,19 +15,24 @@ import (
 	"github.com/inhere/skillc/internal/app/listapp"
 	"github.com/inhere/skillc/internal/app/updateapp"
 	"github.com/inhere/skillc/internal/domain/agent"
+	sourcepkg "github.com/inhere/skillc/internal/domain/source"
 )
 
 func buildSearchCommand() *gcli.Command {
+	var agentFilter string
+	var sourceTypeFilter string
 	return &gcli.Command{
 		Name: "search",
 		Desc: "Search indexed skills",
 		Config: func(c *gcli.Command) {
 			c.AddArg("keyword", "search keyword")
+			c.StrOpt(&agentFilter, "agent", "a", "", "filter by agent name")
+			c.StrOpt(&sourceTypeFilter, "source-type", "t", "", "filter by source type (e.g. git, local)")
 		},
 		Func: func(c *gcli.Command, _ []string) error {
 			keyword := c.Arg("keyword").String()
 			service := newSearchService()
-			items, err := service.Search(keyword, "", "")
+			items, err := service.Search(keyword, agentFilter, sourcepkg.Type(sourceTypeFilter))
 			if err != nil {
 				slog.Error(err)
 				return err
@@ -123,8 +128,9 @@ func buildInstallCommand() *gcli.Command {
 					return err
 				}
 				for _, record := range result.Restored {
-					ccolor.Infof("%s %s %s\n", record.SkillID, record.Agent, record.Scope)
+					ccolor.Infof("- restored %s  agent=%s scope=%s path=%s\n", record.SkillID, record.Agent, record.Scope, record.InstalledPath)
 				}
+				ccolor.Successf("restore complete: %d skill(s) restored\n", len(result.Restored))
 				return nil
 			}
 
@@ -208,11 +214,13 @@ func confirmInstall(in *os.File, out *os.File) (bool, error) {
 
 func buildUpdateCommand() *gcli.Command {
 	var opts ManageOptions
+	var target string
 	return &gcli.Command{
 		Name: "update",
 		Desc: "Update installed skills",
 		Config: func(c *gcli.Command) {
 			opts.bindCommand(c)
+			c.StrOpt(&target, "target", "t", "", "skill id to update (default: update all)")
 		},
 		Func: func(c *gcli.Command, _ []string) error {
 			_, cwd, err := loadConfig()
@@ -222,6 +230,7 @@ func buildUpdateCommand() *gcli.Command {
 			}
 
 			result, err := newUpdateService(defaultConfigFile(cwd), cwd).Run(updateapp.Req{
+				Target:  target,
 				Agent:   opts.Agent,
 				Scope:   opts.Scope,
 				WorkDir: cwd,
@@ -347,16 +356,21 @@ func buildDoctorCommand() *gcli.Command {
 				slog.Error(err)
 				return err
 			}
-			lines := []string{
-				fmt.Sprintf("git_available=%t", result.GitAvailable),
-				fmt.Sprintf("config_ok=%t", result.ConfigOK),
-				fmt.Sprintf("lock_file=%s", result.LockFile),
-				fmt.Sprintf("repo_cache_dir=%s", result.RepoCacheDir),
+
+			boolStr := func(v bool) string {
+				if v {
+					return "<green>yes</>"
+				}
+				return "<red>no</>"
 			}
-			for _, line := range lines {
-				ccolor.Infof("%s\n", line)
-			}
-			return nil
+
+			tb := table.New("Doctor Check").SetHeads("Check", "Value")
+			tb.AddRow("git_available", boolStr(result.GitAvailable))
+			tb.AddRow("config_ok", boolStr(result.ConfigOK))
+			tb.AddRow("lock_file", result.LockFile)
+			tb.AddRow("repo_cache_dir", result.RepoCacheDir)
+			_, err = fmt.Fprint(os.Stdout, tb.Render())
+			return err
 		},
 	}
 }

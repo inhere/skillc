@@ -236,8 +236,8 @@ func TestInstallCommand_RestoresFromLockFileWhenNoArgs(t *testing.T) {
 
 	output := runAppInDirWithStdout(t, baseDir, []string{"install"})
 
-	assert.Contains(t, output, "hello-skill agents project")
-	assert.Contains(t, output, "hello-skill claude-code project")
+	assert.Contains(t, output, "restored hello-skill  agent=agents scope=project")
+	assert.Contains(t, output, "restored hello-skill  agent=claude-code scope=project")
 	claudeData, err := os.ReadFile(filepath.Join(claudeInstalledPath, "hello.txt"))
 	assert.NoErr(t, err)
 	assert.Eq(t, "restored", string(claudeData))

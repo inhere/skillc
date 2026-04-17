@@ -26,9 +26,6 @@ type reinstallService interface {
 	ReinstallAtPath(item skill.Skill, agentName string, scope agent.Scope, scopeKey string, targetPath string) (installapp.RuntimeRecord, error)
 }
 
-type sourceServiceFactory func(configFile string, baseDir string) sourceSyncer
-
-type installServiceFactory func(lockFile string) reinstallService
 
 type UpdateReq struct {
 	Target  string
@@ -85,16 +82,14 @@ type Result struct {
 }
 
 type Service struct {
-	configFile     string
-	baseDir        string
-	configService  *configapp.Service
-	lockStore      *lockstore.Store
-	indexStore     *repoindex.Store
-	syncer         sourceSyncer
-	newInstaller   func(lockFile string) reinstallService
-	sourceFactory  sourceServiceFactory
-	installFactory installServiceFactory
-	removeAll      func(path string) error
+	configFile    string
+	baseDir       string
+	configService *configapp.Service
+	lockStore     *lockstore.Store
+	indexStore    *repoindex.Store
+	syncer        sourceSyncer
+	newInstaller  func(lockFile string) reinstallService
+	removeAll     func(path string) error
 }
 
 func NewService(configFile string, baseDir string) *Service {
@@ -106,12 +101,6 @@ func NewService(configFile string, baseDir string) *Service {
 		indexStore:    repoindex.NewStore(),
 		syncer:        sourceapp.NewService(configFile, baseDir),
 		newInstaller: func(lockFile string) reinstallService {
-			return installapp.NewService(lockFile)
-		},
-		sourceFactory: func(configFile string, baseDir string) sourceSyncer {
-			return sourceapp.NewService(configFile, baseDir)
-		},
-		installFactory: func(lockFile string) reinstallService {
 			return installapp.NewService(lockFile)
 		},
 		removeAll: os.RemoveAll,
@@ -154,15 +143,8 @@ func (s *Service) Run(req UpdateReq) (Result, error) {
 		result.Failed = append(result.Failed, FailedItem{SkillID: item.SkillID, Reason: item.Reason})
 	}
 
-		installer := s.installFactory
-	if s.newInstaller != nil {
-		installer = s.newInstaller
-	}
-	worker := installer(config.LockFile)
+	worker := s.newInstaller(config.LockFile)
 	removeAll := s.removeAll
-	if removeAll == nil {
-		removeAll = os.RemoveAll
-	}
 	for _, candidate := range result.Candidates {
 		oldPath := candidate.Installed.InstalledPath
 		targetPath, err := resolveLatestInstalledPath(config, req.WorkDir, candidate.Installed.ScopeKey, candidate.Installed.Agent, agent.Scope(candidate.Installed.Scope), candidate.Latest)
@@ -323,14 +305,10 @@ func (s *Service) collectFromInstalledDirs(config cfg.Config, workDir, agentName
 }
 
 func (s *Service) syncSources(records []InstalledItem) []SourceSyncError {
-	svc := s.syncer
-	if svc == nil {
-		svc = s.sourceFactory(s.configFile, s.baseDir)
-	}
 	ids := uniqueSourceIDs(records)
 	failed := make([]SourceSyncError, 0)
 	for _, id := range ids {
-		if err := svc.Sync(id); err != nil {
+		if err := s.syncer.Sync(id); err != nil {
 			failed = append(failed, SourceSyncError{SourceID: id, Reason: err.Error()})
 		}
 	}

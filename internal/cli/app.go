@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -13,6 +14,8 @@ import (
 	"github.com/inhere/skillc/internal/domain/agent"
 	cfg "github.com/inhere/skillc/internal/domain/config"
 )
+
+var ErrUserInput = errors.New("user input error")
 
 func NewApp(version, gitHash, buildTime string) *gcli.App {
 	app := gcli.NewApp()

@@ -19,7 +19,7 @@ func buildSourceCommand() *gcli.Command {
 
 	add := &gcli.Command{
 		Name: "add",
-		Desc: "Add a source",
+		Desc: "Add a git or local source",
 	}
 	add.Add(buildSourceAddLocalCommand())
 	add.Add(buildSourceAddGitCommand())
@@ -27,13 +27,12 @@ func buildSourceCommand() *gcli.Command {
 
 	cmd.Add(&gcli.Command{
 		Name:    "list",
-		Desc:    "List sources",
+		Desc:    "List configured sources",
 		Aliases: []string{"ls"},
 		Func: func(c *gcli.Command, args []string) error {
 			service := newSourceService()
 			list, err := service.List()
 			if err != nil {
-				slog.Error(err)
 				return err
 			}
 
@@ -55,12 +54,14 @@ func buildSourceCommand() *gcli.Command {
 			service := newSourceService()
 			list, err := service.List()
 			if err != nil {
-				slog.Error(err)
 				return err
 			}
+
+			tb := table.New("Source Status").SetHeads("ID", "Status", "Error")
 			for _, src := range list {
-				ccolor.Infof("%s %s %s\n", src.ID, src.Status, src.ErrorMessage)
+				tb.AddRow(src.ID, src.Status, src.ErrorMessage)
 			}
+			tb.Println()
 			return nil
 		},
 	})
@@ -68,16 +69,18 @@ func buildSourceCommand() *gcli.Command {
 	cmd.Add(&gcli.Command{
 		Name: "remove",
 		Desc: "Remove source by id",
-		Func: func(c *gcli.Command, args []string) error {
-			if len(args) < 1 {
-				return fmt.Errorf("source id is required")
-			}
+		Aliases: []string{"rm"},
+		Config: func(c *gcli.Command) {
+			c.AddArg("id", "source id", true)
+		},
+		Func: func(c *gcli.Command, _ []string) error {
+			id := c.Arg("id").String()
+
 			service := newSourceService()
-			if err := service.Remove(args[0]); err != nil {
-				slog.Error(err)
+			if err := service.Remove(id); err != nil {
 				return err
 			}
-			ccolor.Infof("removed %s\n", args[0])
+			ccolor.Infof("removed %s\n", id)
 			return nil
 		},
 	})
@@ -90,7 +93,7 @@ func buildSourceSyncCommand() *gcli.Command {
 
 	return &gcli.Command{
 		Name: "sync",
-		Desc: "Sync source by id",
+		Desc: "Sync update sources",
 		Config: func(c *gcli.Command) {
 			c.BoolOpt(&syncAll, "all", "a", false, "sync all sources")
 			c.AddArg("id", "source id")
@@ -106,20 +109,19 @@ func buildSourceSyncCommand() *gcli.Command {
 				ccolor.Infof("sync ALL sources ...\n")
 				err := service.SyncAll()
 				if err != nil {
-					slog.Error(err)
 					return err
 				}
 				ccolor.Infof("synced ALL sources\n")
 				return nil
 			}
 
+			// 同步指定源
 			if err := service.Sync(sourceID); err != nil {
-				slog.Error(err)
 				return err
 			}
+
 			list, err := service.List()
 			if err != nil {
-				slog.Error(err)
 				return err
 			}
 			for _, src := range list {

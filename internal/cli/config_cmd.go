@@ -27,7 +27,7 @@ func buildConfigCommand() *gcli.Command {
 				return err
 			}
 
-			ccolor.Successln("ok. config file: %s", service.ConfigFile())
+			ccolor.Successf("ok. config file: %s\n", service.ConfigFile())
 			return nil
 		},
 	})

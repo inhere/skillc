@@ -163,6 +163,30 @@ func (c *Client) resolveTarget(dir, ref string) (string, error) {
 	return "HEAD", nil
 }
 
+// Pull runs `git pull` in the given directory and returns the resolved HEAD.
+func (c *Client) Pull(dir string, opts SyncOptions) (string, error) {
+	if _, err := exec.LookPath(c.bin); err != nil {
+		return "", fmt.Errorf("git executable not found: %w", err)
+	}
+
+	args := []string{"-C", dir, "pull"}
+	if opts.Progress != nil {
+		args = append(args, "--progress")
+	}
+	cmd := exec.Command(c.bin, args...)
+	if len(opts.ProxyURL) > 0 {
+		cmd.Env = buildGitEnv(os.Environ(), opts.ProxyURL)
+	}
+	if opts.Progress != nil {
+		cmd.Stdout = opts.Progress
+		cmd.Stderr = opts.Progress
+	}
+	if err := c.runCommand(cmd, "git pull failed"); err != nil {
+		return "", err
+	}
+	return c.revParseHead(dir)
+}
+
 func (c *Client) revParseHead(dir string) (string, error) {
 	out, err := c.runQuiet(dir, "rev-parse", "HEAD")
 	if err != nil {

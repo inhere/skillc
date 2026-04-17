@@ -22,6 +22,10 @@ type gitRunner interface {
 	Sync(url, dir, ref string, opts gitx.SyncOptions) (string, error)
 }
 
+type localPuller interface {
+	Pull(dir string, opts gitx.SyncOptions) (string, error)
+}
+
 type gitRunnerFunc func(url, dir, ref string, opts gitx.SyncOptions) (string, error)
 
 func (f gitRunnerFunc) Sync(url, dir, ref string, opts gitx.SyncOptions) (string, error) {
@@ -33,6 +37,7 @@ type Service struct {
 	baseDir        string
 	store          *configstore.YAMLStore
 	git            gitRunner
+	localPull      localPuller
 	scanner        *repoindex.Scanner
 	indexStore     *repoindex.Store
 	now            func() time.Time
@@ -41,11 +46,13 @@ type Service struct {
 }
 
 func NewService(configFile string, baseDir string) *Service {
+	gitClient := gitx.New("git")
 	return &Service{
 		configFile:     configFile,
 		baseDir:        baseDir,
 		store:          configstore.NewYAMLStore(),
-		git:            gitx.New("git"),
+		git:            gitClient,
+		localPull:      gitClient,
 		scanner:        repoindex.NewScanner(),
 		indexStore:     repoindex.NewStore(),
 		now:            time.Now,
@@ -140,14 +147,23 @@ func (s *Service) Sync(id string) error {
 		return err
 	}
 
+	gitOpts := s.gitSyncOptions(data)
+
 	for i, src := range data.Sources {
 		if src.ID != id {
 			continue
 		}
 		ccolor.Infof("- Syncing source %s(type=%s) ...\n", src.ID, src.Type)
 
-		// 本地源直接返回
+		// 本地源：若目录含 .git 则先 pull，再重建 index
 		if src.Type != domainsource.TypeGit {
+			gitDir := filepath.Join(src.Path, ".git")
+			if info, statErr := os.Stat(gitDir); statErr == nil && info.IsDir() {
+				ccolor.Infof("- Local source %s has .git, pulling updates ...\n", src.ID)
+				if _, pullErr := s.localPull.Pull(src.Path, gitOpts); pullErr != nil {
+					ccolor.Warnf("Warning: git pull failed for %s: %v\n", src.Path, pullErr)
+				}
+			}
 			data.Sources[i].Status = "ready"
 			data.Sources[i].ErrorMessage = ""
 			data.Sources[i].LastSyncAt = s.now().UTC().Format(time.RFC3339)
@@ -157,11 +173,10 @@ func (s *Service) Sync(id string) error {
 			return s.rebuildIndex(data)
 		}
 
-		// Git 源同步
+		// Git 源同步 先更新再处理 index
 		targetDir := filepath.Join(data.RepoCacheDir, src.ID)
-
-		ccolor.Infof("Syncing Git source %s\n", src.URL)
-		resolvedRef, err := s.git.Sync(src.URL, targetDir, src.Ref, s.gitSyncOptions(data))
+		ccolor.Infof("> Update Git source %s\n", src.URL)
+		resolvedRef, err := s.git.Sync(src.URL, targetDir, src.Ref, gitOpts)
 		if err != nil {
 			data.Sources[i].Status = "error"
 			data.Sources[i].ErrorMessage = err.Error()

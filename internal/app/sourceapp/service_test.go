@@ -45,6 +45,17 @@ func (s gitRunnerStub) Sync(url, dir, ref string, opts gitx.SyncOptions) (string
 	return s.syncFn(url, dir, ref, opts)
 }
 
+type localPullerStub struct {
+	pullFn func(dir string, opts gitx.SyncOptions) (string, error)
+}
+
+func (s localPullerStub) Pull(dir string, opts gitx.SyncOptions) (string, error) {
+	if s.pullFn != nil {
+		return s.pullFn(dir, opts)
+	}
+	return "", nil
+}
+
 func TestService_AddListRemoveLocalSource(t *testing.T) {
 	baseDir := t.TempDir()
 	configFile := filepath.Join(baseDir, "skillc.yaml")
@@ -279,4 +290,50 @@ func TestService_SyncMissingGitSetsSourceError(t *testing.T) {
 	assert.NoErr(t, err)
 	assert.Eq(t, "error", list[0].Status)
 	assert.Contains(t, list[0].ErrorMessage, "git executable not found")
+}
+
+func TestService_SyncLocalWithGitDirPullsBeforeIndex(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	sourceRoot := filepath.Join(baseDir, "skills")
+	assert.NoErr(t, os.MkdirAll(filepath.Join(sourceRoot, ".git"), 0o755))
+
+	service := NewService(configFile, baseDir)
+	var pulledDir string
+	service.localPull = localPullerStub{pullFn: func(dir string, opts gitx.SyncOptions) (string, error) {
+		pulledDir = dir
+		return "abc123", nil
+	}}
+
+	src, err := service.AddLocal(sourceRoot)
+	assert.NoErr(t, err)
+
+	err = service.Sync(src.ID)
+	assert.NoErr(t, err)
+	assert.Eq(t, sourceRoot, pulledDir)
+
+	list, err := service.List()
+	assert.NoErr(t, err)
+	assert.Eq(t, "ready", list[0].Status)
+}
+
+func TestService_SyncLocalWithoutGitDirSkipsPull(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	sourceRoot := filepath.Join(baseDir, "skills")
+	assert.NoErr(t, os.MkdirAll(sourceRoot, 0o755))
+
+	service := NewService(configFile, baseDir)
+	pulled := false
+	service.localPull = localPullerStub{pullFn: func(dir string, opts gitx.SyncOptions) (string, error) {
+		pulled = true
+		return "", nil
+	}}
+
+	src, err := service.AddLocal(sourceRoot)
+	assert.NoErr(t, err)
+
+	err = service.Sync(src.ID)
+	assert.NoErr(t, err)
+	assert.False(t, pulled)
 }

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/inhere/skillc/internal/app/apputil"
 	"github.com/inhere/skillc/internal/app/searchapp"
 	"github.com/inhere/skillc/internal/domain/agent"
 	cfg "github.com/inhere/skillc/internal/domain/config"
@@ -368,12 +369,8 @@ func (s *Service) resolveInstalledPath(scopeKey string, scope agent.Scope, agent
 		return "", err
 	}
 	flatPath := filepath.Join(targetRoot, record.SkillID)
-	legacyPath := filepath.Join(targetRoot, legacyInstallDir(record.SkillID, record.SourceQualifiedName, record.SourceID))
-	resolvedPath, err := preferExistingInstallPath(flatPath, legacyPath)
-	if err != nil {
-		return "", err
-	}
-	return resolvedPath, nil
+	legacyPath := filepath.Join(targetRoot, apputil.LegacyInstallDir(record.SkillID, record.SourceQualifiedName, record.SourceID))
+	return apputil.PreferExistingInstallPath(flatPath, legacyPath)
 }
 
 func (s *Service) runtimeConfig() cfg.Config {
@@ -447,30 +444,11 @@ func findConflictingSkillSource(records []lockpkg.Record, next lockpkg.Record) (
 }
 
 func legacyInstallDir(skillID string, sourceQualifiedName string, sourceID string) string {
-	if sourceQualifiedName != "" {
-		return strings.ReplaceAll(sourceQualifiedName, "/", "--")
-	}
-	if sourceID != "" {
-		return sourceID + "--" + skillID
-	}
-	return skillID
+	return apputil.LegacyInstallDir(skillID, sourceQualifiedName, sourceID)
 }
 
 func preferExistingInstallPath(flatPath string, legacyPath string) (string, error) {
-	if _, err := os.Stat(flatPath); err == nil {
-		return flatPath, nil
-	} else if !os.IsNotExist(err) {
-		return "", err
-	}
-	if legacyPath == flatPath {
-		return flatPath, nil
-	}
-	if _, err := os.Stat(legacyPath); err == nil {
-		return legacyPath, nil
-	} else if !os.IsNotExist(err) {
-		return "", err
-	}
-	return flatPath, nil
+	return apputil.PreferExistingInstallPath(flatPath, legacyPath)
 }
 
 func sourcePathMap(config cfg.Config) map[string]string {
@@ -485,34 +463,15 @@ func sourcePathMap(config cfg.Config) map[string]string {
 }
 
 func parseScope(value string) (agent.Scope, error) {
-	scope := agent.Scope(value)
-	switch scope {
-	case agent.ScopeUser, agent.ScopeProject:
-		return scope, nil
-	default:
-		return "", fmt.Errorf("unsupported scope: %s", value)
-	}
+	return apputil.ParseScope(value)
 }
 
 func resolveScopeKey(scope agent.Scope, workDir string) (string, error) {
-	if scope == agent.ScopeUser {
-		return lockpkg.GlobalKey, nil
-	}
-	if strings.TrimSpace(workDir) == "" {
-		return "", fmt.Errorf("work dir is required for project scope")
-	}
-	absPath, err := filepath.Abs(workDir)
-	if err != nil {
-		return "", err
-	}
-	return filepath.Clean(absPath), nil
+	return apputil.ResolveScopeKey(scope, workDir)
 }
 
 func scopeFromKey(scopeKey string) agent.Scope {
-	if scopeKey == lockpkg.GlobalKey {
-		return agent.ScopeUser
-	}
-	return agent.ScopeProject
+	return apputil.ScopeFromKey(scopeKey)
 }
 
 func matchesSkillTarget(record lockpkg.Record, target string) bool {

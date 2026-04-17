@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/inhere/skillc/internal/app/apputil"
 	"github.com/inhere/skillc/internal/domain/agent"
 	cfg "github.com/inhere/skillc/internal/domain/config"
 	lockpkg "github.com/inhere/skillc/internal/domain/lock"
@@ -138,12 +139,8 @@ func (s *Service) resolveInstalledPath(scopeKey string, scope agent.Scope, agent
 		return "", err
 	}
 	flatPath := filepath.Join(targetRoot, record.SkillID)
-	legacyPath := filepath.Join(targetRoot, legacyInstallDir(record.SkillID, record.SourceQualifiedName, record.SourceID))
-	resolvedPath, err := preferExistingInstallPath(flatPath, legacyPath)
-	if err != nil {
-		return "", err
-	}
-	return resolvedPath, nil
+	legacyPath := filepath.Join(targetRoot, apputil.LegacyInstallDir(record.SkillID, record.SourceQualifiedName, record.SourceID))
+	return apputil.PreferExistingInstallPath(flatPath, legacyPath)
 }
 
 func (s *Service) runtimeConfig() cfg.Config {
@@ -165,30 +162,15 @@ func (s *Service) runtimeWorkDir() string {
 }
 
 func legacyInstallDir(skillID string, sourceQualifiedName string, sourceID string) string {
-	if sourceQualifiedName != "" {
-		return strings.ReplaceAll(sourceQualifiedName, "/", "--")
-	}
-	if sourceID != "" {
-		return sourceID + "--" + skillID
-	}
-	return skillID
+	return apputil.LegacyInstallDir(skillID, sourceQualifiedName, sourceID)
 }
 
 func preferExistingInstallPath(flatPath string, legacyPath string) (string, error) {
-	if _, err := os.Stat(flatPath); err == nil {
-		return flatPath, nil
-	} else if !os.IsNotExist(err) {
-		return "", err
-	}
-	if legacyPath == flatPath {
-		return flatPath, nil
-	}
-	if _, err := os.Stat(legacyPath); err == nil {
-		return legacyPath, nil
-	} else if !os.IsNotExist(err) {
-		return "", err
-	}
-	return flatPath, nil
+	return apputil.PreferExistingInstallPath(flatPath, legacyPath)
+}
+
+func scopeFromKey(scopeKey string) agent.Scope {
+	return apputil.ScopeFromKey(scopeKey)
 }
 
 // UnrecordedGroup holds skill dir names found on disk but not in the lock file.
@@ -293,11 +275,4 @@ func (s *Service) collectRecordedPaths(agentName string, scope agent.Scope) (map
 
 func resolveSkillsDir(rc cfg.Config, workDir string, agentName string, _ cfg.AgentToolConfig, scope agent.Scope) (string, error) {
 	return agent.ResolveInstallPath(rc, workDir, agentName, scope)
-}
-
-func scopeFromKey(scopeKey string) agent.Scope {
-	if scopeKey == lockpkg.GlobalKey {
-		return agent.ScopeUser
-	}
-	return agent.ScopeProject
 }

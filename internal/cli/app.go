@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/gookit/gcli/v3"
+	"github.com/inhere/skillc/internal/app/apputil"
 	"github.com/inhere/skillc/internal/app/configapp"
 	"github.com/inhere/skillc/internal/app/doctorapp"
 	"github.com/inhere/skillc/internal/app/searchapp"
@@ -79,13 +80,7 @@ func loadConfig() (cfg.Config, string, error) {
 }
 
 func parseScope(value string) (agent.Scope, error) {
-	scope := agent.Scope(value)
-	switch scope {
-	case agent.ScopeUser, agent.ScopeProject:
-		return scope, nil
-	default:
-		return "", fmt.Errorf("unsupported scope: %s", value)
-	}
+	return apputil.ParseScope(value)
 }
 
 func defaultConfigFile(baseDir string) string {

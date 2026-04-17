@@ -5,8 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 
+	"github.com/inhere/skillc/internal/app/apputil"
 	"github.com/inhere/skillc/internal/app/configapp"
 	"github.com/inhere/skillc/internal/app/installapp"
 	"github.com/inhere/skillc/internal/app/sourceapp"
@@ -413,13 +413,23 @@ func sameCandidateIdentity(record lockpkg.Record, item skill.Skill) bool {
 }
 
 func legacyInstallDir(skillID string, sourceQualifiedName string, sourceID string) string {
-	if sourceQualifiedName != "" {
-		return strings.ReplaceAll(sourceQualifiedName, "/", "--")
-	}
-	if sourceID != "" {
-		return sourceID + "--" + skillID
-	}
-	return skillID
+	return apputil.LegacyInstallDir(skillID, sourceQualifiedName, sourceID)
+}
+
+func preferExistingInstallPath(flatPath string, legacyPath string) (string, error) {
+	return apputil.PreferExistingInstallPath(flatPath, legacyPath)
+}
+
+func parseScope(value string) (agent.Scope, error) {
+	return apputil.ParseScope(value)
+}
+
+func resolveScopeKey(scope agent.Scope, workDir string) (string, error) {
+	return apputil.ResolveScopeKey(scope, workDir)
+}
+
+func scopeFromKey(scopeKey string) agent.Scope {
+	return apputil.ScopeFromKey(scopeKey)
 }
 
 func matchInstalledDir(items []skill.Skill, dirName string, _ map[string]struct{}) []skill.Skill {
@@ -430,23 +440,6 @@ func matchInstalledDir(items []skill.Skill, dirName string, _ map[string]struct{
 		}
 	}
 	return matches
-}
-
-func preferExistingInstallPath(flatPath string, legacyPath string) (string, error) {
-	if _, err := os.Stat(flatPath); err == nil {
-		return flatPath, nil
-	} else if !os.IsNotExist(err) {
-		return "", err
-	}
-	if legacyPath == flatPath {
-		return flatPath, nil
-	}
-	if _, err := os.Stat(legacyPath); err == nil {
-		return legacyPath, nil
-	} else if !os.IsNotExist(err) {
-		return "", err
-	}
-	return flatPath, nil
 }
 
 func failedFromSync(records []InstalledItem, syncFailed []SourceSyncError) []FailedItem {
@@ -464,37 +457,6 @@ func failedFromSync(records []InstalledItem, syncFailed []SourceSyncError) []Fai
 		}
 	}
 	return failed
-}
-
-func parseScope(value string) (agent.Scope, error) {
-	scope := agent.Scope(value)
-	switch scope {
-	case agent.ScopeUser, agent.ScopeProject:
-		return scope, nil
-	default:
-		return "", fmt.Errorf("unsupported scope: %s", value)
-	}
-}
-
-func resolveScopeKey(scope agent.Scope, workDir string) (string, error) {
-	if scope == agent.ScopeUser {
-		return lockpkg.GlobalKey, nil
-	}
-	if strings.TrimSpace(workDir) == "" {
-		return "", fmt.Errorf("work dir is required for project scope")
-	}
-	absPath, err := filepath.Abs(workDir)
-	if err != nil {
-		return "", err
-	}
-	return filepath.Clean(absPath), nil
-}
-
-func scopeFromKey(scopeKey string) agent.Scope {
-	if scopeKey == lockpkg.GlobalKey {
-		return agent.ScopeUser
-	}
-	return agent.ScopeProject
 }
 
 func resolveLatestInstalledPath(config cfg.Config, workDir string, scopeKey string, agentName string, scope agent.Scope, item skill.Skill) (string, error) {
@@ -520,11 +482,7 @@ func resolveInstalledPath(config cfg.Config, workDir string, scopeKey string, ag
 	}
 	flatPath := filepath.Join(targetRoot, record.SkillID)
 	legacyPath := filepath.Join(targetRoot, legacyInstallDir(record.SkillID, record.SourceQualifiedName, record.SourceID))
-	resolvedPath, err := preferExistingInstallPath(flatPath, legacyPath)
-	if err != nil {
-		return "", err
-	}
-	return resolvedPath, nil
+	return preferExistingInstallPath(flatPath, legacyPath)
 }
 
 func filterAgents(agents []string, agentName string) []string {

@@ -149,6 +149,73 @@ func (s *Service) MatchSources(partial string) ([]domainsource.Source, error) {
 	return matches, nil
 }
 
+// isGitURL 判断是否是 git URL（http/https/git@/ssh）
+func isGitURL(s string) bool {
+	return strings.HasPrefix(s, "http://") ||
+		strings.HasPrefix(s, "https://") ||
+		strings.HasPrefix(s, "git@") ||
+		strings.HasPrefix(s, "ssh://")
+}
+
+// EnsureSource 保证 source 存在：若不存在则新增并 sync，若已存在则直接返回已有 source。
+// urlOrPath 可以是 git URL 或本地路径；ref 仅对 git URL 有效。
+func (s *Service) EnsureSource(urlOrPath string, ref string) (domainsource.Source, bool, error) {
+	if isGitURL(urlOrPath) {
+		src, err := s.AddGit(urlOrPath, ref)
+		if err != nil {
+			// 已存在时从列表中找回
+			if strings.Contains(err.Error(), "source already exists") {
+				existing, listErr := s.findGitSourceByURL(urlOrPath)
+				if listErr != nil {
+					return domainsource.Source{}, false, listErr
+				}
+				return existing, false, nil
+			}
+			return domainsource.Source{}, false, err
+		}
+		return src, true, nil
+	}
+
+	src, err := s.AddLocal(urlOrPath)
+	if err != nil {
+		if strings.Contains(err.Error(), "source already exists") {
+			existing, listErr := s.findLocalSourceByPath(urlOrPath)
+			if listErr != nil {
+				return domainsource.Source{}, false, listErr
+			}
+			return existing, false, nil
+		}
+		return domainsource.Source{}, false, err
+	}
+	return src, true, nil
+}
+
+func (s *Service) findGitSourceByURL(url string) (domainsource.Source, error) {
+	list, err := s.List()
+	if err != nil {
+		return domainsource.Source{}, err
+	}
+	for _, src := range list {
+		if src.Type == domainsource.TypeGit && src.URL == url {
+			return src, nil
+		}
+	}
+	return domainsource.Source{}, fmt.Errorf("source not found for url: %s", url)
+}
+
+func (s *Service) findLocalSourceByPath(path string) (domainsource.Source, error) {
+	list, err := s.List()
+	if err != nil {
+		return domainsource.Source{}, err
+	}
+	for _, src := range list {
+		if src.Type == domainsource.TypeLocal && src.Path == path {
+			return src, nil
+		}
+	}
+	return domainsource.Source{}, fmt.Errorf("source not found for path: %s", path)
+}
+
 // SyncAll 同步所有源
 func (s *Service) SyncAll() error {
 	list, err := s.List()

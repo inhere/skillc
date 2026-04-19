@@ -381,3 +381,52 @@ func TestService_MatchSourcesPartialID(t *testing.T) {
 	assert.NoErr(t, err)
 	assert.Len(t, matches, 0)
 }
+
+func TestService_EnsureSource_Local(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	localDir := filepath.Join(baseDir, "my-skills")
+	assert.NoErr(t, os.MkdirAll(localDir, 0o755))
+
+	service := NewService(configFile, baseDir)
+
+	// 首次调用：新增 source
+	src, isNew, err := service.EnsureSource(localDir, "")
+	assert.NoErr(t, err)
+	assert.True(t, isNew)
+	assert.Eq(t, "local-my-skills", src.ID)
+
+	// 再次调用：返回已有 source，不报错
+	src2, isNew2, err := service.EnsureSource(localDir, "")
+	assert.NoErr(t, err)
+	assert.False(t, isNew2)
+	assert.Eq(t, src.ID, src2.ID)
+
+	// 只有一条记录
+	list, err := service.List()
+	assert.NoErr(t, err)
+	assert.Len(t, list, 1)
+}
+
+func TestService_EnsureSource_Git(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+
+	service := NewService(configFile, baseDir)
+
+	// 首次调用：新增 git source
+	src, isNew, err := service.EnsureSource("https://github.com/example/skills.git", "main")
+	assert.NoErr(t, err)
+	assert.True(t, isNew)
+	assert.Eq(t, "git-example-skills", src.ID)
+
+	// 再次调用：返回已有 source
+	src2, isNew2, err := service.EnsureSource("https://github.com/example/skills.git", "main")
+	assert.NoErr(t, err)
+	assert.False(t, isNew2)
+	assert.Eq(t, src.ID, src2.ID)
+
+	list, err := service.List()
+	assert.NoErr(t, err)
+	assert.Len(t, list, 1)
+}

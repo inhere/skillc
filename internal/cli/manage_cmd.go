@@ -24,6 +24,7 @@ func buildSearchCommand() *gcli.Command {
 	return &gcli.Command{
 		Name: "search",
 		Desc: "Search indexed skills",
+		Aliases: []string{"find"},
 		Config: func(c *gcli.Command) {
 			c.AddArg("keyword", "search keyword")
 			c.StrOpt(&agentFilter, "agent", "a", "", "filter by agent name")
@@ -99,6 +100,7 @@ func (mo *ManageOptions) bindCommand(c *gcli.Command) {
 
 func buildInstallCommand() *gcli.Command {
 	var opts ManageOptions
+	var sourceArg string
 	return &gcli.Command{
 		Name:    "install",
 		Desc:    "Install skills",
@@ -107,7 +109,8 @@ func buildInstallCommand() *gcli.Command {
 			opts.bindCommand(c)
 			c.BoolOpt(&opts.Yes, "yes", "y", false, "skip confirmation prompt")
 			c.BoolOpt(&opts.Collection, "collection", "c", false, "treat targets as collection selectors")
-			c.AddArg("skill-id", "skill id. if empty, restore from lock file")
+			c.StrOpt(&sourceArg, "source", "S", "", "git url or local path: add & sync source before installing")
+			c.AddArg("skill", "skill id. if empty, restore from lock file")
 		},
 		Func: func(c *gcli.Command, _ []string) error {
 			config, cwd, err := loadConfig()
@@ -116,7 +119,31 @@ func buildInstallCommand() *gcli.Command {
 				return err
 			}
 
-			targetArg := c.Arg("skill-id").String()
+			// --source: 新增/复用 source 并同步
+			if sourceArg != "" {
+				srcSvc := newSourceService()
+				src, isNew, err := srcSvc.EnsureSource(sourceArg, "")
+				if err != nil {
+					return fmt.Errorf("failed to ensure source: %w", err)
+				}
+				if isNew {
+					ccolor.Infof("source added: %s (%s)\n", src.ID, src.Type)
+				} else {
+					ccolor.Infof("source exists: %s (%s)\n", src.ID, src.Type)
+				}
+				ccolor.Infof("syncing source %s ...\n", src.ID)
+				if err := srcSvc.Sync(src.ID); err != nil {
+					return fmt.Errorf("failed to sync source: %w", err)
+				}
+				ccolor.Infof("source synced: %s\n", src.ID)
+				// reload config so index is fresh
+				config, cwd, err = loadConfig()
+				if err != nil {
+					return err
+				}
+			}
+
+			targetArg := c.Arg("skill").String()
 			if targetArg == "" {
 				result, err := installapp.NewService(config.LockFile).Run(config, installapp.InstallReq{
 					Agent:   opts.Agent,
@@ -266,7 +293,7 @@ func buildUninstallCommand() *gcli.Command {
 	return &gcli.Command{
 		Name:    "uninstall",
 		Desc:    "Uninstall skills",
-		Aliases: []string{"uni"},
+		Aliases: []string{"uni", "remove", "rm"},
 		Config: func(c *gcli.Command) {
 			opts.bindCommand(c)
 			c.AddArg("skill-id", "skill id, allow multiple", true, true)

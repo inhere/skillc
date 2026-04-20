@@ -230,13 +230,13 @@ func TestInstallCommand_RestoresFromLockFileWhenNoArgs(t *testing.T) {
 			SourceID:     "local-demo",
 			SourceType:   "local",
 			InstallEntry: "commands",
-			Agents:       []string{"agents", "claude-code"},
+			Agents:       []string{"universal", "claude-code"},
 		}},
 	}))
 
 	output := runAppInDirWithStdout(t, baseDir, []string{"install"})
 
-	assert.Contains(t, output, "restored hello-skill  agent=agents scope=project")
+	assert.Contains(t, output, "restored hello-skill  agent=universal scope=project")
 	assert.Contains(t, output, "restored hello-skill  agent=claude-code scope=project")
 	claudeData, err := os.ReadFile(filepath.Join(claudeInstalledPath, "hello.txt"))
 	assert.NoErr(t, err)
@@ -405,7 +405,7 @@ description: Friendly greeting helper
 	assert.Contains(t, addOutput, "Next, please run: skillc source sync ")
 
 	syncOutput := runAppInDirWithStdout(t, baseDir, []string{"source", "sync", localSource.ID})
-	assert.Contains(t, syncOutput, "synced ")
+	assert.Contains(t, syncOutput, "Synced ")
 	assert.Contains(t, syncOutput, "ready")
 }
 

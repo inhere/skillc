@@ -4,7 +4,6 @@ import (
 	"github.com/gookit/gcli/v3"
 	"github.com/gookit/gcli/v3/show"
 	"github.com/gookit/goutil/x/ccolor"
-	"github.com/gookit/slog"
 )
 
 
@@ -37,7 +36,6 @@ func buildConfigCommand() *gcli.Command {
 			service := newConfigService()
 			cfg, err := service.Show()
 			if err != nil {
-				slog.Error(err)
 				return err
 			}
 
@@ -58,10 +56,9 @@ func buildConfigCommand() *gcli.Command {
 			service := newConfigService()
 			value, err := service.Get(key)
 			if err != nil {
-				slog.Error(err)
 				return err
 			}
-			ccolor.Infof("%s=%s\n", key, value)
+			ccolor.Successf("%s=%s\n", key, value)
 			return nil
 		},
 	})
@@ -78,7 +75,6 @@ func buildConfigCommand() *gcli.Command {
 			value := c.Arg("value").String()
 			service := newConfigService()
 			if err := service.Set(key, value); err != nil {
-				slog.Error(err)
 				return err
 			}
 			ccolor.Successln("ok")

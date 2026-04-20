@@ -7,7 +7,6 @@ import (
 	"github.com/gookit/gcli/v3"
 	"github.com/gookit/gcli/v3/show/table"
 	"github.com/gookit/goutil/x/ccolor"
-	"github.com/gookit/slog"
 )
 
 func truncateStr(s string, max int) string {
@@ -33,7 +32,6 @@ func buildCollectionCommand() *gcli.Command {
 			service := newSearchService()
 			items, err := service.ListCollections()
 			if err != nil {
-				slog.Error(err)
 				return err
 			}
 			if len(items) == 0 {
@@ -64,7 +62,6 @@ func buildCollectionCommand() *gcli.Command {
 			service := newSearchService()
 			items, err := service.ListCollectionSkills(collection)
 			if err != nil {
-				slog.Error(err)
 				return err
 			}
 

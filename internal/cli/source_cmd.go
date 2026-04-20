@@ -140,11 +140,11 @@ func buildSourceSyncCommand() *gcli.Command {
 				}
 				for _, src := range list {
 					if src.ID == exactID {
-						ccolor.Infof("synced %s  status=%s\n", src.ID, src.Status)
+						ccolor.Successf("Synced %s  status=%s\n", src.ID, src.Status)
 						return nil
 					}
 				}
-				ccolor.Infof("synced %s\n", exactID)
+				ccolor.Successf("Synced %s\n", exactID)
 				return nil
 			default:
 				ccolor.Warnf("multiple sources matched %q:\n", sourceID)
@@ -164,7 +164,7 @@ func buildSourceSyncCommand() *gcli.Command {
 						ccolor.Errorf("failed to sync %s: %v\n", src.ID, err)
 						continue
 					}
-					ccolor.Infof("synced %s\n", src.ID)
+					ccolor.Successf("Synced %s\n", src.ID)
 				}
 				return nil
 			}

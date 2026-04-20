@@ -35,7 +35,6 @@ func buildSearchCommand() *gcli.Command {
 			service := newSearchService()
 			items, err := service.Search(keyword, agentFilter, sourcepkg.Type(sourceTypeFilter))
 			if err != nil {
-				slog.Error(err)
 				return err
 			}
 			if len(items) == 0 {
@@ -115,7 +114,6 @@ func buildInstallCommand() *gcli.Command {
 		Func: func(c *gcli.Command, _ []string) error {
 			config, cwd, err := loadConfig()
 			if err != nil {
-				slog.Error(err)
 				return err
 			}
 
@@ -151,7 +149,6 @@ func buildInstallCommand() *gcli.Command {
 					WorkDir: cwd,
 				}, nil)
 				if err != nil {
-					slog.Error(err)
 					return err
 				}
 				for _, record := range result.Restored {
@@ -169,7 +166,6 @@ func buildInstallCommand() *gcli.Command {
 
 			searchResult, err := newSearchService().ResolveInstallTargets(targets, opts.Collection)
 			if err != nil {
-				slog.Error(err)
 				return err
 			}
 
@@ -197,7 +193,6 @@ func buildInstallCommand() *gcli.Command {
 				WorkDir: cwd,
 			}, searchResult.Resolved, searchResult.Failed)
 			if err != nil {
-				slog.Error(err)
 				return err
 			}
 			for _, record := range result.Installed {
@@ -257,7 +252,6 @@ func buildUpdateCommand() *gcli.Command {
 		Func: func(c *gcli.Command, _ []string) error {
 			_, cwd, err := loadConfig()
 			if err != nil {
-				slog.Error(err)
 				return err
 			}
 
@@ -296,13 +290,12 @@ func buildUninstallCommand() *gcli.Command {
 		Aliases: []string{"uni", "remove", "rm"},
 		Config: func(c *gcli.Command) {
 			opts.bindCommand(c)
-			c.AddArg("skill-id", "skill id, allow multiple", true, true)
+			c.AddArg("skill", "skill id, allow multiple", true, true)
 		},
 		Func: func(c *gcli.Command, _ []string) error {
-			skillIDs := c.Arg("skill-id").Strings()
+			skillIDs := c.Arg("skill").Strings()
 			config, cwd, err := loadConfig()
 			if err != nil {
-				slog.Error(err)
 				return err
 			}
 			scope, err := parseScope(opts.Scope)

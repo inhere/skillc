@@ -21,23 +21,27 @@
 
 ## Installation
 
-### Build from source
+**Install by eget**
+
+Can quickly install by [inherelab/eget](https://github.com/inherelab/eget)
+
+```bash
+eget install inhere/skillc
+```
+
+**Install by Go**
+
+```bash
+go install github.com/inhere/skillc/cmd/skillc@latest
+```
+
+**Build from source**
 
 ```bash
 git clone https://github.com/inhere/skillc
 cd skillc
 make build          # compile to current directory
 make install        # install to $GOPATH/bin
-```
-
-### Cross-compilation
-
-```bash
-make build-all           # all platforms
-make build-linux         # Linux amd64
-make build-darwin        # macOS Intel
-make build-darwin-arm64  # macOS Apple Silicon
-make build-windows       # Windows amd64
 ```
 
 ## Quick Start

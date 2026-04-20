@@ -23,23 +23,27 @@ Skillc 统一管理 `claude-code`、`opencode`、`codex` 等 AI Agent 的 Skills
 
 ## 安装
 
-### 从源码构建
+**使用 Eget 快速安装**
+
+Can quickly install by [inherelab/eget](https://github.com/inherelab/eget)
+
+```bash
+eget install inhere/skillc
+```
+
+**使用 Go install 安装**
+
+```bash
+go install github.com/inhere/skillc/cmd/skillc@latest
+```
+
+**从源码构建**
 
 ```bash
 git clone https://github.com/inhere/skillc
 cd skillc
 make build          # 编译到当前目录
 make install        # 安装到 $GOPATH/bin
-```
-
-### 交叉编译
-
-```bash
-make build-all      # 全平台
-make build-linux    # Linux amd64
-make build-darwin   # macOS Intel
-make build-darwin-arm64  # macOS Apple Silicon
-make build-windows  # Windows amd64
 ```
 
 ## 快速开始

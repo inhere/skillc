@@ -1,167 +1,176 @@
 # Skillc
 
-> 面向多 Agent 生态的本地 Skill 管理工具
+![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/inhere/skillc?style=flat-square)
+[![GitHub tag (latest SemVer)](https://img.shields.io/github/tag/inhere/skillc)](https://github.com/inhere/skillc)
+[![Unit-Tests](https://github.com/inhere/skillc/actions/workflows/go.yml/badge.svg)](https://github.com/inhere/skillc)
 
-Skillc 统一管理 `claude-code`、`opencode`、`codex` 等 AI Agent 的 Skills（提示词、规则文件等），屏蔽各 Agent 的目录差异，提供一套一致的 CLI 体验。
+---
 
-## 特性
+[English](./README.md) | [简体中文](./README.zh-CN.md)
 
-- 📦 **多来源管理** — 支持本地路径与 Git 仓库作为 Skill 来源
-- 🔍 **索引与搜索** — 自动扫描来源并建立索引，支持关键词搜索
-- ⚡ **一键安装** — 支持 `--source` 选项同时完成来源注册、同步和安装
-- 🔒 **锁文件追踪** — 记录每个 Skill 的来源、版本和安装位置，支持 `restore`
-- 🤖 **多 Agent 适配** — 自动适配不同 Agent 的安装目录规范
-- 🔄 **批量更新** — 一条命令更新所有已安装的 Skills
+> A local Skill manager for multi-agent ecosystems
 
-## 安装
+## Features
 
-### 从源码构建
+- 📦 **Multi-source management** — Local paths and Git repositories as Skill sources
+- 🔍 **Index & search** — Auto-scans sources and builds a searchable index
+- ⚡ **One-shot install** — `--source` flag registers, syncs, and installs in a single command
+- 🔒 **Lock file tracking** — Records origin, version, and install path; supports `restore`
+- 🤖 **Multi-agent adapters** — Automatically targets each agent's install directory
+- 🔄 **Batch update** — Update all installed Skills with one command
+
+## Installation
+
+### Build from source
 
 ```bash
 git clone https://github.com/inhere/skillc
 cd skillc
-make build          # 编译到当前目录
-make install        # 安装到 $GOPATH/bin
+make build          # compile to current directory
+make install        # install to $GOPATH/bin
 ```
 
-### 交叉编译
+### Cross-compilation
 
 ```bash
-make build-all      # 全平台
-make build-linux    # Linux amd64
-make build-darwin   # macOS Intel
+make build-all           # all platforms
+make build-linux         # Linux amd64
+make build-darwin        # macOS Intel
 make build-darwin-arm64  # macOS Apple Silicon
-make build-windows  # Windows amd64
+make build-windows       # Windows amd64
 ```
 
-## 快速开始
+## Quick Start
 
 ```bash
-# 1. 初始化配置
+# 1. Initialize config
 skillc config init
 
-# 2. 添加 Skill 来源（Git 仓库或本地路径）
+# 2. Add a Skill source (Git repo or local path)
 skillc source add git https://github.com/org/skills.git
 skillc source add local /path/to/my-skills
 
-# 3. 同步来源（拉取并建立索引）
+# 3. Sync sources (clone/pull and rebuild index)
 skillc source sync --all
 
-# 4. 搜索 Skill
+# 4. Search for a Skill
 skillc search typescript
 
-# 5. 安装 Skill
+# 5. Install a Skill
 skillc install my-skill
 
-# 6. 查看已安装
+# 6. List installed Skills
 skillc list
 ```
 
-## 命令参考
+## Command Reference
 
-### `config` — 配置管理
+### `config` — Configuration
 
 ```bash
-skillc config init          # 初始化配置文件
-skillc config show          # 显示当前配置
-skillc config set <key> <value>  # 修改配置项
+skillc config init               # initialize config file
+skillc config show               # display current config
+skillc config set <key> <value>  # update a config value
 ```
 
-### `source` — 来源管理
+### `source` — Source management
 
 ```bash
-skillc source list                              # 列出所有来源
-skillc source add git <url> [ref]              # 添加 Git 来源
-skillc source add local <path>                 # 添加本地来源
-skillc source sync <id>                        # 同步指定来源（支持部分 ID 匹配）
-skillc source sync --all                       # 同步所有来源
-skillc source status                           # 查看来源状态
-skillc source remove <id>                      # 删除来源
+skillc source list                    # list all sources
+skillc source add git <url> [ref]     # add a Git source
+skillc source add local <path>        # add a local source
+skillc source sync <id>               # sync a source (partial ID match supported)
+skillc source sync --all              # sync all sources
+skillc source status                  # show source status
+skillc source remove <id>             # remove a source
 ```
 
-> `source sync` 支持 **部分 ID 匹配**，例如 `skillc source sync edge` 可匹配 `local-golang-edge-skills`。
+> `source sync` supports **partial ID matching** — e.g. `skillc source sync edge` matches `local-golang-edge-skills`.
 
-### `install` — 安装 Skills
+### `install` — Install Skills
 
 ```bash
-skillc install <skill-id>                      # 安装指定 Skill
-skillc install <id1>,<id2>                     # 批量安装（逗号分隔）
-skillc install --collection <collection>       # 安装整个 Collection
-skillc install                                 # 从锁文件恢复所有 Skills
+skillc install <skill-id>             # install a Skill
+skillc install <id1>,<id2>            # install multiple (comma-separated)
+skillc install --collection <name>    # install an entire Collection
+skillc install                        # restore all Skills from lock file
 
-# 一次性：新增来源 → 同步 → 安装（支持 Git URL 或本地路径）
+# One-shot: register source → sync → install
 skillc install --source https://github.com/org/skills.git my-skill
 skillc install --source /path/to/local-skills my-skill
-
-# 选项
--s, --scope   安装范围（project / global）默认: project
--a, --agent   目标 Agent（默认: claude-code）
--y, --yes     跳过确认提示
--c, --collection  将目标视为 Collection 选择器
--S, --source  Git URL 或本地路径，安装前自动注册并同步
 ```
 
-### `update` — 更新 Skills
+**Options:**
+
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--scope` | `-s` | `project` | Install scope (`project` / `global`) |
+| `--agent` | `-a` | `claude-code` | Target agent name or directory |
+| `--yes` | `-y` | `false` | Skip confirmation prompt |
+| `--collection` | `-c` | `false` | Treat targets as Collection selectors |
+| `--source` | `-S` | | Git URL or local path — auto-register & sync before installing |
+
+### `update` — Update Skills
 
 ```bash
-skillc update                           # 更新所有已安装的 Skills
-skillc update --target <skill-id>       # 更新指定 Skill
+skillc update                        # update all installed Skills
+skillc update --target <skill-id>    # update a specific Skill
 ```
 
-### `uninstall` — 卸载 Skills
+### `uninstall` — Remove Skills
 
 ```bash
-skillc uninstall <skill-id> [...]       # 卸载一个或多个 Skill
+skillc uninstall <skill-id> [...]    # uninstall one or more Skills
 ```
 
-### `list` — 已安装列表
+### `list` — Installed Skills
 
 ```bash
-skillc list                             # 列出当前 Agent 已安装的 Skills
-skillc list --scope global              # 列出全局 Skills
+skillc list                          # list installed Skills (current agent)
+skillc list --scope global           # list globally installed Skills
 ```
 
-### `search` / `show` — 索引搜索
+### `search` / `show` — Index search
 
 ```bash
-skillc search <keyword>                 # 关键词搜索
-skillc search <keyword> --agent claude  # 过滤指定 Agent
-skillc show <skill-id>                  # 查看 Skill 详情
+skillc search <keyword>              # keyword search
+skillc search <keyword> --agent claude  # filter by agent
+skillc show <skill-id>               # show Skill details
 ```
 
-### `collection` — Collection 浏览
+### `collection` — Browse Collections
 
 ```bash
-skillc collection list                  # 列出所有 Collection
-skillc collection skills <name>         # 列出 Collection 内的 Skills
+skillc collection list               # list all Collections
+skillc collection skills <name>      # list Skills in a Collection
 ```
 
-### `doctor` — 环境诊断
+### `doctor` — Environment check
 
 ```bash
-skillc doctor                           # 检查 git、配置文件、索引等是否就绪
+skillc doctor                        # verify git, config, index, and cache
 ```
 
-## 配置文件
+## Configuration
 
-默认配置文件查找顺序：
+Config file lookup order:
 
-1. `./skillc.yaml`（当前目录）
+1. `./skillc.yaml` (current directory)
 2. `~/.config/skillc/config.yaml`
 
-主要配置项：
+Key fields:
 
 ```yaml
-lock_file: skillc.lock.yaml       # 锁文件路径
-index_file: skillc-index.json     # 索引文件路径
-repo_cache_dir: ~/.cache/skillc   # Git 仓库缓存目录
-proxy_url: ""                     # HTTP 代理（可选）
-sources: []                       # 管理的来源列表
+lock_file: skillc.lock.yaml        # lock file path
+index_file: skillc-index.json      # index file path
+repo_cache_dir: ~/.cache/skillc    # Git repo cache directory
+proxy_url: ""                      # HTTP proxy (optional)
+sources: []                        # registered sources
 ```
 
-## 锁文件
+## Lock File
 
-`skillc.lock.yaml` 记录每个已安装 Skill 的元数据，用于 `skillc install`（无参数）时恢复所有 Skills：
+`skillc.lock.yaml` records every installed Skill and is used by `skillc install` (no args) to restore all Skills:
 
 ```yaml
 records:
@@ -173,14 +182,13 @@ records:
     installed_at: "2026-01-01T00:00:00Z"
 ```
 
-## 开发
+## Development
 
 ```bash
-go test ./...          # 运行所有测试
-make build             # 本地构建
+go test ./...    # run all tests
+make build       # local build
 ```
 
 ## License
 
 MIT
-

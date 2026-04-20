@@ -8,7 +8,7 @@
 
 [English](./README.md) | [简体中文](./README.zh-CN.md)
 
-> A local Skill manager for multi-agent ecosystems
+`skillc` Single binary file, a local skills management tool for the multi-Agent ecosystem.
 
 ## Features
 

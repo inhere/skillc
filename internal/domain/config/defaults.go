@@ -9,7 +9,7 @@ func DefaultConfig() Config {
 				Dirname:    ".agents",
 				UserDir:    "~/.agents",
 				ProjectDir: ".agents",
-				Aliases:    []string{"agents"},
+				Aliases:    []string{"universal"},
 			},
 			"claude-code": {
 				Dirname:    ".claude",

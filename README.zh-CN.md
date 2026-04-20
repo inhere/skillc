@@ -8,7 +8,7 @@
 
 [English](./README.md) | [简体中文](./README.zh-CN.md)
 
-`skillc` Go编写的单二进制文件，面向多 Agent 生态的本地 Skill 管理工具
+`skillc` Go编写的单二进制文件，面向多 Agent 生态的本地 skills 管理工具
 
 Skillc 统一管理 `claude-code`、`opencode`、`codex` 等 AI Agent 的 Skills（提示词、规则文件等），屏蔽各 Agent 的目录差异，提供一套一致的 CLI 体验。
 
@@ -19,7 +19,7 @@ Skillc 统一管理 `claude-code`、`opencode`、`codex` 等 AI Agent 的 Skills
 - ⚡ **一键安装** — 支持 `--source` 选项同时完成来源注册、同步和安装
 - 🔒 **锁文件追踪** — 记录每个 Skill 的来源、版本和安装位置，支持 `restore`
 - 🤖 **多 Agent 适配** — 自动适配不同 Agent 的安装目录规范
-- 🔄 **批量更新** — 一条命令更新所有已安装的 Skills
+- 🔄 **批量更新** — 一条命令更新所有已安装的 skills
 
 ## 安装
 

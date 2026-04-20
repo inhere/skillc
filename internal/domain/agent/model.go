@@ -7,4 +7,4 @@ const (
 	ScopeProject Scope = "project"
 )
 
-const DefaultAgentName = "agents"
+const DefaultAgentName = "universal"

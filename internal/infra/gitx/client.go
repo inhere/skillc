@@ -109,7 +109,7 @@ func (c *Client) cloneAndResolve(url, dir, ref string, opts SyncOptions) (string
 }
 
 func (c *Client) cloneCommand(url, dir, ref string, opts SyncOptions) *exec.Cmd {
-	args := []string{"clone"}
+	args := []string{"clone", "-c", "core.autocrlf=false"}
 	if opts.Progress != nil {
 		args = append(args, "--progress")
 	}

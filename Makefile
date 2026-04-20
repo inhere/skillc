@@ -2,7 +2,8 @@
 
 APP     := skillc
 VERSION ?= 0.1.0
-BINARY  := $(APP).exe
+GOEXE = $(shell go env GOEXE)
+BINARY  := $(APP)$(GOEXE)
 MAIN_DIR := ./cmd/skillc
 
 # Build metadata
@@ -20,17 +21,14 @@ LDFLAGS := -s -w \
 all: build
 
 ## build: build Go binary (current platform)
-build: backend
-
-## backend: compile Go binary for current platform
-backend:
+build:
 	@echo "🐹 Building Go binary ($(VERSION) @ $(GIT_HASH))..."
 	@go build -ldflags "$(LDFLAGS)" -o $(BINARY) $(MAIN_DIR)
 	@echo "✅ Binary: $(BINARY) ($$(du -sh $(BINARY) | cut -f1))"
 
 ## install: install Go binary to $GOPATH/bin
 install:
-	@go install -ldflags "$(LDFLAGS)" $(MAIN_DIR)
+	go install -ldflags "$(LDFLAGS)" $(MAIN_DIR)
 	@echo "✅ Installed to GOPATH/bin"
 
 ## run: build and run with current directory

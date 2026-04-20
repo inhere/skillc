@@ -36,7 +36,8 @@ jobs:
       - name: Build bin package
         run: |
           make build-all
-          ./dist/eget-linux-amd64 -h
+          ls -alh ./dist
+          ./dist/skillc-linux-amd64 -h
 
       - name: Generate changelog
         run: |

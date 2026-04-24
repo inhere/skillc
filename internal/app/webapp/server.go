@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/gookit/goutil/x/ccolor"
 	"github.com/inhere/skillc/internal/domain/skill"
 )
 
@@ -116,9 +117,9 @@ func (s *Server) Serve(item skill.Skill, port int) error {
 	})
 
 	addr := fmt.Sprintf(":%d", port)
-	fmt.Fprintf(s.Out, "Skill web viewer started: http://localhost%s\n", addr)
-	fmt.Fprintf(s.Out, "Skill: %s (%s)\n", item.Name, item.ID)
-	fmt.Fprintln(s.Out, "Press Ctrl+C to stop")
+	ccolor.Fprintf(s.Out, "Skill web viewer started: <info>http://localhost%s</>\n", addr)
+	ccolor.Fprintf(s.Out, "Skill: <info>%s (%s)</>\n", item.Name, item.ID)
+	ccolor.Fprintln(s.Out, "Press <yellow>Ctrl+C</> to stop")
 	return http.ListenAndServe(addr, mux)
 }
 

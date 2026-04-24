@@ -14,6 +14,7 @@ import (
 	"github.com/inhere/skillc/internal/app/installapp"
 	"github.com/inhere/skillc/internal/app/listapp"
 	"github.com/inhere/skillc/internal/app/updateapp"
+	"github.com/inhere/skillc/internal/app/webapp"
 	"github.com/inhere/skillc/internal/domain/agent"
 	sourcepkg "github.com/inhere/skillc/internal/domain/source"
 )
@@ -57,18 +58,26 @@ func buildSearchCommand() *gcli.Command {
 }
 
 func buildShowCommand() *gcli.Command {
+	var webMode bool
+	var port int
 	return &gcli.Command{
 		Name: "show",
 		Desc: "Show indexed skill details",
 		Config: func(c *gcli.Command) {
-			c.AddArg("skill-id", "skill id", true)
+			c.AddArg("skill", "skill id or name", true)
+			c.BoolOpt(&webMode, "web", "w", false, "start a local web server to browse skill files")
+			c.IntOpt(&port, "port", "p", 8080, "web server port (used with --web)")
 		},
 		Func: func(c *gcli.Command, _ []string) error {
-			skillID := c.Arg("skill-id").String()
+			skillID := c.Arg("skill").String()
 			service := newSearchService()
 			item, err := service.Show(skillID)
 			if err != nil {
 				return err
+			}
+
+			if webMode {
+				return webapp.NewServer().Serve(item, port)
 			}
 
 			show.AList("Skill Details", item)

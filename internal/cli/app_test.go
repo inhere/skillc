@@ -62,6 +62,52 @@ func TestNewApp_RegistersUpdateCommand(t *testing.T) {
 	assert.Eq(t, "Update installed skills", update.Desc)
 }
 
+func TestUpdateCommand_AcceptsSkillArgumentAsTarget(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	config := cfg.DefaultConfig()
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
+
+	var gotReq updateapp.Req
+	prevFactory := newUpdateService
+	newUpdateService = func(configFile string, baseDir string) updateRunner {
+		return updateRunnerStub{runFn: func(req updateapp.Req) (updateapp.Result, error) {
+			gotReq = req
+			return updateapp.Result{}, nil
+		}}
+	}
+	defer func() {
+		newUpdateService = prevFactory
+	}()
+
+	runAppInDirWithStdout(t, baseDir, []string{"update", "hello-skill"})
+
+	assert.Eq(t, "hello-skill", gotReq.Target)
+}
+
+func TestUpdateCommand_TargetFlagTakesPrecedenceOverSkillArgument(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	config := cfg.DefaultConfig()
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
+
+	var gotReq updateapp.Req
+	prevFactory := newUpdateService
+	newUpdateService = func(configFile string, baseDir string) updateRunner {
+		return updateRunnerStub{runFn: func(req updateapp.Req) (updateapp.Result, error) {
+			gotReq = req
+			return updateapp.Result{}, nil
+		}}
+	}
+	defer func() {
+		newUpdateService = prevFactory
+	}()
+
+	runAppInDirWithStdout(t, baseDir, []string{"update", "--target", "flag-skill", "arg-skill"})
+
+	assert.Eq(t, "flag-skill", gotReq.Target)
+}
+
 func TestNewApp_RegistersInstallListAndDoctorCommands(t *testing.T) {
 	app := newTestApp()
 
@@ -317,7 +363,6 @@ func TestSearchCommand_ShowsResolvableQualifiedName(t *testing.T) {
 	assert.Contains(t, output, "gstack/ship")
 }
 
-
 func TestSourceAddLocalCommand_PrintsNextSyncHint(t *testing.T) {
 	baseDir := t.TempDir()
 	configFile := filepath.Join(baseDir, "skillc.yaml")
@@ -542,7 +587,7 @@ func TestUpdateCommand_PrintsCleanupFailuresWithoutDroppingSuccessfulUpdate(t *t
 	newUpdateService = func(configFile string, baseDir string) updateRunner {
 		return updateRunnerStub{runFn: func(req updateapp.Req) (updateapp.Result, error) {
 			return updateapp.Result{
-				Updated: []installapp.RuntimeRecord{{Record: lockpkg.Record{SkillID: "shared-skill"}, InstalledPath: cleanupInstalled}},
+				Updated:       []installapp.RuntimeRecord{{Record: lockpkg.Record{SkillID: "shared-skill"}, InstalledPath: cleanupInstalled}},
 				CleanupFailed: []updateapp.FailedItem{{SkillID: "shared-skill", Reason: "cleanup failed"}},
 			}, nil
 		}}
@@ -556,7 +601,6 @@ func TestUpdateCommand_PrintsCleanupFailuresWithoutDroppingSuccessfulUpdate(t *t
 	assert.Contains(t, output, "updated shared-skill "+cleanupInstalled)
 	assert.Contains(t, output, "cleanup failed shared-skill cleanup failed")
 }
-
 
 func findCommandByName(app *gcli.App, name string) *gcli.Command {
 	for _, cmd := range app.Commands() {

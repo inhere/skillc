@@ -957,6 +957,9 @@ git commit -m "feat(update): add installed skill update flow"
 
 ## Self-Review
 
+### Follow-up completed
+- [x] `skillc update` 支持通过位置参数指定单个 skill，例如 `skillc update hello-skill`；保留 `--target/-t` 兼容用法，且显式 flag 优先。
+
 ### Spec coverage
 - Lock-first update path: covered by Task 3.
 - Installed-directory scan fallback: covered by Task 4.

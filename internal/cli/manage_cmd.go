@@ -23,8 +23,8 @@ func buildSearchCommand() *gcli.Command {
 	var agentFilter string
 	var sourceTypeFilter string
 	return &gcli.Command{
-		Name: "search",
-		Desc: "Search indexed skills",
+		Name:    "search",
+		Desc:    "Search indexed skills",
 		Aliases: []string{"find"},
 		Config: func(c *gcli.Command) {
 			c.AddArg("keyword", "search keyword")
@@ -251,17 +251,21 @@ func buildUpdateCommand() *gcli.Command {
 	var opts ManageOptions
 	var target string
 	return &gcli.Command{
-		Name: "update",
-		Desc: "Update installed skills",
+		Name:    "update",
+		Desc:    "Update installed skills",
 		Aliases: []string{"up"},
 		Config: func(c *gcli.Command) {
 			opts.bindCommand(c)
 			c.StrOpt(&target, "target", "t", "", "skill id to update (default: update all)")
+			c.AddArg("skill", "skill id to update (same as --target)")
 		},
 		Func: func(c *gcli.Command, _ []string) error {
 			_, cwd, err := loadConfig()
 			if err != nil {
 				return err
+			}
+			if target == "" {
+				target = c.Arg("skill").String()
 			}
 
 			result, err := newUpdateService(defaultConfigFile(cwd), cwd).Run(updateapp.Req{

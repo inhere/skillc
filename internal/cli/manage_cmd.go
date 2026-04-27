@@ -16,7 +16,9 @@ import (
 	"github.com/inhere/skillc/internal/app/updateapp"
 	"github.com/inhere/skillc/internal/app/webapp"
 	"github.com/inhere/skillc/internal/domain/agent"
+	cfg "github.com/inhere/skillc/internal/domain/config"
 	sourcepkg "github.com/inhere/skillc/internal/domain/source"
+	"github.com/inhere/skillc/internal/infra/agentfs"
 )
 
 func buildSearchCommand() *gcli.Command {
@@ -95,15 +97,34 @@ var newUpdateService = func(configFile string, baseDir string) updateRunner {
 }
 
 type ManageOptions struct {
-	Scope      string
-	Agent      string
-	Yes        bool
-	Collection bool
+	Scope       string
+	Agent       string
+	Yes         bool
+	Collection  bool
+	UseCopy     bool
+	UseSymlink  bool
 }
 
 func (mo *ManageOptions) bindCommand(c *gcli.Command) {
 	c.StrOpt(&mo.Scope, "scope", "s", string(agent.ScopeProject), "scope name")
 	c.StrOpt(&mo.Agent, "agent", "a", agent.DefaultAgentName, "agent name or directory")
+}
+
+// bindInstallModeFlags 注册 --copy/--symlink 两个互斥标志，未设置时使用 config.install_mode（默认 symlink）
+func (mo *ManageOptions) bindInstallModeFlags(c *gcli.Command) {
+	c.BoolOpt(&mo.UseCopy, "copy", "", false, "install skills by copying files instead of creating a symlink")
+	c.BoolOpt(&mo.UseSymlink, "symlink", "", false, "install skills by creating a symlink (default)")
+}
+
+// resolveInstallMode 根据 CLI 标志和 config 决定本次安装使用的 Mode
+func (mo *ManageOptions) resolveInstallMode(config cfg.Config) agentfs.Mode {
+	if mo.UseCopy {
+		return agentfs.ModeCopy
+	}
+	if mo.UseSymlink {
+		return agentfs.ModeSymlink
+	}
+	return agentfs.NormalizeMode(config.InstallMode)
 }
 
 func buildInstallCommand() *gcli.Command {
@@ -115,6 +136,7 @@ func buildInstallCommand() *gcli.Command {
 		Aliases: []string{"ins"},
 		Config: func(c *gcli.Command) {
 			opts.bindCommand(c)
+			opts.bindInstallModeFlags(c)
 			c.BoolOpt(&opts.Yes, "yes", "y", false, "skip confirmation prompt")
 			c.BoolOpt(&opts.Collection, "collection", "c", false, "treat targets as collection selectors")
 			c.StrOpt(&sourceArg, "source", "S", "", "git url or local path: add & sync source before installing")
@@ -150,9 +172,20 @@ func buildInstallCommand() *gcli.Command {
 				}
 			}
 
+			if opts.UseCopy && opts.UseSymlink {
+				return fmt.Errorf("--copy and --symlink are mutually exclusive")
+			}
+			installMode := opts.resolveInstallMode(config)
+			fallbackNotifier := func(_ string, target string, err error) {
+				ccolor.Warnf("symlink not supported, fallback to copy for %s: %v\n", target, err)
+			}
+
 			targetArg := c.Arg("skill").String()
 			if targetArg == "" {
-				result, err := installapp.NewService(config.LockFile).Run(config, installapp.InstallReq{
+				svc := installapp.NewService(config.LockFile).
+					WithInstallMode(installMode).
+					WithSymlinkFallbackNotifier(fallbackNotifier)
+				result, err := svc.Run(config, installapp.InstallReq{
 					Agent:   opts.Agent,
 					Scope:   opts.Scope,
 					WorkDir: cwd,
@@ -196,11 +229,14 @@ func buildInstallCommand() *gcli.Command {
 				}
 			}
 
-			result, err := installapp.NewService(config.LockFile).RunResolved(config, installapp.InstallReq{
-				Agent:   opts.Agent,
-				Scope:   opts.Scope,
-				WorkDir: cwd,
-			}, searchResult.Resolved, searchResult.Failed)
+			result, err := installapp.NewService(config.LockFile).
+				WithInstallMode(installMode).
+				WithSymlinkFallbackNotifier(fallbackNotifier).
+				RunResolved(config, installapp.InstallReq{
+					Agent:   opts.Agent,
+					Scope:   opts.Scope,
+					WorkDir: cwd,
+				}, searchResult.Resolved, searchResult.Failed)
 			if err != nil {
 				return err
 			}

@@ -88,7 +88,7 @@ type Service struct {
 	lockStore     *lockstore.Store
 	indexStore    *repoindex.Store
 	syncer        sourceSyncer
-	newInstaller  func(lockFile string) reinstallService
+	newInstaller  func(lockFile string, config cfg.Config) reinstallService
 	removeAll     func(path string) error
 }
 
@@ -100,8 +100,9 @@ func NewService(configFile string, baseDir string) *Service {
 		lockStore:     lockstore.NewStore(),
 		indexStore:    repoindex.NewStore(),
 		syncer:        sourceapp.NewService(configFile, baseDir),
-		newInstaller: func(lockFile string) reinstallService {
-			return installapp.NewService(lockFile)
+		newInstaller: func(lockFile string, config cfg.Config) reinstallService {
+			// 默认 reinstall 服务遵循 config.InstallMode 的安装方式（symlink/copy）
+			return installapp.NewService(lockFile).WithRuntime(config, baseDir)
 		},
 		removeAll: os.RemoveAll,
 	}
@@ -143,7 +144,7 @@ func (s *Service) Run(req UpdateReq) (Result, error) {
 		result.Failed = append(result.Failed, FailedItem{SkillID: item.SkillID, Reason: item.Reason})
 	}
 
-	worker := s.newInstaller(config.LockFile)
+	worker := s.newInstaller(config.LockFile, config)
 	removeAll := s.removeAll
 	for _, candidate := range result.Candidates {
 		oldPath := candidate.Installed.InstalledPath

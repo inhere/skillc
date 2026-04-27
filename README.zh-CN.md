@@ -111,7 +111,13 @@ skillc install --source /path/to/local-skills my-skill
 -y, --yes     跳过确认提示
 -c, --collection  将目标视为 Collection 选择器
 -S, --source  Git URL 或本地路径，安装前自动注册并同步
+    --symlink 通过创建符号链接安装（默认方式，便于多项目统一更新）
+    --copy    通过复制文件方式安装，覆盖 config.install_mode
 ```
+
+> 默认采用 **符号链接（symlink）** 方式安装：多个项目共享同一份 skill 源，源更新后所有项目自动生效。
+> 在 Windows 上若没有创建符号链接的权限（未启用开发者模式或未以管理员身份运行），会自动回退到 copy 模式并打印提示。
+> 可通过配置 `install_mode: copy` 永久切换到拷贝模式，或使用 `--copy` / `--symlink` 临时覆盖。
 
 ### `update` — 更新 Skills
 

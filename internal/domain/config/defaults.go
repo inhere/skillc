@@ -29,6 +29,7 @@ func DefaultConfig() Config {
 			},
 		},
 		LockFile:         "~/.config/skillc/skillc-install.lock",
+		InstallMode:      "symlink",
 		RepoCacheDir:     "~/.cache/skillc/repos",
 		SkillCacheDir:    "~/.cache/skillc/skills",
 		RegistryCacheDir: "~/.cache/skillc/registry",

@@ -15,6 +15,9 @@ type Config struct {
 	// AgentTools is the agent tools config.
 	//  - 通用的key universal 必定存在
 	AgentTools map[string]AgentToolConfig `yaml:"agent_tools"`
+	// InstallMode 控制 skill 安装方式: "symlink"(默认) 或 "copy"。
+	// symlink 模式便于多项目下统一维护与更新 skill；Windows 上若无符号链接权限会自动回退到 copy。
+	InstallMode string `yaml:"install_mode"`
 	// LockFile is the lock file path.
 	LockFile         string                `yaml:"lock_file"`
 	RepoCacheDir     string                `yaml:"repo_cache_dir"`

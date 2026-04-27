@@ -47,12 +47,14 @@ type BatchInstallResult struct {
 }
 
 type Service struct {
-	lockFile  string
-	store     *lockstore.Store
-	installer *agentfs.Installer
-	now       func() time.Time
-	config    cfg.Config
-	workDir   string
+	lockFile          string
+	store             *lockstore.Store
+	installer         *agentfs.Installer
+	now               func() time.Time
+	config            cfg.Config
+	workDir           string
+	installerExplicit bool
+	fallbackNotifier  agentfs.FallbackNotifier
 }
 
 func NewService(lockFile string) *Service {
@@ -68,6 +70,37 @@ func (s *Service) WithRuntime(config cfg.Config, workDir string) *Service {
 	clone := *s
 	clone.config = config
 	clone.workDir = workDir
+	if !clone.installerExplicit {
+		mode := agentfs.NormalizeMode(strings.TrimSpace(config.InstallMode))
+		installer := agentfs.NewInstallerWithMode(mode)
+		installer.OnSymlinkFallback = clone.fallbackNotifier
+		clone.installer = installer
+	}
+	return &clone
+}
+
+// WithInstallMode 返回一个使用指定安装模式的 Service 副本。
+// 用于 CLI 的 --copy / --symlink 标志覆盖 config.InstallMode。
+// 该设置在后续 WithRuntime 中不会被 config 覆盖。
+func (s *Service) WithInstallMode(mode agentfs.Mode) *Service {
+	clone := *s
+	installer := agentfs.NewInstallerWithMode(mode)
+	installer.OnSymlinkFallback = clone.fallbackNotifier
+	clone.installer = installer
+	clone.installerExplicit = true
+	return &clone
+}
+
+// WithSymlinkFallbackNotifier 注入 symlink 失败回退到 copy 时的回调（用于打印提示）
+func (s *Service) WithSymlinkFallbackNotifier(notifier agentfs.FallbackNotifier) *Service {
+	clone := *s
+	clone.fallbackNotifier = notifier
+	if clone.installer == nil {
+		clone.installer = agentfs.NewInstaller()
+	}
+	cloneInstaller := *clone.installer
+	cloneInstaller.OnSymlinkFallback = notifier
+	clone.installer = &cloneInstaller
 	return &clone
 }
 

@@ -95,10 +95,40 @@ func (s *Server) Serve(item skill.Skill, port int) error {
 		resp := fileContentResp{}
 
 		relPath := r.URL.Query().Get("name")
-		abs := filepath.Clean(filepath.Join(skillDir, filepath.FromSlash(relPath)))
-		cleanRoot := filepath.Clean(skillDir)
-		// Reject any path that escapes the skill directory
-		if abs != cleanRoot && !strings.HasPrefix(abs, cleanRoot+string(os.PathSeparator)) {
+
+		rootAbs, err := filepath.Abs(skillDir)
+		if err != nil {
+			resp.Error = "invalid path"
+			w.WriteHeader(http.StatusBadRequest)
+			_ = json.NewEncoder(w).Encode(resp)
+			return
+		}
+		rootEval, err := filepath.EvalSymlinks(rootAbs)
+		if err != nil {
+			resp.Error = "invalid path"
+			w.WriteHeader(http.StatusBadRequest)
+			_ = json.NewEncoder(w).Encode(resp)
+			return
+		}
+
+		candidate := filepath.Clean(filepath.Join(rootEval, filepath.FromSlash(relPath)))
+		candidateAbs, err := filepath.Abs(candidate)
+		if err != nil {
+			resp.Error = "invalid path"
+			w.WriteHeader(http.StatusBadRequest)
+			_ = json.NewEncoder(w).Encode(resp)
+			return
+		}
+		abs, err := filepath.EvalSymlinks(candidateAbs)
+		if err != nil {
+			resp.Error = "invalid path"
+			w.WriteHeader(http.StatusBadRequest)
+			_ = json.NewEncoder(w).Encode(resp)
+			return
+		}
+
+		relToRoot, err := filepath.Rel(rootEval, abs)
+		if err != nil || relToRoot == ".." || strings.HasPrefix(relToRoot, ".."+string(os.PathSeparator)) {
 			resp.Error = "invalid path"
 			w.WriteHeader(http.StatusBadRequest)
 			_ = json.NewEncoder(w).Encode(resp)

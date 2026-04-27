@@ -170,6 +170,22 @@ index_file: skillc-index.json      # index file path
 repo_cache_dir: ~/.cache/skillc    # Git repo cache directory
 proxy_url: ""                      # HTTP proxy (optional)
 sources: []                        # registered sources
+agent_tools:                      # agent tools config agent_name: config
+  claude-code:
+    dirname: .claude
+    aliases:
+    - claude
+  codex:
+    dirname: .codex
+  opencode:
+    # dirname: .opencode # default is .{agent_name}
+    user_dir: ~/.config/opencode
+  universal: # universal agent config, most agent tool support this
+    dirname: .agents
+    aliases:
+    - agents
+    user_dir: ~/.agents
+    project_dir: .agents
 ```
 
 ## Lock File

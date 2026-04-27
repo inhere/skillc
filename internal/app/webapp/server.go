@@ -95,46 +95,15 @@ func (s *Server) Serve(item skill.Skill, port int) error {
 		resp := fileContentResp{}
 
 		relPath := r.URL.Query().Get("name")
-
-		rootAbs, err := filepath.Abs(skillDir)
+		abs, err := checkQueryFilePath(skillDir, relPath)
 		if err != nil {
+			ccolor.Errorf("invalid path, %v", err.Error())
 			resp.Error = "invalid path"
-			w.WriteHeader(http.StatusBadRequest)
-			_ = json.NewEncoder(w).Encode(resp)
-			return
-		}
-		rootEval, err := filepath.EvalSymlinks(rootAbs)
-		if err != nil {
-			resp.Error = "invalid path"
-			w.WriteHeader(http.StatusBadRequest)
-			_ = json.NewEncoder(w).Encode(resp)
+			jsonResponse(w, http.StatusBadRequest, resp)
 			return
 		}
 
-		candidate := filepath.Clean(filepath.Join(rootEval, filepath.FromSlash(relPath)))
-		candidateAbs, err := filepath.Abs(candidate)
-		if err != nil {
-			resp.Error = "invalid path"
-			w.WriteHeader(http.StatusBadRequest)
-			_ = json.NewEncoder(w).Encode(resp)
-			return
-		}
-		abs, err := filepath.EvalSymlinks(candidateAbs)
-		if err != nil {
-			resp.Error = "invalid path"
-			w.WriteHeader(http.StatusBadRequest)
-			_ = json.NewEncoder(w).Encode(resp)
-			return
-		}
-
-		relToRoot, err := filepath.Rel(rootEval, abs)
-		if err != nil || relToRoot == ".." || strings.HasPrefix(relToRoot, ".."+string(os.PathSeparator)) {
-			resp.Error = "invalid path"
-			w.WriteHeader(http.StatusBadRequest)
-			_ = json.NewEncoder(w).Encode(resp)
-			return
-		}
-
+    // read file content
 		content, err := os.ReadFile(abs)
 		if err != nil {
 			resp.Error = err.Error()
@@ -151,6 +120,43 @@ func (s *Server) Serve(item skill.Skill, port int) error {
 	ccolor.Fprintf(s.Out, "Skill: <info>%s (%s)</>\n", item.Name, item.ID)
 	ccolor.Fprintln(s.Out, "Press <yellow>Ctrl+C</> to stop")
 	return http.ListenAndServe(addr, mux)
+}
+
+func checkQueryFilePath(skillDir, relPath string) (string, error) {
+	if relPath == "" {
+		return "", fmt.Errorf("name query parameter is required")
+	}
+
+	rootAbs, err := filepath.Abs(skillDir)
+	if err != nil {
+		return "", err
+	}
+	rootEval, err := filepath.EvalSymlinks(rootAbs)
+	if err != nil {
+		return "", err
+	}
+
+	candidate := filepath.Clean(filepath.Join(rootEval, filepath.FromSlash(relPath)))
+	candidateAbs, err := filepath.Abs(candidate)
+	if err != nil {
+		return "", err
+	}
+	abs, err := filepath.EvalSymlinks(candidateAbs)
+	if err != nil {
+		return "", err
+	}
+
+	relToRoot, err := filepath.Rel(rootEval, abs)
+	if err != nil || relToRoot == ".." || strings.HasPrefix(relToRoot, ".."+string(os.PathSeparator)) {
+		return "", err
+	}
+	return abs, nil
+}
+
+func jsonResponse(w http.ResponseWriter, status int, resp any) {
+	w.WriteHeader(status)
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	_ = json.NewEncoder(w).Encode(resp)
 }
 
 // ListFileEntries recursively collects all non-hidden files under root,

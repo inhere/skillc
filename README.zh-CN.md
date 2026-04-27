@@ -169,6 +169,22 @@ index_file: skillc-index.json     # 索引文件路径
 repo_cache_dir: ~/.cache/skillc   # Git 仓库缓存目录
 proxy_url: ""                     # HTTP 代理（可选）
 sources: []                       # 管理的来源列表
+agent_tools:                      # Agent 工具配置 agent_name: config
+  claude-code:
+    dirname: .claude
+    aliases:
+    - claude
+  codex:
+    dirname: .codex
+  opencode:
+    # dirname: .opencode # 默认是 .{agent_name}
+    user_dir: ~/.config/opencode
+  universal: # 通用 agent 配置, 大部分 agent tool 都支持
+    dirname: .agents
+    aliases:
+    - agents
+    user_dir: ~/.agents
+    project_dir: .agents
 ```
 
 ## 锁文件

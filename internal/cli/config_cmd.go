@@ -2,7 +2,7 @@ package cli
 
 import (
 	"github.com/gookit/gcli/v3"
-	"github.com/gookit/gcli/v3/show"
+	"github.com/gookit/cliui/show"
 	"github.com/gookit/goutil/x/ccolor"
 )
 

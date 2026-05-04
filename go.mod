@@ -3,9 +3,10 @@ module github.com/inhere/skillc
 go 1.25.0
 
 require (
+	github.com/gookit/cliui v0.2.3
 	github.com/gookit/config/v2 v2.2.7
-	github.com/gookit/gcli/v3 v3.3.0
-	github.com/gookit/goutil v0.7.4
+	github.com/gookit/gcli/v3 v3.3.1
+	github.com/gookit/goutil v0.7.5
 	github.com/gookit/slog v0.6.0
 	golang.org/x/term v0.42.0
 )
@@ -15,7 +16,7 @@ require (
 	github.com/fatih/color v1.10.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/goccy/go-yaml v1.12.0 // indirect
-	github.com/gookit/color v1.6.0 // indirect
+	github.com/gookit/color v1.6.1 // indirect
 	github.com/gookit/gsr v0.1.1 // indirect
 	github.com/mattn/go-colorable v0.1.8 // indirect
 	github.com/mattn/go-isatty v0.0.12 // indirect

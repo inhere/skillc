@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/gookit/gcli/v3"
-	"github.com/gookit/gcli/v3/show/table"
+	"github.com/gookit/cliui/show/table"
 	"github.com/gookit/goutil/x/ccolor"
 	"github.com/gookit/slog"
 )

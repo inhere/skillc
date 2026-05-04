@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	"github.com/gookit/gcli/v3"
-	"github.com/gookit/gcli/v3/show"
-	"github.com/gookit/gcli/v3/show/table"
+	"github.com/gookit/cliui/show"
+	"github.com/gookit/cliui/show/table"
 	"github.com/gookit/goutil/x/ccolor"
 	"github.com/gookit/slog"
 	"github.com/inhere/skillc/internal/app/installapp"

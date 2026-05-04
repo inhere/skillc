@@ -27,6 +27,7 @@ func TestStore_SaveAndLoadRoundTrip(t *testing.T) {
 
 	want := cfg.DefaultConfig()
 	want.ProxyURL = "http://localhost:7890"
+	want.InstallMode = "copy"
 
 	err = store.Save(tmp, want)
 	assert.NoErr(t, err)
@@ -34,6 +35,7 @@ func TestStore_SaveAndLoadRoundTrip(t *testing.T) {
 	got, err := store.Load(tmp, baseDir)
 	assert.NoErr(t, err)
 	assert.Eq(t, want.ProxyURL, got.ProxyURL)
+	assert.Eq(t, "copy", got.InstallMode)
 	assert.Eq(t, filepath.Join(home, ".config", "skillc", "skillc-install.lock"), got.LockFile)
 }
 
@@ -135,7 +137,6 @@ func TestStore_SaveAfterLoadKeepsCustomRelativePathsPortable(t *testing.T) {
 	assert.Eq(t, filepath.Join(secondBaseDir, "custom-index.json"), got.IndexFile)
 	assert.Eq(t, filepath.Join(secondBaseDir, "custom-claude"), got.AgentTools["claude-code"].ProjectDir)
 }
-
 
 func TestStore_SaveAfterLoadKeepsRelativePathsPortableAcrossExternalConfigLocation(t *testing.T) {
 	configDir := t.TempDir()

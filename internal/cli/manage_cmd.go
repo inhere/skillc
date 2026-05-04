@@ -102,7 +102,7 @@ type ManageOptions struct {
 	Yes         bool
 	Collection  bool
 	UseCopy     bool
-	UseSymlink  bool
+	InstallMode string
 }
 
 func (mo *ManageOptions) bindCommand(c *gcli.Command) {
@@ -110,10 +110,10 @@ func (mo *ManageOptions) bindCommand(c *gcli.Command) {
 	c.StrOpt(&mo.Agent, "agent", "a", agent.DefaultAgentName, "agent name or directory")
 }
 
-// bindInstallModeFlags 注册 --copy/--symlink 两个互斥标志，未设置时使用 config.install_mode（默认 symlink）
+// bindInstallModeFlags 注册安装模式选项，未设置时使用 config.install_mode 或平台默认模式。
 func (mo *ManageOptions) bindInstallModeFlags(c *gcli.Command) {
 	c.BoolOpt(&mo.UseCopy, "copy", "", false, "install skills by copying files instead of creating a symlink")
-	c.BoolOpt(&mo.UseSymlink, "symlink", "", false, "install skills by creating a symlink (default)")
+	c.StrOpt(&mo.InstallMode, "install-mode", "", "", "install mode: symlink, junction, copy")
 }
 
 // resolveInstallMode 根据 CLI 标志和 config 决定本次安装使用的 Mode
@@ -121,8 +121,8 @@ func (mo *ManageOptions) resolveInstallMode(config cfg.Config) agentfs.Mode {
 	if mo.UseCopy {
 		return agentfs.ModeCopy
 	}
-	if mo.UseSymlink {
-		return agentfs.ModeSymlink
+	if mo.InstallMode != "" {
+		return agentfs.NormalizeMode(mo.InstallMode)
 	}
 	return agentfs.NormalizeMode(config.InstallMode)
 }
@@ -172,8 +172,11 @@ func buildInstallCommand() *gcli.Command {
 				}
 			}
 
-			if opts.UseCopy && opts.UseSymlink {
-				return fmt.Errorf("--copy and --symlink are mutually exclusive")
+			if opts.UseCopy && opts.InstallMode != "" {
+				return fmt.Errorf("--copy and --install-mode are mutually exclusive")
+			}
+			if opts.InstallMode != "" && !agentfs.IsValidMode(opts.InstallMode) {
+				return fmt.Errorf("invalid --install-mode %q, allowed: symlink, junction, copy", opts.InstallMode)
 			}
 			installMode := opts.resolveInstallMode(config)
 			fallbackNotifier := func(_ string, target string, err error) {

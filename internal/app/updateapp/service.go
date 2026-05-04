@@ -26,7 +26,6 @@ type reinstallService interface {
 	ReinstallAtPath(item skill.Skill, agentName string, scope agent.Scope, scopeKey string, targetPath string) (installapp.RuntimeRecord, error)
 }
 
-
 type UpdateReq struct {
 	Target  string
 	Agent   string
@@ -101,7 +100,7 @@ func NewService(configFile string, baseDir string) *Service {
 		indexStore:    repoindex.NewStore(),
 		syncer:        sourceapp.NewService(configFile, baseDir),
 		newInstaller: func(lockFile string, config cfg.Config) reinstallService {
-			// 默认 reinstall 服务遵循 config.InstallMode 的安装方式（symlink/copy）
+			// 默认 reinstall 服务遵循 config.InstallMode 的安装方式（symlink/junction/copy）
 			return installapp.NewService(lockFile).WithRuntime(config, baseDir)
 		},
 		removeAll: os.RemoveAll,

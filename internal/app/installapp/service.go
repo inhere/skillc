@@ -80,7 +80,7 @@ func (s *Service) WithRuntime(config cfg.Config, workDir string) *Service {
 }
 
 // WithInstallMode 返回一个使用指定安装模式的 Service 副本。
-// 用于 CLI 的 --copy / --symlink 标志覆盖 config.InstallMode。
+// 用于 CLI 的 --copy / --install-mode 标志覆盖 config.InstallMode。
 // 该设置在后续 WithRuntime 中不会被 config 覆盖。
 func (s *Service) WithInstallMode(mode agentfs.Mode) *Service {
 	clone := *s
@@ -410,7 +410,6 @@ func (s *Service) matchScopeKeys(locks lockpkg.File, scope agent.Scope) []string
 	}
 	return []string{scopeKey}
 }
-
 
 func (s *Service) resolveInstalledPath(scopeKey string, scope agent.Scope, agentName string, record lockpkg.Record) (string, error) {
 	baseDir := s.runtimeWorkDir()

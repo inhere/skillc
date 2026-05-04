@@ -37,7 +37,7 @@ func TestInstaller_RemoveDeletesInstalledTree(t *testing.T) {
 	assert.True(t, os.IsNotExist(err))
 }
 
-// TestInstaller_InstallSymlinkOrFallback 验证默认 symlink 模式：
+// TestInstaller_InstallSymlinkOrFallback 验证显式 symlink 模式：
 // 在不支持 symlink 的环境（如 Windows 无 Dev Mode）会自动回退到 copy。
 func TestInstaller_InstallSymlinkOrFallback(t *testing.T) {
 	baseDir := t.TempDir()
@@ -47,7 +47,7 @@ func TestInstaller_InstallSymlinkOrFallback(t *testing.T) {
 	assert.NoErr(t, os.WriteFile(filepath.Join(sourceDir, "skill.txt"), []byte("hello"), 0o644))
 
 	var fellBack bool
-	installer := NewInstaller()
+	installer := NewInstallerWithMode(ModeSymlink)
 	installer.OnSymlinkFallback = func(_, _ string, _ error) { fellBack = true }
 	assert.NoErr(t, installer.Install(sourceDir, targetDir))
 
@@ -96,9 +96,70 @@ func TestInstaller_InstallSymlinkOverridesExistingTarget(t *testing.T) {
 	assert.NoErr(t, err)
 }
 
+func TestInstaller_InstallJunctionLinksFileTree(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("junction mode is only supported on Windows")
+	}
+	baseDir := t.TempDir()
+	sourceDir := filepath.Join(baseDir, "source")
+	targetDir := filepath.Join(baseDir, "target")
+	assert.NoErr(t, os.MkdirAll(sourceDir, 0o755))
+	assert.NoErr(t, os.WriteFile(filepath.Join(sourceDir, "skill.txt"), []byte("hello"), 0o644))
+
+	installer := NewInstallerWithMode(ModeJunction)
+	assert.NoErr(t, installer.Install(sourceDir, targetDir))
+
+	assert.NoErr(t, os.WriteFile(filepath.Join(sourceDir, "skill.txt"), []byte("world"), 0o644))
+	data, err := os.ReadFile(filepath.Join(targetDir, "skill.txt"))
+	assert.NoErr(t, err)
+	assert.Eq(t, "world", string(data))
+
+	assert.NoErr(t, installer.Remove(targetDir))
+	_, err = os.Stat(targetDir)
+	assert.True(t, os.IsNotExist(err))
+	_, err = os.Stat(filepath.Join(sourceDir, "skill.txt"))
+	assert.NoErr(t, err)
+}
+
+func TestInstaller_CopyOverJunctionDoesNotWriteThroughToOldSource(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("junction mode is only supported on Windows")
+	}
+	baseDir := t.TempDir()
+	oldSourceDir := filepath.Join(baseDir, "old-source")
+	newSourceDir := filepath.Join(baseDir, "new-source")
+	targetDir := filepath.Join(baseDir, "target")
+	assert.NoErr(t, os.MkdirAll(oldSourceDir, 0o755))
+	assert.NoErr(t, os.MkdirAll(newSourceDir, 0o755))
+	assert.NoErr(t, os.WriteFile(filepath.Join(oldSourceDir, "old.txt"), []byte("old"), 0o644))
+	assert.NoErr(t, os.WriteFile(filepath.Join(newSourceDir, "new.txt"), []byte("new"), 0o644))
+
+	assert.NoErr(t, NewInstallerWithMode(ModeJunction).Install(oldSourceDir, targetDir))
+	assert.NoErr(t, NewInstallerWithMode(ModeCopy).Install(newSourceDir, targetDir))
+
+	data, err := os.ReadFile(filepath.Join(targetDir, "new.txt"))
+	assert.NoErr(t, err)
+	assert.Eq(t, "new", string(data))
+	_, err = os.Stat(filepath.Join(oldSourceDir, "new.txt"))
+	assert.True(t, os.IsNotExist(err))
+}
+
 func TestNormalizeMode(t *testing.T) {
-	assert.Eq(t, ModeSymlink, NormalizeMode(""))
+	defaultMode := DefaultMode()
+	assert.Eq(t, defaultMode, NormalizeMode(""))
 	assert.Eq(t, ModeSymlink, NormalizeMode("symlink"))
 	assert.Eq(t, ModeCopy, NormalizeMode("copy"))
-	assert.Eq(t, ModeSymlink, NormalizeMode("invalid"))
+	assert.Eq(t, ModeJunction, NormalizeMode("junction"))
+	assert.Eq(t, defaultMode, NormalizeMode("invalid"))
+}
+
+func TestDefaultModeUsesJunctionOnWindowsAndSymlinkElsewhere(t *testing.T) {
+	expected := ModeSymlink
+	if runtime.GOOS == "windows" {
+		expected = ModeJunction
+	}
+
+	assert.Eq(t, expected, DefaultMode())
+	assert.Eq(t, expected, NewInstaller().Mode)
+	assert.Eq(t, expected, NewInstallerWithMode("").Mode)
 }

@@ -29,7 +29,8 @@ type sourceRecord struct {
 type rawConfig struct {
 	ProxyURL string `yaml:"proxy_url"`
 	// AgentTools is the agent tools config.
-	AgentTools map[string]cfg.AgentToolConfig `yaml:"agent_tools"`
+	AgentTools  map[string]cfg.AgentToolConfig `yaml:"agent_tools"`
+	InstallMode string                         `yaml:"install_mode"`
 	// LockFile is the lock file path.
 	LockFile         string         `yaml:"lock_file"`
 	RepoCacheDir     string         `yaml:"repo_cache_dir"`
@@ -103,6 +104,7 @@ func (s *YAMLStore) Save(path string, data cfg.Config, runtimeBaseDir ...string)
 	loader.SetData(map[string]any{
 		"proxy_url":          persisted.ProxyURL,
 		"agent_tools":        persisted.AgentTools,
+		"install_mode":       persisted.InstallMode,
 		"lock_file":          persisted.LockFile,
 		"repo_cache_dir":     persisted.RepoCacheDir,
 		"skill_cache_dir":    persisted.SkillCacheDir,
@@ -134,6 +136,9 @@ func mergeDefaults(dst *cfg.Config, defaults cfg.Config) {
 	}
 	if dst.IndexFile == "" {
 		dst.IndexFile = defaults.IndexFile
+	}
+	if dst.InstallMode == "" {
+		dst.InstallMode = defaults.InstallMode
 	}
 	if dst.Sources == nil {
 		dst.Sources = defaults.Sources
@@ -351,6 +356,7 @@ func fromRawConfig(raw rawConfig) (cfg.Config, error) {
 	return cfg.Config{
 		ProxyURL:         raw.ProxyURL,
 		AgentTools:       raw.AgentTools,
+		InstallMode:      raw.InstallMode,
 		LockFile:         raw.LockFile,
 		RepoCacheDir:     raw.RepoCacheDir,
 		SkillCacheDir:    raw.SkillCacheDir,

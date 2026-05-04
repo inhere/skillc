@@ -16,6 +16,7 @@ import (
 	lockpkg "github.com/inhere/skillc/internal/domain/lock"
 	"github.com/inhere/skillc/internal/domain/skill"
 	sourcepkg "github.com/inhere/skillc/internal/domain/source"
+	"github.com/inhere/skillc/internal/infra/agentfs"
 	"github.com/inhere/skillc/internal/infra/configstore"
 	"github.com/inhere/skillc/internal/infra/lockstore"
 	"github.com/inhere/skillc/internal/infra/repoindex"
@@ -126,6 +127,48 @@ func TestNewApp_RegistersInstallListAndDoctorCommands(t *testing.T) {
 	doctor := findCommandByName(app, "doctor")
 	assert.NotNil(t, doctor)
 	assert.Eq(t, "Check environment health", doctor.Desc)
+}
+
+func TestInstallCommand_InstallModeFlagInstallsIndexedSkill(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	indexPath := filepath.Join(baseDir, "cache", "index.json")
+	sourceDir := filepath.Join(baseDir, "source", "hello-skill")
+	assert.NoErr(t, os.MkdirAll(filepath.Join(sourceDir, "commands"), 0o755))
+	assert.NoErr(t, os.WriteFile(filepath.Join(sourceDir, "commands", "hello.txt"), []byte("hello"), 0o644))
+
+	config := cfg.DefaultConfig()
+	config.LockFile = filepath.Join(baseDir, "skillc-install.lock")
+	config.IndexFile = indexPath
+	config.AgentTools["codex"] = cfg.AgentToolConfig{Dirname: ".codex", ProjectDir: filepath.Join(baseDir, ".agents")}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
+	assert.NoErr(t, repoindex.NewStore().Save(indexPath, []skill.Skill{{
+		ID:           "hello-skill",
+		Name:         "Hello Skill",
+		Version:      "1.0.0",
+		SourceID:     "local-demo",
+		SourceType:   sourcepkg.TypeLocal,
+		InstallEntry: "commands",
+		Path:         sourceDir,
+	}}))
+
+	output := runAppInDirWithStdout(t, baseDir, []string{"install", "--yes", "--install-mode", "copy", "--agent", "codex", "hello-skill"})
+
+	assert.Contains(t, output, "hello-skill")
+	data, err := os.ReadFile(filepath.Join(baseDir, ".agents", "skills", "hello-skill", "hello.txt"))
+	assert.NoErr(t, err)
+	assert.Eq(t, "hello", string(data))
+}
+
+func TestManageOptions_ResolveInstallMode(t *testing.T) {
+	config := cfg.DefaultConfig()
+	config.InstallMode = "symlink"
+
+	assert.Eq(t, agentfs.ModeJunction, (&ManageOptions{InstallMode: "junction"}).resolveInstallMode(config))
+	assert.Eq(t, agentfs.ModeSymlink, (&ManageOptions{InstallMode: "symlink"}).resolveInstallMode(config))
+	assert.Eq(t, agentfs.ModeCopy, (&ManageOptions{InstallMode: "copy"}).resolveInstallMode(config))
+	assert.Eq(t, agentfs.ModeCopy, (&ManageOptions{UseCopy: true, InstallMode: "symlink"}).resolveInstallMode(config))
+	assert.Eq(t, agentfs.ModeSymlink, (&ManageOptions{}).resolveInstallMode(config))
 }
 
 func TestInstallCommand_InstallsIndexedSkill(t *testing.T) {

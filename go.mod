@@ -3,7 +3,7 @@ module github.com/inhere/skillc
 go 1.25.0
 
 require (
-	github.com/gookit/cliui v0.2.3
+	github.com/gookit/cliui v0.2.4
 	github.com/gookit/config/v2 v2.2.8
 	github.com/gookit/gcli/v3 v3.3.1
 	github.com/gookit/goutil v0.7.5

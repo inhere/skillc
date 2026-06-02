@@ -8,7 +8,7 @@ BINARY  := $(APP)$(GOEXE)
 # Build metadata
 BUILD_TIME := $(shell date +%Y/%m/%d-%H:%M:%S)
 GIT_HASH  := $(shell git rev-parse --short=8 HEAD 2>/dev/null || echo "unknown")
-VERSION ?= $(shell echo "$$(git for-each-ref refs/tags/ --count=1 --sort=-version:refname --format='%(refname:short)' | echo 'dev' 2>/dev/null)-$(GIT_HASH)" | sed 's/^v//')
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null | sed 's/^v//' || echo "dev-$(GIT_HASH)")
 
 LDFLAGS := -s -w \
 	-X main.Version=$(VERSION) \
@@ -24,11 +24,14 @@ all: build
 build:
 	@echo "🐹 Building Go binary ($(VERSION) @ $(GIT_HASH))..."
 	@go build -ldflags "$(LDFLAGS)" -o $(BINARY) $(MAIN_DIR)
+	@echo "📦 Compressing binary..."
+	@upx -6 --no-progress $(BINARY)
 	@echo "✅ Binary: $(BINARY) ($$(du -sh $(BINARY) | cut -f1))"
 
 ## install: install Go binary to $GOPATH/bin
 install:
 	go install -ldflags "$(LDFLAGS)" $(MAIN_DIR)
+	upx -6 --no-progress $(GOPATH)/bin/$(BINARY)
 	@echo "✅ Installed to GOPATH/bin"
 
 ## run: build and run with current directory
@@ -47,6 +50,8 @@ build-linux:
 	@echo "🐧 linux/amd64..."
 	@mkdir -p $(DIST_DIR)
 	@GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $(DIST_DIR)/$(APP)-linux-amd64 $(MAIN_DIR)
+	upx -6 --no-progress $(DIST_DIR)/$(APP)-linux-amd64
+	chmod +x $(DIST_DIR)/$(APP)-linux-amd64
 	@echo "   → $(DIST_DIR)/$(APP)-linux-amd64"
 
 ## build-linux-arm64: compile for Linux arm64
@@ -54,6 +59,8 @@ build-linux-arm64:
 	@echo "🐧 linux/arm64..."
 	@mkdir -p $(DIST_DIR)
 	@GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o $(DIST_DIR)/$(APP)-linux-arm64 $(MAIN_DIR)
+	upx -6 --no-progress $(DIST_DIR)/$(APP)-linux-arm64
+	chmod +x $(DIST_DIR)/$(APP)-linux-arm64
 	@echo "   → $(DIST_DIR)/$(APP)-linux-arm64"
 
 ## build-darwin: compile for macOS amd64
@@ -68,6 +75,7 @@ build-darwin-arm64:
 	@echo "🍎 darwin/arm64..."
 	@mkdir -p $(DIST_DIR)
 	@GOOS=darwin GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o $(DIST_DIR)/$(APP)-darwin-arm64 $(MAIN_DIR)
+	# upx -6 --no-progress $(DIST_DIR)/$(APP)-darwin-arm64 # 压缩有问题在 macos 12+
 	@echo "   → $(DIST_DIR)/$(APP)-darwin-arm64"
 
 ## build-windows: compile for Windows amd64
@@ -75,6 +83,7 @@ build-windows:
 	@echo "🪟 windows/amd64..."
 	@mkdir -p $(DIST_DIR)
 	@GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $(DIST_DIR)/$(APP)-windows-amd64.exe $(MAIN_DIR)
+	upx -6 --no-progress $(DIST_DIR)/$(APP)-windows-amd64.exe
 	@echo "   → $(DIST_DIR)/$(APP)-windows-amd64.exe"
 
 ## clean: remove build artifacts

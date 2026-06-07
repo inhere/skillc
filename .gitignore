@@ -4,3 +4,5 @@
 .worktrees/
 *.exe
 testdata/
+dist/
+tmp/

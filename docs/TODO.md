@@ -13,9 +13,9 @@
 - [ ] 希望支持类似 skills-manager 场景的功能，在项目里可以快速切换使用不同组合的 skills
   - 可以在项目里配置不同的 skill 组合，每个组合可以包含多个 skill
   - 可以在项目里快速切换使用不同的 skill 组合，方便测试和观察效果
-
+- [ ] 不要给 source 名称加 local/git 前缀; 现在无法方便的查看一个 source 的信息
 
 参考项目：
 - https://github.com/xingkongliang/skills-manager
 - https://github.com/runkids/skillshare
-
+- https://github.com/microsoft/apm

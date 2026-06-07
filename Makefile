@@ -43,15 +43,33 @@ run: build
 DIST_DIR := dist
 
 ## build-all: cross-compile for all platforms
-build-all: build-linux build-linux-arm64 build-darwin build-darwin-arm64 build-windows
+build-all: dump-info build-linux build-linux-arm64 build-darwin build-darwin-arm64 build-windows latest-yaml
+	ls -lh $(DIST_DIR)
+
+## dump-info: dump build info
+dump-info:
+	@echo "Build Info:"
+	@echo "  VERSION: $(VERSION)"
+	@echo "  GIT_HASH: $(GIT_HASH)"
+	@echo "  BUILD_TIME: $(BUILD_TIME)"
+
+## latest-yaml: generate latest.yaml release metadata
+latest-yaml:
+	@mkdir -p $(DIST_DIR)
+	@{ \
+		echo "name: $(APP)"; \
+		echo "version: $(VERSION)"; \
+		echo "released_at: $(BUILD_TIME)"; \
+	} > $(DIST_DIR)/latest.yaml
+	@echo "   → $(DIST_DIR)/latest.yaml"
 
 ## build-linux: compile for Linux amd64
 build-linux:
 	@echo "🐧 linux/amd64..."
 	@mkdir -p $(DIST_DIR)
 	@GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $(DIST_DIR)/$(APP)-linux-amd64 $(MAIN_DIR)
-	upx -6 --no-progress $(DIST_DIR)/$(APP)-linux-amd64
-	chmod +x $(DIST_DIR)/$(APP)-linux-amd64
+	@upx -6 --no-progress $(DIST_DIR)/$(APP)-linux-amd64
+	@chmod +x $(DIST_DIR)/$(APP)-linux-amd64
 	@echo "   → $(DIST_DIR)/$(APP)-linux-amd64"
 
 ## build-linux-arm64: compile for Linux arm64
@@ -59,8 +77,8 @@ build-linux-arm64:
 	@echo "🐧 linux/arm64..."
 	@mkdir -p $(DIST_DIR)
 	@GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o $(DIST_DIR)/$(APP)-linux-arm64 $(MAIN_DIR)
-	upx -6 --no-progress $(DIST_DIR)/$(APP)-linux-arm64
-	chmod +x $(DIST_DIR)/$(APP)-linux-arm64
+	@upx -6 --no-progress $(DIST_DIR)/$(APP)-linux-arm64
+	@chmod +x $(DIST_DIR)/$(APP)-linux-arm64
 	@echo "   → $(DIST_DIR)/$(APP)-linux-arm64"
 
 ## build-darwin: compile for macOS amd64
@@ -83,7 +101,7 @@ build-windows:
 	@echo "🪟 windows/amd64..."
 	@mkdir -p $(DIST_DIR)
 	@GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $(DIST_DIR)/$(APP)-windows-amd64.exe $(MAIN_DIR)
-	upx -6 --no-progress $(DIST_DIR)/$(APP)-windows-amd64.exe
+	@upx -6 --no-progress $(DIST_DIR)/$(APP)-windows-amd64.exe
 	@echo "   → $(DIST_DIR)/$(APP)-windows-amd64.exe"
 
 ## clean: remove build artifacts

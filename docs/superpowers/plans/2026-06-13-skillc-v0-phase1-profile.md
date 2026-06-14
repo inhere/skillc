@@ -674,7 +674,7 @@ git commit -m "feat(profile): record profile attribution in lock"
 - Modify: `internal/cli/app_test.go`
 - Delete: `internal/cli/collection_cmd.go`
 
-- [ ] **Step 1: Add repoindex source collection tests**
+- [x] **Step 1: Add repoindex source collection tests**
 
 Append to `internal/infra/repoindex/collection_test.go`:
 
@@ -709,7 +709,7 @@ func TestListSourceSkillsFiltersByCollection(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run repoindex tests to verify failure**
+- [x] **Step 2: Run repoindex tests to verify failure**
 
 Run:
 
@@ -719,7 +719,7 @@ go test ./internal/infra/repoindex -count=1
 
 Expected: FAIL because `ListSourceCollections` and `ListSourceSkills` do not exist.
 
-- [ ] **Step 3: Implement source-scoped collection helpers**
+- [x] **Step 3: Implement source-scoped collection helpers**
 
 Add to `internal/infra/repoindex/collection.go`:
 
@@ -807,7 +807,7 @@ func ListSourceSkills(items []skill.Skill, sourceID string, collection string) (
 }
 ```
 
-- [ ] **Step 4: Add searchapp wrappers and tests**
+- [x] **Step 4: Add searchapp wrappers and tests**
 
 Add to `internal/app/searchapp/service.go`:
 
@@ -837,7 +837,7 @@ func (s *Service) ListSourceSkills(sourceID string, collection string) ([]skill.
 
 Add tests in `internal/app/searchapp/service_test.go` that save an index and assert `ListSourceCollections("gstack")` and `ListSourceSkills("gstack", "go")`.
 
-- [ ] **Step 5: Add source CLI commands**
+- [x] **Step 5: Add source CLI commands**
 
 In `internal/cli/source_cmd.go`, add two commands to `buildSourceCommand()`:
 
@@ -908,7 +908,7 @@ func buildSourceSkillsCommand() *gcli.Command {
 
 Move `truncateStr` from deleted `collection_cmd.go` into `source_cmd.go` as `truncateDescription`.
 
-- [ ] **Step 6: Remove top-level collection registration**
+- [x] **Step 6: Remove top-level collection registration**
 
 Modify `internal/cli/app.go`:
 
@@ -940,7 +940,7 @@ output = runAppInDirWithStdout(t, baseDir, []string{"source", "skills", "gstack"
 assert.Contains(t, output, "go-pro")
 ```
 
-- [ ] **Step 7: Run focused tests**
+- [x] **Step 7: Run focused tests**
 
 Run:
 
@@ -950,13 +950,15 @@ go test ./internal/infra/repoindex ./internal/app/searchapp ./internal/cli -coun
 
 Expected: PASS.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add internal/infra/repoindex/collection.go internal/infra/repoindex/collection_test.go internal/app/searchapp/service.go internal/app/searchapp/service_test.go internal/cli/source_cmd.go internal/cli/app.go internal/cli/app_test.go
 git rm internal/cli/collection_cmd.go
 git commit -m "refactor(cli): move collection browsing under source"
 ```
+
+**Verification note (2026-06-14):** Collection browsing now lives under `source collections [source-id]` and `source skills <source-id> [--collection <name>]`; source-scoped repoindex/searchapp helpers back the new commands, the top-level `collection` command file and registration were removed, and both `go test ./internal/infra/repoindex ./internal/app/searchapp ./internal/cli -count=1` and `go test ./...` pass.
 
 ## Task 5: Implement Profile Service Create/List/Show
 

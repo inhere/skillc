@@ -69,6 +69,28 @@ func (s *Service) ListCollectionSkills(collection string) ([]skill.Skill, error)
 	return repoindex.ListCollectionSkills(items, collection)
 }
 
+func (s *Service) ListSourceCollections(sourceID string) ([]repoindex.SourceCollectionSummary, error) {
+	items, err := s.store.Load(s.indexPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return []repoindex.SourceCollectionSummary{}, nil
+		}
+		return nil, err
+	}
+	return repoindex.ListSourceCollections(items, sourceID), nil
+}
+
+func (s *Service) ListSourceSkills(sourceID string, collection string) ([]skill.Skill, error) {
+	items, err := s.store.Load(s.indexPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("source skills not found")
+		}
+		return nil, err
+	}
+	return repoindex.ListSourceSkills(items, sourceID, collection)
+}
+
 func (s *Service) Resolve(target string) ([]skill.Skill, error) {
 	items, err := s.store.Load(s.indexPath)
 	if err != nil {

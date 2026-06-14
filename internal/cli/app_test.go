@@ -47,12 +47,11 @@ func TestNewApp_RegistersSearchCommand(t *testing.T) {
 	assert.Eq(t, "Show indexed skill details", show.Desc)
 }
 
-func TestNewApp_RegistersCollectionCommand(t *testing.T) {
+func TestNewApp_DoesNotRegisterTopLevelCollectionCommand(t *testing.T) {
 	app := newTestApp()
 
 	collection := findCommandByName(app, "collection")
-	assert.NotNil(t, collection)
-	assert.Eq(t, "Browse indexed collections", collection.Desc)
+	assert.Nil(t, collection)
 }
 
 func TestNewApp_RegistersUpdateCommand(t *testing.T) {
@@ -335,35 +334,63 @@ func TestInstallCommand_RestoresFromLockFileWhenNoArgs(t *testing.T) {
 	assert.Eq(t, "restored", string(agentsData))
 }
 
-func TestCollectionListCommand_PrintsCollectionSummary(t *testing.T) {
+func TestSourceCollectionsCommand_PrintsSourceScopedCollectionSummary(t *testing.T) {
 	baseDir := t.TempDir()
 	config := cfg.DefaultConfig()
 	config.IndexFile = filepath.Join(baseDir, "cache", "index.json")
 	assert.NoErr(t, configstore.NewYAMLStore().Save(filepath.Join(baseDir, "skillc.yaml"), config))
 	assert.NoErr(t, repoindex.NewStore().Save(config.IndexFile, []skill.Skill{
-		{ID: "alpha-one", Name: "Alpha One", Collection: "alpha", SourceID: "src-a", SourceName: "repo-a"},
-		{ID: "alpha-two", Name: "Alpha Two", Collection: "alpha", SourceID: "src-b", SourceName: "repo-b"},
-		{ID: "beta-one", Name: "Beta One", Collection: "beta", SourceID: "src-a", SourceName: "repo-a"},
+		{ID: "go-pro", Name: "Go Pro", Collection: "go", SourceID: "gstack", SourceName: "GStack"},
+		{ID: "go-test", Name: "Go Test", Collection: "go", SourceID: "gstack", SourceName: "GStack"},
+		{ID: "review", Name: "Review", Collection: "ops", SourceID: "team", SourceName: "Team"},
 	}))
 
-	output := runAppInDirWithStdout(t, baseDir, []string{"collection", "list"})
-	assert.Contains(t, output, "alpha      | 2      | 2")
-	assert.Contains(t, output, "beta       | 1      | 1")
+	output := runAppInDirWithStdout(t, baseDir, []string{"source", "collections", "gstack"})
+
+	assert.Contains(t, output, "GStack")
+	assert.Contains(t, output, "go")
+	assert.Contains(t, output, "2")
+	assert.NotContains(t, output, "ops")
 }
 
-func TestCollectionSkillsCommand_PrintsSkillNameAndDescription(t *testing.T) {
+func TestSourceSkillsCommand_PrintsSourceScopedSkills(t *testing.T) {
 	baseDir := t.TempDir()
 	config := cfg.DefaultConfig()
 	config.IndexFile = filepath.Join(baseDir, "cache", "index.json")
 	assert.NoErr(t, configstore.NewYAMLStore().Save(filepath.Join(baseDir, "skillc.yaml"), config))
 	assert.NoErr(t, repoindex.NewStore().Save(config.IndexFile, []skill.Skill{
-		{ID: "alpha-one", Name: "Alpha One", Description: "first skill", Collection: "alpha"},
-		{ID: "alpha-two", Name: "Alpha Two", Description: "second skill", Collection: "alpha"},
+		{ID: "go-pro", Name: "Go Pro", Description: "go helper", Collection: "go", SourceID: "gstack"},
+		{ID: "review", Name: "Review", Description: "review helper", Collection: "ops", SourceID: "gstack"},
+		{ID: "other", Name: "Other", Description: "other helper", Collection: "go", SourceID: "team"},
 	}))
 
-	output := runAppInDirWithStdout(t, baseDir, []string{"collection", "skills", "alpha"})
-	assert.Contains(t, output, "Alpha One | first skill")
-	assert.Contains(t, output, "Alpha Two | second skill")
+	output := runAppInDirWithStdout(t, baseDir, []string{"source", "skills", "gstack", "--collection", "go"})
+
+	assert.Contains(t, output, "go-pro")
+	assert.Contains(t, output, "go helper")
+	assert.NotContains(t, output, "review helper")
+	assert.NotContains(t, output, "other helper")
+}
+
+func TestSourceSkillsCommand_DoesNotReusePreviousCollectionFlag(t *testing.T) {
+	baseDir := t.TempDir()
+	config := cfg.DefaultConfig()
+	config.IndexFile = filepath.Join(baseDir, "cache", "index.json")
+	assert.NoErr(t, configstore.NewYAMLStore().Save(filepath.Join(baseDir, "skillc.yaml"), config))
+	assert.NoErr(t, repoindex.NewStore().Save(config.IndexFile, []skill.Skill{
+		{ID: "go-pro", Name: "Go Pro", Description: "go helper", Collection: "go", SourceID: "gstack"},
+		{ID: "review", Name: "Review", Description: "review helper", Collection: "ops", SourceID: "gstack"},
+	}))
+
+	output := runInDirWithStdout(t, baseDir, func() error {
+		app := newTestApp()
+		app.Run([]string{"source", "skills", "gstack", "--collection", "go"})
+		app.Run([]string{"source", "skills", "gstack"})
+		return nil
+	})
+
+	assert.Contains(t, output, "go helper")
+	assert.Contains(t, output, "review helper")
 }
 
 func TestSearchCommand_ReturnsMatchesForQueryArgument(t *testing.T) {

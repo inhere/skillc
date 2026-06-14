@@ -3,9 +3,10 @@ package cli
 import (
 	"fmt"
 	"os"
+	"strings"
 
-	"github.com/gookit/gcli/v3"
 	"github.com/gookit/cliui/show/table"
+	"github.com/gookit/gcli/v3"
 	"github.com/gookit/goutil/x/ccolor"
 	"github.com/gookit/slog"
 )
@@ -46,6 +47,8 @@ func buildSourceCommand() *gcli.Command {
 	})
 
 	cmd.Add(buildSourceSyncCommand())
+	cmd.Add(buildSourceCollectionsCommand())
+	cmd.Add(buildSourceSkillsCommand())
 
 	cmd.Add(&gcli.Command{
 		Name:    "status",
@@ -87,6 +90,103 @@ func buildSourceCommand() *gcli.Command {
 	})
 
 	return cmd
+}
+
+func truncateDescription(s string, max int) string {
+	runes := []rune(s)
+	if len(runes) <= max {
+		return s
+	}
+	return string(runes[:max-3]) + "..."
+}
+
+func buildSourceCollectionsCommand() *gcli.Command {
+	return &gcli.Command{
+		Name: "collections",
+		Desc: "List collections grouped under sources",
+		Config: func(c *gcli.Command) {
+			c.AddArg("source", "source id or name")
+		},
+		Func: func(c *gcli.Command, _ []string) error {
+			sourceID := c.Arg("source").String()
+			items, err := newSearchService().ListSourceCollections(sourceID)
+			if err != nil {
+				return err
+			}
+			if len(items) == 0 {
+				ccolor.Warnln("no collections found")
+				return nil
+			}
+			tb := table.New("Source Collections").SetHeads("Source", "Collection", "Skills")
+			for _, item := range items {
+				sourceName := item.SourceID
+				if item.SourceName != "" {
+					sourceName = item.SourceName
+				}
+				tb.AddRow(sourceName, item.Name, item.SkillCount)
+			}
+			_, err = fmt.Fprint(os.Stdout, tb.Render())
+			return err
+		},
+	}
+}
+
+func buildSourceSkillsCommand() *gcli.Command {
+	var collection string
+	return &gcli.Command{
+		Name: "skills",
+		Desc: "List skills under a source",
+		Config: func(c *gcli.Command) {
+			c.AddArg("source", "source id or name", true)
+			c.StrOpt(&collection, "collection", "c", "", "filter by source collection")
+		},
+		Func: func(c *gcli.Command, args []string) error {
+			defer func() {
+				collection = ""
+			}()
+			sourceID := c.Arg("source").String()
+			collectionFilter := collection
+			if collectionFilter == "" {
+				var err error
+				collectionFilter, err = collectionOptionFromArgs(rawArgsAfterFirst(c.RawArgs()))
+				if err != nil {
+					return err
+				}
+			}
+			items, err := newSearchService().ListSourceSkills(sourceID, collectionFilter)
+			if err != nil {
+				return err
+			}
+			tb := table.New("Source Skills").SetHeads("Collection", "Skill", "Description")
+			for _, item := range items {
+				tb.AddRow(item.Collection, item.ID, truncateDescription(item.Description, 60))
+			}
+			_, err = fmt.Fprint(os.Stdout, tb.Render())
+			return err
+		},
+	}
+}
+
+func rawArgsAfterFirst(args []string) []string {
+	if len(args) == 0 {
+		return nil
+	}
+	return args[1:]
+}
+
+func collectionOptionFromArgs(args []string) (string, error) {
+	for i, arg := range args {
+		if arg == "--collection" || arg == "-c" {
+			if i+1 < len(args) {
+				return args[i+1], nil
+			}
+			return "", fmt.Errorf("%s option requires a value", arg)
+		}
+		if value, ok := strings.CutPrefix(arg, "--collection="); ok {
+			return value, nil
+		}
+	}
+	return "", nil
 }
 
 func buildSourceSyncCommand() *gcli.Command {

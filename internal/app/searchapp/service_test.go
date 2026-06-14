@@ -305,3 +305,28 @@ func TestService_ListCollectionsAndSkills(t *testing.T) {
 	assert.Eq(t, "Alpha One", skills[0].Name)
 	assert.Eq(t, "Alpha Two", skills[1].Name)
 }
+
+func TestService_ListSourceCollectionsAndSkills(t *testing.T) {
+	baseDir := t.TempDir()
+	indexPath := filepath.Join(baseDir, "index.json")
+	store := repoindex.NewStore()
+	assert.NoErr(t, store.Save(indexPath, []skill.Skill{
+		{ID: "go-pro", Name: "Go Pro", Description: "go helper", Collection: "go", SourceID: "gstack", SourceName: "GStack"},
+		{ID: "go-test", Name: "Go Test", Description: "go test helper", Collection: "go", SourceID: "gstack", SourceName: "GStack"},
+		{ID: "review", Name: "Review", Description: "review helper", Collection: "ops", SourceID: "team", SourceName: "Team"},
+	}))
+
+	service := NewService(indexPath)
+
+	collections, err := service.ListSourceCollections("gstack")
+	assert.NoErr(t, err)
+	assert.Len(t, collections, 1)
+	assert.Eq(t, "go", collections[0].Name)
+	assert.Eq(t, 2, collections[0].SkillCount)
+
+	skills, err := service.ListSourceSkills("gstack", "go")
+	assert.NoErr(t, err)
+	assert.Len(t, skills, 2)
+	assert.Eq(t, "go-pro", skills[0].ID)
+	assert.Eq(t, "go-test", skills[1].ID)
+}

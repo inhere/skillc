@@ -8,6 +8,7 @@
 | 2026-06-13 | v0.4 | Codex | 调整 v0 最优命令设计：移除顶级 collection 命令，收敛到 source 下 |
 | 2026-06-13 | v0.5 | Codex | 复审参考项目，补充参考分析文档链接和 Phase 1 边界校验 |
 | 2026-06-14 | v0.6 | Codex | 记录 Phase 1 已落地 profile CLI，并明确 `install --collection` 已从 CLI 移除 |
+| 2026-06-14 | v0.7 | Codex | 增加 Phase 2 status/update-check 实施计划链接，并收窄本期实现边界 |
 
 状态：Draft
 
@@ -16,6 +17,7 @@
 - `docs/TODO.md`
 - `docs/design/skillc-reference-projects-analysis.md`
 - `docs/superpowers/plans/2026-06-13-skillc-v0-phase1-profile.md`
+- `docs/superpowers/plans/2026-06-14-skillc-v0-phase2-status-update-check.md`
 - `docs/prd.md`
 - `docs/arch.md`
 - `docs/plan.md`
@@ -23,6 +25,8 @@
 - `docs/superpowers/specs/2026-04-01-collection-command-design.md`
 
 一期开发计划：`docs/superpowers/plans/2026-06-13-skillc-v0-phase1-profile.md`
+
+二期开发计划：`docs/superpowers/plans/2026-06-14-skillc-v0-phase2-status-update-check.md`
 
 ## 1. 设计结论
 
@@ -811,21 +815,25 @@ internal/infra/termselect/
 
 ### Phase 2：Status 和 update check
 
-目标：用户知道哪些技能需要更新，并能看到安装分布。
+目标：用户先能看到当前项目的技能健康状态和更新候选；安装分布作为后续扩展进入 Web/version-drift 能力。
+
+实施计划：`docs/superpowers/plans/2026-06-14-skillc-v0-phase2-status-update-check.md`
+
+本期先落地当前项目维度的 `status` 和 `update --check`，以非破坏性预览为主。跨项目安装分布、Git `resolved_ref` 漂移、Local checksum 漂移继续保留为 Phase 2 后续扩展或 Phase 4 Web 的输入能力，不压入第一轮实现。
 
 任务：
 
 - 增加 `status` 命令。
 - 增加 `update --check` 或 `outdated`。
-- 增加安装分布查询模型：skill/profile -> projects/agents/scopes。
-- Git source 基于 `resolved_ref` 比较。
-- Local source 基于 checksum 比较。
-- 输出 installed/missing/outdated/orphan/unmanaged。
+- 当前项目输出 installed/missing/outdated/orphan/unmanaged/source-error。
+- v0 第一轮 outdated 只比较非空 metadata version，checksum/git commit drift 后置。
+- 后续增加安装分布查询模型：skill/profile -> projects/agents/scopes。
 
 验收：
 
-- 修改 local source 后能显示 outdated。
-- git source 同步到新 commit 后能显示 outdated。
+- 已安装 skill 的 metadata version 落后于 index version 时能显示 outdated。
+- lock 中记录但 index 找不到时能显示 orphan。
+- 安装目录存在但 lock 无记录时能显示 unmanaged。
 - check 不修改安装目录和 lock。
 
 ### Phase 3：交互式选择
@@ -945,16 +953,18 @@ v0 增强重构完成后，应满足：
 
 ## 13. 下一步建议
 
-建议下一步先写 `profile` 功能实施计划，限定 Phase 1 范围：
+Phase 1 的 profile 最小闭环已经完成。下一步建议进入 Phase 2 第一轮实现：`status` + `update --check`。
 
-- 不做完整 Web，只为后续 Web 预留 app service 边界。
-- 不做交互式多选。
-- 不做 prune 删除。
-- 不做复杂版本比较。
-- 不做 Registry。
-- 只做 profile CRUD、from-installed、dry-run/apply。
+实施计划见：`docs/superpowers/plans/2026-06-14-skillc-v0-phase2-status-update-check.md`
 
-这一步是整个增强重构的最小杠杆点，能最快验证新抽象是否正确。
+本阶段应保持只读检查优先：
+
+- 先新增 `statusapp`，统一输出当前项目的 installed/missing/outdated/orphan/unmanaged/source-error。
+- 再让 `status` 和 `update --check` 复用同一套查询结果。
+- `update --check` 不修改安装目录和 lock，只允许按需同步 source/index。
+- checksum、Git commit drift、跨项目安装分布、Web 管理继续后置。
+
+这一步能验证 profile 之后的状态查询模型，并为后续 Web、跨项目版本差异和一键更新打基础。
 
 ## 14. 参考项目复审补充
 

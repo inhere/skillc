@@ -915,7 +915,7 @@ git commit -m "feat(cli): add status command"
 - Modify: `internal/cli/manage_cmd.go`
 - Modify: `internal/cli/app_test.go`
 
-- [ ] **Step 1: Add failing update --check CLI tests**
+- [x] **Step 1: Add failing update --check CLI tests**
 
 Add to `internal/cli/app_test.go`:
 
@@ -958,7 +958,7 @@ func TestUpdateCommand_CheckPrintsCandidatesWithoutCallingUpdateRunner(t *testin
 }
 ```
 
-- [ ] **Step 2: Run CLI tests to verify failure**
+- [x] **Step 2: Run CLI tests to verify failure**
 
 Run:
 
@@ -968,7 +968,7 @@ go test ./internal/cli -run TestUpdateCommand_CheckPrintsCandidatesWithoutCallin
 
 Expected: FAIL because `--check` flag does not exist.
 
-- [ ] **Step 3: Add --check option and branch**
+- [x] **Step 3: Add --check option and branch**
 
 Modify `buildUpdateCommand()` in `internal/cli/manage_cmd.go`:
 
@@ -1041,7 +1041,7 @@ func printUpdateCheckResult(result statusapp.Result, target string) error {
 }
 ```
 
-- [ ] **Step 4: Run update check CLI tests**
+- [x] **Step 4: Run update check CLI tests**
 
 Run:
 
@@ -1052,7 +1052,9 @@ go test ./internal/cli -count=1
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+**Verification note (2026-06-14):** `go test ./internal/cli -run TestUpdateCommand_CheckPrintsCandidatesWithoutCallingUpdateRunner -count=1` and `go test ./internal/cli -count=1` pass after adding `skillc update --check`.
+
+- [x] **Step 5: Commit**
 
 ```bash
 git add internal/cli/manage_cmd.go internal/cli/app_test.go

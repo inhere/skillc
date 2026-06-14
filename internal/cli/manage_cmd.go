@@ -288,6 +288,7 @@ func confirmPrompt(in *os.File, out *os.File, prompt string) (bool, error) {
 func buildUpdateCommand() *gcli.Command {
 	var opts ManageOptions
 	var target string
+	var checkOnly bool
 	return &gcli.Command{
 		Name:    "update",
 		Desc:    "Update installed skills",
@@ -295,6 +296,7 @@ func buildUpdateCommand() *gcli.Command {
 		Config: func(c *gcli.Command) {
 			opts.bindCommand(c)
 			c.StrOpt(&target, "target", "t", "", "skill id to update (default: update all)")
+			c.BoolOpt(&checkOnly, "check", "", false, "check update candidates without installing")
 			c.AddArg("skill", "skill id to update (same as --target)")
 		},
 		Func: func(c *gcli.Command, _ []string) error {
@@ -304,6 +306,18 @@ func buildUpdateCommand() *gcli.Command {
 			}
 			if target == "" {
 				target = c.Arg("skill").String()
+			}
+			if checkOnly {
+				result, err := statusapp.NewService(defaultConfigFile(cwd), cwd).Run(statusapp.Req{
+					Agent:   opts.Agent,
+					Scope:   opts.Scope,
+					WorkDir: cwd,
+					Sync:    true,
+				})
+				if err != nil {
+					return err
+				}
+				return printUpdateCheckResult(result, target)
 			}
 
 			result, err := newUpdateService(defaultConfigFile(cwd), cwd).Run(updateapp.Req{
@@ -331,6 +345,29 @@ func buildUpdateCommand() *gcli.Command {
 			return nil
 		},
 	}
+}
+
+func printUpdateCheckResult(result statusapp.Result, target string) error {
+	items := make([]statusapp.Item, 0, len(result.Items))
+	for _, item := range result.Items {
+		if target != "" && item.SkillID != target && item.QualifiedName != target {
+			continue
+		}
+		if item.Status == statusapp.StatusInstalled {
+			continue
+		}
+		items = append(items, item)
+	}
+	if len(items) == 0 {
+		ccolor.Successln("no update candidates")
+		return nil
+	}
+	tb := table.New("Update Check").SetHeads("Status", "Skill", "Source", "Agent", "Current", "Latest", "Reason")
+	for _, item := range items {
+		tb.AddRow(item.Status, item.SkillID, item.SourceID, item.Agent, item.CurrentVersion, item.LatestVersion, item.Reason)
+	}
+	_, err := fmt.Fprint(os.Stdout, tb.Render())
+	return err
 }
 
 func buildUninstallCommand() *gcli.Command {

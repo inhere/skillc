@@ -131,6 +131,43 @@ func TestUpdateCommand_TargetFlagTakesPrecedenceOverSkillArgument(t *testing.T) 
 	assert.Eq(t, "flag-skill", gotReq.Target)
 }
 
+func TestUpdateCommand_CheckPrintsCandidatesWithoutCallingUpdateRunner(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	lockFile := filepath.Join(baseDir, "skillc.lock.json")
+	indexFile := filepath.Join(baseDir, "index.json")
+	assert.NoErr(t, os.MkdirAll(filepath.Join(baseDir, ".agents", "skills", "go-pro"), 0o755))
+
+	config := cfg.DefaultConfig()
+	config.LockFile = lockFile
+	config.IndexFile = indexFile
+	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, ".agents")}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
+	assert.NoErr(t, lockstore.NewStore().Save(lockFile, lockpkg.File{
+		filepath.Clean(baseDir): {{SkillID: "go-pro", SourceID: "gstack", Version: "1.0.0", Agents: []string{"universal"}}},
+	}))
+	assert.NoErr(t, repoindex.NewStore().Save(indexFile, []skill.Skill{{ID: "go-pro", SourceID: "gstack", Version: "2.0.0"}}))
+
+	calledUpdateRunner := false
+	prevFactory := newUpdateService
+	newUpdateService = func(configFile string, baseDir string) updateRunner {
+		return updateRunnerStub{runFn: func(req updateapp.Req) (updateapp.Result, error) {
+			calledUpdateRunner = true
+			return updateapp.Result{}, nil
+		}}
+	}
+	defer func() {
+		newUpdateService = prevFactory
+	}()
+
+	output := runAppInDirWithStdout(t, baseDir, []string{"update", "--check", "--agent", "universal"})
+
+	assert.Contains(t, output, "Update Check")
+	assert.Contains(t, output, "outdated")
+	assert.Contains(t, output, "go-pro")
+	assert.False(t, calledUpdateRunner)
+}
+
 func TestStatusCommand_PrintsSkillHealth(t *testing.T) {
 	baseDir := t.TempDir()
 	configFile := filepath.Join(baseDir, "skillc.yaml")

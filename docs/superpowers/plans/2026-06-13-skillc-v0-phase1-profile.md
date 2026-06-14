@@ -1610,7 +1610,7 @@ git commit -m "feat(profile): plan and apply profiles"
 - Modify: `internal/cli/manage_cmd.go`
 - Modify: `internal/cli/app_test.go`
 
-- [ ] **Step 1: Add failing CLI registration tests**
+- [x] **Step 1: Add failing CLI registration tests**
 
 Modify `internal/cli/app_test.go`:
 
@@ -1634,7 +1634,7 @@ func TestInstallCommand_DoesNotAcceptCollectionFlag(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run CLI tests to verify failure**
+- [x] **Step 2: Run CLI tests to verify failure**
 
 Run:
 
@@ -1644,7 +1644,7 @@ go test ./internal/cli -count=1
 
 Expected: FAIL because profile command is missing and install still accepts `--collection`.
 
-- [ ] **Step 3: Add profile CLI command**
+- [x] **Step 3: Add profile CLI command**
 
 Create `internal/cli/profile_cmd.go`:
 
@@ -1851,7 +1851,7 @@ func printProfilePlan(plan profile.ApplyPlan) error {
 
 Import `github.com/inhere/skillc/internal/domain/profile`.
 
-- [ ] **Step 4: Register profile command**
+- [x] **Step 4: Register profile command**
 
 Modify `internal/cli/app.go`:
 
@@ -1861,7 +1861,7 @@ app.Add(buildProfileCommand())
 
 Place it after `buildSourceCommand()` and before `buildSearchCommand()`.
 
-- [ ] **Step 5: Remove install collection flag**
+- [x] **Step 5: Remove install collection flag**
 
 Modify `internal/cli/manage_cmd.go`:
 
@@ -1893,7 +1893,7 @@ to:
 searchResult, err := newSearchService().ResolveInstallTargets(targets, false)
 ```
 
-- [ ] **Step 6: Add profile CLI behavior tests**
+- [x] **Step 6: Add profile CLI behavior tests**
 
 Add tests in `internal/cli/app_test.go`:
 
@@ -1939,7 +1939,7 @@ func TestProfileApplyDryRunPrintsPlan(t *testing.T) {
 }
 ```
 
-- [ ] **Step 7: Run CLI tests**
+- [x] **Step 7: Run CLI tests**
 
 Run:
 
@@ -1949,12 +1949,14 @@ go test ./internal/cli -count=1
 
 Expected: PASS.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add internal/cli/profile_cmd.go internal/cli/app.go internal/cli/manage_cmd.go internal/cli/app_test.go
 git commit -m "feat(cli): add profile commands"
 ```
+
+**Verification note (2026-06-14):** Added `profile list/show/create/diff/apply` CLI commands backed by `profileapp`, registered the top-level `profile` command, and removed the deprecated `install --collection` flag. CLI tests cover command registration, profile creation from a source collection, dry-run apply plan output, and collection flag removal. `go test ./internal/cli -count=1` and `go test ./...` pass.
 
 ## Task 9: Run Full Regression And Update Docs
 

@@ -25,6 +25,7 @@ func NewApp(version, gitHash, buildTime string) *gcli.App {
 	app.Version = fmt.Sprintf("%s (Git Hash: %s, Build Time: %s)", version, gitHash, buildTime)
 	app.Add(buildConfigCommand())
 	app.Add(buildSourceCommand())
+	app.Add(buildProfileCommand())
 	app.Add(buildSearchCommand())
 	app.Add(buildShowCommand())
 	app.Add(buildInstallCommand())

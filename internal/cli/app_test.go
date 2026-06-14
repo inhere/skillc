@@ -14,6 +14,7 @@ import (
 	"github.com/inhere/skillc/internal/app/updateapp"
 	cfg "github.com/inhere/skillc/internal/domain/config"
 	lockpkg "github.com/inhere/skillc/internal/domain/lock"
+	"github.com/inhere/skillc/internal/domain/profile"
 	"github.com/inhere/skillc/internal/domain/skill"
 	sourcepkg "github.com/inhere/skillc/internal/domain/source"
 	"github.com/inhere/skillc/internal/infra/agentfs"
@@ -60,6 +61,17 @@ func TestNewApp_RegistersUpdateCommand(t *testing.T) {
 	update := findCommandByName(app, "update")
 	assert.NotNil(t, update)
 	assert.Eq(t, "Update installed skills", update.Desc)
+}
+
+func TestNewApp_RegistersProfileCommand(t *testing.T) {
+	app := newTestApp()
+
+	profileCmd := findCommandByName(app, "profile")
+	assert.NotNil(t, profileCmd)
+	if profileCmd == nil {
+		return
+	}
+	assert.Eq(t, "Manage Skillc profiles", profileCmd.Desc)
 }
 
 func TestUpdateCommand_AcceptsSkillArgumentAsTarget(t *testing.T) {
@@ -232,37 +244,15 @@ func TestInstallCommand_BatchTargetsWithYesReportsResolveAndInstallFailures(t *t
 	assert.True(t, os.IsNotExist(err))
 }
 
-func TestInstallCommand_CollectionModeInstallsCollectionTarget(t *testing.T) {
-	baseDir := t.TempDir()
-	configFile := filepath.Join(baseDir, "skillc.yaml")
-	indexPath := filepath.Join(baseDir, "cache", "index.json")
-	firstSourceDir := filepath.Join(baseDir, "source", "hello-skill")
-	secondSourceDir := filepath.Join(baseDir, "source", "world-skill")
-	assert.NoErr(t, os.MkdirAll(filepath.Join(firstSourceDir, "commands"), 0o755))
-	assert.NoErr(t, os.MkdirAll(filepath.Join(secondSourceDir, "commands"), 0o755))
-	assert.NoErr(t, os.WriteFile(filepath.Join(firstSourceDir, "commands", "hello.txt"), []byte("hello"), 0o644))
-	assert.NoErr(t, os.WriteFile(filepath.Join(secondSourceDir, "commands", "world.txt"), []byte("world"), 0o644))
+func TestInstallCommand_DoesNotAcceptCollectionFlag(t *testing.T) {
+	app := newTestApp()
+	install := findCommandByName(app, "install")
+	assert.NotNil(t, install)
+	if install == nil {
+		return
+	}
 
-	config := cfg.DefaultConfig()
-	config.LockFile = filepath.Join(baseDir, "skillc-install.lock")
-	config.IndexFile = indexPath
-	config.AgentTools["claude-code"] = cfg.AgentToolConfig{Dirname: ".claude", UserDir: filepath.Join(baseDir, "user-claude"), ProjectDir: filepath.Join(baseDir, "project-claude")}
-	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
-	assert.NoErr(t, repoindex.NewStore().Save(indexPath, []skill.Skill{
-		{ID: "hello-skill", Name: "Hello Skill", Collection: "marketplaces", QualifiedName: "marketplaces/hello-skill", SourceQualifiedName: "repo-a/marketplaces/hello-skill", Version: "1.0.0", SourceID: "local-demo", SourceType: sourcepkg.TypeLocal, InstallEntry: "commands", Path: firstSourceDir},
-		{ID: "world-skill", Name: "World Skill", Collection: "marketplaces", QualifiedName: "marketplaces/world-skill", SourceQualifiedName: "repo-a/marketplaces/world-skill", Version: "1.0.0", SourceID: "local-demo", SourceType: sourcepkg.TypeLocal, InstallEntry: "commands", Path: secondSourceDir},
-	}))
-
-	output := runAppInDirWithStdout(t, baseDir, []string{"install", "--yes", "--collection", "--agent", "claude-code", "repo-a/marketplaces"})
-
-	assert.Contains(t, output, "hello-skill")
-	assert.Contains(t, output, "world-skill")
-	helloData, err := os.ReadFile(filepath.Join(baseDir, "project-claude", "skills", "hello-skill", "hello.txt"))
-	assert.NoErr(t, err)
-	assert.Eq(t, "hello", string(helloData))
-	worldData, err := os.ReadFile(filepath.Join(baseDir, "project-claude", "skills", "world-skill", "world.txt"))
-	assert.NoErr(t, err)
-	assert.Eq(t, "world", string(worldData))
+	assert.Nil(t, install.Flags.FSet().Lookup("collection"))
 }
 
 func TestInstallCommand_PromptsBeforeInstallWithoutYes(t *testing.T) {
@@ -391,6 +381,46 @@ func TestSourceSkillsCommand_DoesNotReusePreviousCollectionFlag(t *testing.T) {
 
 	assert.Contains(t, output, "go helper")
 	assert.Contains(t, output, "review helper")
+}
+
+func TestProfileCreateFromCollectionCommand(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	indexFile := filepath.Join(baseDir, "index.json")
+	config := cfg.DefaultConfig()
+	config.IndexFile = indexFile
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
+	assert.NoErr(t, repoindex.NewStore().Save(indexFile, []skill.Skill{
+		{ID: "go-pro", SourceID: "gstack", Collection: "go"},
+	}))
+
+	output := runAppInDirWithStdout(t, baseDir, []string{"profile", "create", "go-dev", "--from-collection", "gstack/go"})
+
+	assert.Contains(t, output, "profile created: go-dev")
+	loaded, err := configstore.NewYAMLStore().Load(configFile, baseDir)
+	assert.NoErr(t, err)
+	assert.Len(t, loaded.Profiles["go-dev"].Targets, 1)
+}
+
+func TestProfileApplyDryRunPrintsPlan(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	indexFile := filepath.Join(baseDir, "index.json")
+	config := cfg.DefaultConfig()
+	config.IndexFile = indexFile
+	config.Profiles = map[string]profile.Profile{
+		"go-dev": {Targets: []profile.Target{{Source: "gstack", Skill: "go-pro"}}},
+	}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
+	assert.NoErr(t, repoindex.NewStore().Save(indexFile, []skill.Skill{
+		{ID: "go-pro", SourceID: "gstack"},
+	}))
+
+	output := runAppInDirWithStdout(t, baseDir, []string{"profile", "apply", "go-dev", "--dry-run"})
+
+	assert.Contains(t, output, "Profile Plan")
+	assert.Contains(t, output, "install")
+	assert.Contains(t, output, "go-pro")
 }
 
 func TestSearchCommand_ReturnsMatchesForQueryArgument(t *testing.T) {

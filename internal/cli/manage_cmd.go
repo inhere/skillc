@@ -6,9 +6,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/gookit/gcli/v3"
 	"github.com/gookit/cliui/show"
 	"github.com/gookit/cliui/show/table"
+	"github.com/gookit/gcli/v3"
 	"github.com/gookit/goutil/x/ccolor"
 	"github.com/gookit/slog"
 	"github.com/inhere/skillc/internal/app/installapp"
@@ -100,7 +100,6 @@ type ManageOptions struct {
 	Scope       string
 	Agent       string
 	Yes         bool
-	Collection  bool
 	UseCopy     bool
 	InstallMode string
 }
@@ -138,7 +137,6 @@ func buildInstallCommand() *gcli.Command {
 			opts.bindCommand(c)
 			opts.bindInstallModeFlags(c)
 			c.BoolOpt(&opts.Yes, "yes", "y", false, "skip confirmation prompt")
-			c.BoolOpt(&opts.Collection, "collection", "c", false, "treat targets as collection selectors")
 			c.StrOpt(&sourceArg, "source", "S", "", "git url or local path: add & sync source before installing")
 			c.AddArg("skill", "skill id. if empty, restore from lock file")
 		},
@@ -209,7 +207,7 @@ func buildInstallCommand() *gcli.Command {
 				return nil
 			}
 
-			searchResult, err := newSearchService().ResolveInstallTargets(targets, opts.Collection)
+			searchResult, err := newSearchService().ResolveInstallTargets(targets, false)
 			if err != nil {
 				return err
 			}

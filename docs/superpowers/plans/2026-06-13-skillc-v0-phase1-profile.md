@@ -159,7 +159,7 @@
 - Create: `internal/domain/profile/model.go`
 - Test: `internal/domain/profile/model_test.go`
 
-- [ ] **Step 1: Write failing profile domain tests**
+- [x] **Step 1: Write failing profile domain tests**
 
 Create `internal/domain/profile/model_test.go`:
 
@@ -221,7 +221,7 @@ func TestNormalizeTargetsRejectsEmptySkill(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run tests to verify failure**
+- [x] **Step 2: Run tests to verify failure**
 
 Run:
 
@@ -231,7 +231,7 @@ go test ./internal/domain/profile -count=1
 
 Expected: FAIL because `internal/domain/profile` does not exist.
 
-- [ ] **Step 3: Implement profile model**
+- [x] **Step 3: Implement profile model**
 
 Create `internal/domain/profile/model.go`:
 
@@ -328,7 +328,7 @@ func NormalizeTargets(targets []Target) ([]Target, error) {
 }
 ```
 
-- [ ] **Step 4: Run profile domain tests**
+- [x] **Step 4: Run profile domain tests**
 
 Run:
 
@@ -338,7 +338,7 @@ go test ./internal/domain/profile -count=1
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add internal/domain/profile/model.go internal/domain/profile/model_test.go

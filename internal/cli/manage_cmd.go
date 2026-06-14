@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -18,8 +19,10 @@ import (
 	"github.com/inhere/skillc/internal/app/webapp"
 	"github.com/inhere/skillc/internal/domain/agent"
 	cfg "github.com/inhere/skillc/internal/domain/config"
+	"github.com/inhere/skillc/internal/domain/skill"
 	sourcepkg "github.com/inhere/skillc/internal/domain/source"
 	"github.com/inhere/skillc/internal/infra/agentfs"
+	"github.com/inhere/skillc/internal/infra/termselect"
 )
 
 func buildSearchCommand() *gcli.Command {
@@ -130,6 +133,7 @@ func (mo *ManageOptions) resolveInstallMode(config cfg.Config) agentfs.Mode {
 func buildInstallCommand() *gcli.Command {
 	var opts ManageOptions
 	var sourceArg string
+	var interactive bool
 	return &gcli.Command{
 		Name:    "install",
 		Desc:    "Install skills",
@@ -138,6 +142,7 @@ func buildInstallCommand() *gcli.Command {
 			opts.bindCommand(c)
 			opts.bindInstallModeFlags(c)
 			c.BoolOpt(&opts.Yes, "yes", "y", false, "skip confirmation prompt")
+			c.BoolOpt(&interactive, "interactive", "i", false, "interactively select skills to install")
 			c.StrOpt(&sourceArg, "source", "S", "", "git url or local path: add & sync source before installing")
 			c.AddArg("skill", "skill id. if empty, restore from lock file")
 		},
@@ -183,6 +188,50 @@ func buildInstallCommand() *gcli.Command {
 			}
 
 			targetArg := c.Arg("skill").String()
+			if interactive {
+				items, err := newSearchService().Search(targetArg, opts.Agent, "")
+				if err != nil {
+					return err
+				}
+				if len(items) == 0 {
+					ccolor.Warnln("no skills found")
+					return nil
+				}
+				selected, err := newMultiSelector().SelectMulti(context.Background(), termselect.Options{
+					Title:        "Install skills",
+					Items:        skillSelectItems(items),
+					FilterPrompt: "filter skills",
+				})
+				if err != nil {
+					return err
+				}
+				resolved := selectedSkills(items, selected)
+				if len(resolved) == 0 {
+					ccolor.Warnln("no skills selected")
+					return nil
+				}
+				ok, err := printInstallPlanAndConfirm(resolved, opts)
+				if err != nil {
+					return err
+				}
+				if !ok {
+					return nil
+				}
+
+				result, err := installapp.NewService(config.LockFile).
+					WithInstallMode(installMode).
+					WithSymlinkFallbackNotifier(fallbackNotifier).
+					RunResolved(config, installapp.InstallReq{
+						Agent:   opts.Agent,
+						Scope:   opts.Scope,
+						WorkDir: cwd,
+					}, resolved, nil)
+				if err != nil {
+					return err
+				}
+				return printInstallResult(result)
+			}
+
 			if targetArg == "" {
 				svc := installapp.NewService(config.LockFile).
 					WithInstallMode(installMode).
@@ -213,22 +262,12 @@ func buildInstallCommand() *gcli.Command {
 				return err
 			}
 
-			skillIDs := make([]string, 0, len(searchResult.Resolved))
-			for _, item := range searchResult.Resolved {
-				skillIDs = append(skillIDs, item.ID)
+			ok, err := printInstallPlanAndConfirm(searchResult.Resolved, opts)
+			if err != nil {
+				return err
 			}
-			ccolor.Infof("Will install skills: %s\n", strings.Join(skillIDs, ", "))
-			ccolor.Infof(" - install to scope: %s, agent: %s\n", opts.Scope, opts.Agent)
-
-			if !opts.Yes {
-				confirmed, err := confirmInstall(os.Stdin, os.Stdout)
-				if err != nil {
-					return err
-				}
-				if !confirmed {
-					ccolor.Warnln("install cancelled")
-					return nil
-				}
+			if !ok {
+				return nil
 			}
 
 			result, err := installapp.NewService(config.LockFile).
@@ -242,18 +281,47 @@ func buildInstallCommand() *gcli.Command {
 			if err != nil {
 				return err
 			}
-			for _, record := range result.Installed {
-				ccolor.Infof("- installed %s %s\n", record.SkillID, record.InstalledPath)
-			}
-			for _, failed := range result.ResolveFailed {
-				ccolor.Warnf("- resolve failed %s %s\n", failed.Target, failed.Reason)
-			}
-			for _, failed := range result.InstallFailed {
-				ccolor.Errorf("- install failed %s %s\n", failed.SkillID, failed.Reason)
-			}
-			return nil
+			return printInstallResult(result)
 		},
 	}
+}
+
+func printInstallPlan(items []skill.Skill, opts ManageOptions) {
+	skillIDs := make([]string, 0, len(items))
+	for _, item := range items {
+		skillIDs = append(skillIDs, item.ID)
+	}
+	ccolor.Infof("Will install skills: %s\n", strings.Join(skillIDs, ", "))
+	ccolor.Infof(" - install to scope: %s, agent: %s\n", opts.Scope, opts.Agent)
+}
+
+func printInstallPlanAndConfirm(items []skill.Skill, opts ManageOptions) (bool, error) {
+	printInstallPlan(items, opts)
+	if opts.Yes {
+		return true, nil
+	}
+	confirmed, err := confirmInstall(os.Stdin, os.Stdout)
+	if err != nil {
+		return false, err
+	}
+	if !confirmed {
+		ccolor.Warnln("install cancelled")
+		return false, nil
+	}
+	return true, nil
+}
+
+func printInstallResult(result installapp.CommandResult) error {
+	for _, record := range result.Installed {
+		ccolor.Infof("- installed %s %s\n", record.SkillID, record.InstalledPath)
+	}
+	for _, failed := range result.ResolveFailed {
+		ccolor.Warnf("- resolve failed %s %s\n", failed.Target, failed.Reason)
+	}
+	for _, failed := range result.InstallFailed {
+		ccolor.Errorf("- install failed %s %s\n", failed.SkillID, failed.Reason)
+	}
+	return nil
 }
 
 func splitInstallTargets(value string) []string {

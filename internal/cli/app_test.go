@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"io"
 	"os"
 	"path/filepath"
@@ -36,6 +37,18 @@ type updateRunnerStub struct {
 
 func (s updateRunnerStub) Run(req updateapp.Req) (updateapp.Result, error) {
 	return s.runFn(req)
+}
+
+type selectorStub struct {
+	items  []termselect.Item
+	got    termselect.Options
+	called bool
+}
+
+func (s *selectorStub) SelectMulti(_ context.Context, opts termselect.Options) ([]termselect.Item, error) {
+	s.called = true
+	s.got = opts
+	return s.items, nil
 }
 
 func TestNewApp_RegistersSearchCommand(t *testing.T) {
@@ -509,6 +522,155 @@ func TestInstallCommand_InstallsIndexedSkill(t *testing.T) {
 	data, err := os.ReadFile(filepath.Join(baseDir, "project-claude", "skills", "hello-skill", "hello.txt"))
 	assert.NoErr(t, err)
 	assert.Eq(t, "hello", string(data))
+}
+
+func TestInstallCommandInteractiveSelectsAndInstallsSkills(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	indexPath := filepath.Join(baseDir, "cache", "index.json")
+	sourceDir := filepath.Join(baseDir, "source", "go-pro")
+	assert.NoErr(t, os.MkdirAll(filepath.Join(sourceDir, "commands"), 0o755))
+	assert.NoErr(t, os.WriteFile(filepath.Join(sourceDir, "commands", "go.txt"), []byte("go"), 0o644))
+
+	config := cfg.DefaultConfig()
+	config.LockFile = filepath.Join(baseDir, "skillc-install.lock")
+	config.IndexFile = indexPath
+	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, ".agents")}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
+	assert.NoErr(t, repoindex.NewStore().Save(indexPath, []skill.Skill{{
+		ID:                  "go-pro",
+		Name:                "Go Pro",
+		Version:             "1.0.0",
+		SupportedAgents:     []string{"universal"},
+		SourceID:            "repo-a",
+		SourceType:          sourcepkg.TypeLocal,
+		Collection:          "tools",
+		QualifiedName:       "tools/go-pro",
+		SourceQualifiedName: "repo-a/tools/go-pro",
+		InstallEntry:        "commands",
+		Path:                sourceDir,
+	}}))
+
+	stub := &selectorStub{items: []termselect.Item{{Value: "repo-a/tools/go-pro"}}}
+	prevSelector := newMultiSelector
+	newMultiSelector = func() multiSelector { return stub }
+	defer func() { newMultiSelector = prevSelector }()
+
+	output := runAppInDirWithStdout(t, baseDir, []string{"install", "--interactive", "--yes", "--agent", "universal"})
+
+	assert.Contains(t, output, "Will install skills: go-pro")
+	assert.Contains(t, output, "installed go-pro")
+	assert.Contains(t, stub.got.Title, "Install")
+	data, err := os.ReadFile(filepath.Join(baseDir, ".agents", "skills", "go-pro", "go.txt"))
+	assert.NoErr(t, err)
+	assert.Eq(t, "go", string(data))
+}
+
+func TestInstallCommandInteractiveUsesSkillArgAsSearchKeyword(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	indexPath := filepath.Join(baseDir, "cache", "index.json")
+	goSourceDir := filepath.Join(baseDir, "source", "go-pro")
+	reviewSourceDir := filepath.Join(baseDir, "source", "review")
+	assert.NoErr(t, os.MkdirAll(filepath.Join(goSourceDir, "commands"), 0o755))
+	assert.NoErr(t, os.MkdirAll(filepath.Join(reviewSourceDir, "commands"), 0o755))
+	assert.NoErr(t, os.WriteFile(filepath.Join(goSourceDir, "commands", "go.txt"), []byte("go"), 0o644))
+	assert.NoErr(t, os.WriteFile(filepath.Join(reviewSourceDir, "commands", "review.txt"), []byte("review"), 0o644))
+
+	config := cfg.DefaultConfig()
+	config.LockFile = filepath.Join(baseDir, "skillc-install.lock")
+	config.IndexFile = indexPath
+	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, ".agents")}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
+	assert.NoErr(t, repoindex.NewStore().Save(indexPath, []skill.Skill{
+		{ID: "go-pro", Name: "Go Pro", Version: "1.0.0", SupportedAgents: []string{"universal"}, SourceID: "repo-a", SourceType: sourcepkg.TypeLocal, Collection: "tools", QualifiedName: "tools/go-pro", SourceQualifiedName: "repo-a/tools/go-pro", InstallEntry: "commands", Path: goSourceDir},
+		{ID: "review", Name: "Review", Version: "1.0.0", SupportedAgents: []string{"universal"}, SourceID: "repo-a", SourceType: sourcepkg.TypeLocal, Collection: "tools", QualifiedName: "tools/review", SourceQualifiedName: "repo-a/tools/review", InstallEntry: "commands", Path: reviewSourceDir},
+	}))
+
+	stub := &selectorStub{items: []termselect.Item{{Value: "repo-a/tools/go-pro"}}}
+	prevSelector := newMultiSelector
+	newMultiSelector = func() multiSelector { return stub }
+	defer func() { newMultiSelector = prevSelector }()
+
+	output := runAppInDirWithStdout(t, baseDir, []string{"install", "--interactive", "--yes", "--agent", "universal", "go"})
+
+	assert.Contains(t, output, "Will install skills: go-pro")
+	assert.Len(t, stub.got.Items, 1)
+	if len(stub.got.Items) == 0 {
+		return
+	}
+	assert.Eq(t, "repo-a/tools/go-pro", stub.got.Items[0].Value)
+	_, err := os.Stat(filepath.Join(baseDir, ".agents", "skills", "review", "review.txt"))
+	assert.True(t, os.IsNotExist(err))
+}
+
+func TestInstallCommandInteractiveNoCandidatesDoesNotOpenSelector(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	indexPath := filepath.Join(baseDir, "cache", "index.json")
+	lockFile := filepath.Join(baseDir, "skillc-install.lock")
+
+	config := cfg.DefaultConfig()
+	config.LockFile = lockFile
+	config.IndexFile = indexPath
+	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, ".agents")}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
+	assert.NoErr(t, repoindex.NewStore().Save(indexPath, []skill.Skill{}))
+
+	stub := &selectorStub{}
+	prevSelector := newMultiSelector
+	newMultiSelector = func() multiSelector { return stub }
+	defer func() { newMultiSelector = prevSelector }()
+
+	output := runAppInDirWithStdout(t, baseDir, []string{"install", "--interactive", "--yes", "--agent", "universal", "go"})
+
+	assert.Contains(t, output, "no skills found")
+	assert.False(t, stub.called)
+	_, err := os.Stat(lockFile)
+	assert.True(t, os.IsNotExist(err))
+}
+
+func TestInstallCommandInteractiveNoSelectionDoesNotInstall(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	indexPath := filepath.Join(baseDir, "cache", "index.json")
+	lockFile := filepath.Join(baseDir, "skillc-install.lock")
+	sourceDir := filepath.Join(baseDir, "source", "go-pro")
+	assert.NoErr(t, os.MkdirAll(filepath.Join(sourceDir, "commands"), 0o755))
+	assert.NoErr(t, os.WriteFile(filepath.Join(sourceDir, "commands", "go.txt"), []byte("go"), 0o644))
+
+	config := cfg.DefaultConfig()
+	config.LockFile = lockFile
+	config.IndexFile = indexPath
+	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, ".agents")}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
+	assert.NoErr(t, repoindex.NewStore().Save(indexPath, []skill.Skill{{
+		ID:                  "go-pro",
+		Name:                "Go Pro",
+		Version:             "1.0.0",
+		SupportedAgents:     []string{"universal"},
+		SourceID:            "repo-a",
+		SourceType:          sourcepkg.TypeLocal,
+		Collection:          "tools",
+		QualifiedName:       "tools/go-pro",
+		SourceQualifiedName: "repo-a/tools/go-pro",
+		InstallEntry:        "commands",
+		Path:                sourceDir,
+	}}))
+
+	stub := &selectorStub{}
+	prevSelector := newMultiSelector
+	newMultiSelector = func() multiSelector { return stub }
+	defer func() { newMultiSelector = prevSelector }()
+
+	output := runAppInDirWithStdout(t, baseDir, []string{"install", "--interactive", "--yes", "--agent", "universal"})
+
+	assert.Contains(t, output, "no skills selected")
+	assert.True(t, stub.called)
+	_, err := os.Stat(filepath.Join(baseDir, ".agents", "skills", "go-pro", "go.txt"))
+	assert.True(t, os.IsNotExist(err))
+	_, err = os.Stat(lockFile)
+	assert.True(t, os.IsNotExist(err))
 }
 
 func TestInstallCommand_BatchTargetsWithYesReportsResolveAndInstallFailures(t *testing.T) {

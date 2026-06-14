@@ -583,7 +583,7 @@ git commit -m "feat(cli): add interactive selection helpers"
 - Modify: `internal/cli/manage_cmd.go`
 - Modify: `internal/cli/app_test.go`
 
-- [ ] **Step 1: Write failing install interactive CLI test**
+- [x] **Step 1: Write failing install interactive CLI test**
 
 Add a fake selector in `internal/cli/app_test.go`:
 
@@ -621,7 +621,7 @@ func TestInstallCommandInteractiveSelectsAndInstallsSkills(t *testing.T) {
 
 Also add `TestInstallCommandInteractiveUsesSkillArgAsSearchKeyword`, verifying `install --interactive go` passes only matching candidates to selector and does not treat `go` as direct target.
 
-- [ ] **Step 2: Run install interactive tests to verify failure**
+- [x] **Step 2: Run install interactive tests to verify failure**
 
 Run:
 
@@ -631,7 +631,7 @@ go test ./internal/cli -run 'TestInstallCommandInteractive' -count=1
 
 Expected: FAIL because `--interactive` does not exist.
 
-- [ ] **Step 3: Implement install interactive flag and branch**
+- [x] **Step 3: Implement install interactive flag and branch**
 
 In `buildInstallCommand`:
 
@@ -661,7 +661,7 @@ if interactive {
 
 Reuse the existing install mode, fallback notifier, confirmation prompt, and result printing. If no candidates or no selected skills, print a warning and return nil without modifying the lock.
 
-- [ ] **Step 4: Run install interactive tests**
+- [x] **Step 4: Run install interactive tests**
 
 Run:
 
@@ -671,12 +671,14 @@ go test ./internal/cli -run 'TestInstallCommandInteractive|TestInstallCommand_' 
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add internal/cli/manage_cmd.go internal/cli/app_test.go
 git commit -m "feat(cli): add interactive install"
 ```
+
+**Verification note (2026-06-15):** Added RED CLI coverage for `install --interactive --yes` selection/install, `install --interactive <keyword>` keyword filtering, no-candidate, and no-selection paths. Initial focused run failed because `--interactive` was not registered. After implementation and spec-review cleanup, `go test ./internal/cli -run 'TestInstallCommandInteractive|TestInstallCommand_' -count=1`, `go test ./internal/cli -count=1`, and `go test ./...` pass.
 
 ## Task 5: Add `update --interactive`
 

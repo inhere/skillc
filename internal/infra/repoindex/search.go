@@ -17,8 +17,9 @@ type Query struct {
 
 func Filter(items []skill.Skill, query Query) []skill.Skill {
 	filtered := make([]skill.Skill, 0)
+	keyword := strings.ToLower(strings.TrimSpace(query.Keyword))
 	for _, item := range items {
-		if query.Keyword != "" && !matchesKeyword(item, query.Keyword) {
+		if keyword != "" && !matchesKeyword(item, keyword) {
 			continue
 		}
 		if query.Agent != "" && !contains(item.SupportedAgents, query.Agent) {
@@ -33,10 +34,6 @@ func Filter(items []skill.Skill, query Query) []skill.Skill {
 }
 
 func matchesKeyword(item skill.Skill, keyword string) bool {
-	keyword = strings.ToLower(strings.TrimSpace(keyword))
-	if keyword == "" {
-		return true
-	}
 	fields := []string{
 		item.ID,
 		item.Name,

@@ -58,7 +58,7 @@ skillc install --interactive --agent codex --scope project
 1. 加载 index。
 2. 如果命令提供 `skill` 参数，将它作为初始搜索关键字，而不是直接安装 target。
 3. 候选项展示 target、version、source、collection。
-4. 用户在 `cliui` TUI 中输入关键字过滤，使用方向键移动、空格切换多选、回车确认；也可以输入逗号分隔的 item key 后回车。
+4. 用户在 `cliui` TUI 中输入关键字过滤，使用方向键移动、空格切换多选、回车确认。
 5. 选择后打印安装计划摘要。
 6. 未传 `--yes` 时继续使用确认提示。
 7. 执行仍调用 `installapp.RunResolved`。
@@ -352,7 +352,7 @@ git add internal/infra/termselect
 git commit -m "feat(termselect): add cliui multi selector adapter"
 ```
 
-**Verification note (2026-06-15):** `go test ./internal/infra/termselect -count=1` and `go test ./...` pass. The adapter delegates filtering, multi-select, and typed key parsing to `gookit/cliui`; empty item lists return an empty result before opening the TUI.
+**Verification note (2026-06-15):** `go test ./internal/infra/termselect -count=1` and `go test ./...` pass. The adapter delegates filtering and multi-select to `gookit/cliui`; empty item lists return an empty result before opening the TUI. Submitted key text is covered as a cliui backend path, not as the primary TUI user flow.
 
 ## Task 2: Expand Index Keyword Matching for Interactive Search
 
@@ -463,7 +463,7 @@ git add internal/infra/repoindex/search.go internal/infra/repoindex/search_test.
 git commit -m "feat(search): match skill identity fields"
 ```
 
-**Verification note (2026-06-15):** Added a RED test for ID, collection, qualified name, source-qualified name, source ID, and source name keyword matching. `go test ./internal/infra/repoindex -count=1` and `go test ./...` pass.
+**Verification note (2026-06-15):** Added RED coverage for ID, collection, qualified name, source-qualified name, source ID, source name, and source type keyword matching. `go test ./internal/infra/repoindex -count=1` and `go test ./...` pass.
 
 ## Task 3: Add CLI Interactive Helper Boundary
 

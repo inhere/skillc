@@ -40,6 +40,7 @@ func TestFilter_MatchesIdentitySourceAndCollectionFields(t *testing.T) {
 		SourceQualifiedName: "repo-a/tools/go-pro",
 		SourceID:            "source-a",
 		SourceName:          "workflow-repo",
+		SourceType:          sourcepkg.TypeGit,
 	}}
 
 	tests := []struct {
@@ -52,6 +53,7 @@ func TestFilter_MatchesIdentitySourceAndCollectionFields(t *testing.T) {
 		{name: "source qualified name", keyword: "repo-a/tools"},
 		{name: "source id", keyword: "source-a"},
 		{name: "source name", keyword: "workflow"},
+		{name: "source type", keyword: "git"},
 	}
 
 	for _, tt := range tests {

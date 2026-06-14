@@ -7,6 +7,7 @@ import (
 	gkconfig "github.com/gookit/config/v2"
 	gkyaml "github.com/gookit/config/v2/yaml"
 	cfg "github.com/inhere/skillc/internal/domain/config"
+	"github.com/inhere/skillc/internal/domain/profile"
 	domainsource "github.com/inhere/skillc/internal/domain/source"
 	"github.com/inhere/skillc/internal/infra/fsx"
 )
@@ -32,12 +33,13 @@ type rawConfig struct {
 	AgentTools  map[string]cfg.AgentToolConfig `yaml:"agent_tools"`
 	InstallMode string                         `yaml:"install_mode"`
 	// LockFile is the lock file path.
-	LockFile         string         `yaml:"lock_file"`
-	RepoCacheDir     string         `yaml:"repo_cache_dir"`
-	SkillCacheDir    string         `yaml:"skill_cache_dir"`
-	RegistryCacheDir string         `yaml:"registry_cache_dir"`
-	IndexFile        string         `yaml:"index_file"`
-	Sources          []sourceRecord `yaml:"sources"`
+	LockFile         string                     `yaml:"lock_file"`
+	RepoCacheDir     string                     `yaml:"repo_cache_dir"`
+	SkillCacheDir    string                     `yaml:"skill_cache_dir"`
+	RegistryCacheDir string                     `yaml:"registry_cache_dir"`
+	IndexFile        string                     `yaml:"index_file"`
+	Sources          []sourceRecord             `yaml:"sources"`
+	Profiles         map[string]profile.Profile `yaml:"profiles,omitempty"`
 }
 
 func NewYAMLStore() *YAMLStore {
@@ -101,7 +103,7 @@ func (s *YAMLStore) Save(path string, data cfg.Config, runtimeBaseDir ...string)
 	}
 
 	loader := newYamlLoader()
-	loader.SetData(map[string]any{
+	out := map[string]any{
 		"proxy_url":          persisted.ProxyURL,
 		"agent_tools":        persisted.AgentTools,
 		"install_mode":       persisted.InstallMode,
@@ -111,7 +113,11 @@ func (s *YAMLStore) Save(path string, data cfg.Config, runtimeBaseDir ...string)
 		"registry_cache_dir": persisted.RegistryCacheDir,
 		"index_file":         persisted.IndexFile,
 		"sources":            toSourceRecords(persisted.Sources),
-	})
+	}
+	if len(persisted.Profiles) > 0 {
+		out["profiles"] = persisted.Profiles
+	}
+	loader.SetData(out)
 	return loader.DumpToFile(path, gkconfig.Yaml)
 }
 
@@ -174,6 +180,13 @@ func cloneConfig(data cfg.Config) cfg.Config {
 	}
 	if data.Sources != nil {
 		clone.Sources = append([]domainsource.Source(nil), data.Sources...)
+	}
+	if data.Profiles != nil {
+		clone.Profiles = make(map[string]profile.Profile, len(data.Profiles))
+		for name, item := range data.Profiles {
+			item.Targets = append([]profile.Target(nil), item.Targets...)
+			clone.Profiles[name] = item
+		}
 	}
 	return clone
 }
@@ -363,5 +376,6 @@ func fromRawConfig(raw rawConfig) (cfg.Config, error) {
 		RegistryCacheDir: raw.RegistryCacheDir,
 		IndexFile:        raw.IndexFile,
 		Sources:          sources,
+		Profiles:         raw.Profiles,
 	}, nil
 }

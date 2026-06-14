@@ -3,6 +3,7 @@ package config
 import (
 	"slices"
 
+	"github.com/inhere/skillc/internal/domain/profile"
 	domainsource "github.com/inhere/skillc/internal/domain/source"
 )
 
@@ -19,12 +20,13 @@ type Config struct {
 	// 平台默认：Windows 使用 junction，其他系统使用 symlink。
 	InstallMode string `yaml:"install_mode"`
 	// LockFile is the lock file path.
-	LockFile         string                `yaml:"lock_file"`
-	RepoCacheDir     string                `yaml:"repo_cache_dir"`
-	SkillCacheDir    string                `yaml:"skill_cache_dir"`
-	RegistryCacheDir string                `yaml:"registry_cache_dir"`
-	IndexFile        string                `yaml:"index_file"`
-	Sources          []domainsource.Source `yaml:"sources"`
+	LockFile         string                     `yaml:"lock_file"`
+	RepoCacheDir     string                     `yaml:"repo_cache_dir"`
+	SkillCacheDir    string                     `yaml:"skill_cache_dir"`
+	RegistryCacheDir string                     `yaml:"registry_cache_dir"`
+	IndexFile        string                     `yaml:"index_file"`
+	Sources          []domainsource.Source      `yaml:"sources"`
+	Profiles         map[string]profile.Profile `yaml:"profiles,omitempty"`
 }
 
 type AgentToolConfig struct {

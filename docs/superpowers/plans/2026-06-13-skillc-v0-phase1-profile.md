@@ -354,7 +354,7 @@ git commit -m "feat(profile): add profile domain model"
 - Modify: `internal/infra/configstore/yaml_store.go`
 - Test: `internal/infra/configstore/yaml_store_test.go`
 
-- [ ] **Step 1: Add failing config persistence test**
+- [x] **Step 1: Add failing config persistence test**
 
 Append to `internal/infra/configstore/yaml_store_test.go`:
 
@@ -401,7 +401,7 @@ import (
 )
 ```
 
-- [ ] **Step 2: Run configstore tests to verify failure**
+- [x] **Step 2: Run configstore tests to verify failure**
 
 Run:
 
@@ -411,7 +411,7 @@ go test ./internal/infra/configstore -count=1
 
 Expected: FAIL because `cfg.Config` has no `Profiles`.
 
-- [ ] **Step 3: Add profile field to config model**
+- [x] **Step 3: Add profile field to config model**
 
 Modify `internal/domain/config/model.go`:
 
@@ -430,7 +430,7 @@ Add to `Config`:
 Profiles map[string]profile.Profile `yaml:"profiles,omitempty"`
 ```
 
-- [ ] **Step 4: Persist profiles in YAML store**
+- [x] **Step 4: Persist profiles in YAML store**
 
 Modify `internal/infra/configstore/yaml_store.go`:
 
@@ -479,7 +479,7 @@ Add to `fromRawConfig` return value:
 Profiles: raw.Profiles,
 ```
 
-- [ ] **Step 5: Run configstore tests**
+- [x] **Step 5: Run configstore tests**
 
 Run:
 
@@ -489,7 +489,7 @@ go test ./internal/infra/configstore -count=1
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add internal/domain/config/model.go internal/infra/configstore/yaml_store.go internal/infra/configstore/yaml_store_test.go

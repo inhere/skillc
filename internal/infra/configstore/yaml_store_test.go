@@ -7,6 +7,7 @@ import (
 
 	"github.com/gookit/goutil/testutil/assert"
 	cfg "github.com/inhere/skillc/internal/domain/config"
+	"github.com/inhere/skillc/internal/domain/profile"
 	sourcepkg "github.com/inhere/skillc/internal/domain/source"
 )
 
@@ -82,6 +83,46 @@ func TestStore_SaveAndLoadSourceLastSyncAt(t *testing.T) {
 	assert.Len(t, got.Sources, 1)
 	assert.Eq(t, "2024-03-09T16:00:00Z", got.Sources[0].LastSyncAt)
 	assert.Eq(t, "0123456789abcdef", got.Sources[0].ResolvedRef)
+}
+
+func TestYAMLStore_LoadSaveProfiles(t *testing.T) {
+	baseDir := t.TempDir()
+	path := filepath.Join(baseDir, "skillc.yaml")
+
+	data := cfg.DefaultConfig()
+	data.Profiles = map[string]profile.Profile{
+		"go-dev": {
+			Description:  "Go development",
+			DefaultAgent: "universal",
+			DefaultScope: "project",
+			Targets: []profile.Target{
+				{Source: "gstack", Skill: "go-pro"},
+				{Source: "gstack", Skill: "review"},
+			},
+		},
+	}
+
+	store := NewYAMLStore()
+	assert.NoErr(t, store.Save(path, data, baseDir))
+
+	got, err := store.Load(path, baseDir)
+	assert.NoErr(t, err)
+	assert.Len(t, got.Profiles, 1)
+	assert.Eq(t, "Go development", got.Profiles["go-dev"].Description)
+	assert.Len(t, got.Profiles["go-dev"].Targets, 2)
+	assert.Eq(t, "review", got.Profiles["go-dev"].Targets[1].Skill)
+}
+
+func TestYAMLStore_SaveDefaultConfigOmitsEmptyProfiles(t *testing.T) {
+	baseDir := t.TempDir()
+	path := filepath.Join(baseDir, "skillc.yaml")
+
+	store := NewYAMLStore()
+	assert.NoErr(t, store.Save(path, cfg.DefaultConfig(), baseDir))
+
+	content, err := os.ReadFile(path)
+	assert.NoErr(t, err)
+	assert.NotContains(t, string(content), "profiles:")
 }
 
 func TestStore_SaveAfterLoadKeepsProjectDirsPortable(t *testing.T) {

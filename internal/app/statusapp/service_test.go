@@ -161,6 +161,48 @@ func TestService_RunFiltersByAgent(t *testing.T) {
 	assert.Eq(t, 0, result.Summary.Unmanaged)
 }
 
+func TestService_RunFiltersByScope(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	lockFile := filepath.Join(baseDir, "skillc.lock.json")
+	indexFile := filepath.Join(baseDir, "index.json")
+	userDir := filepath.Join(baseDir, "user-agents")
+	projectDir := filepath.Join(baseDir, ".agents")
+	assert.NoErr(t, os.MkdirAll(filepath.Join(userDir, "skills", "global-skill"), 0o755))
+	assert.NoErr(t, os.MkdirAll(filepath.Join(userDir, "skills", "global-manual"), 0o755))
+	assert.NoErr(t, os.MkdirAll(filepath.Join(projectDir, "skills", "project-skill"), 0o755))
+	assert.NoErr(t, os.MkdirAll(filepath.Join(projectDir, "skills", "project-manual"), 0o755))
+
+	config := cfg.DefaultConfig()
+	config.LockFile = lockFile
+	config.IndexFile = indexFile
+	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", UserDir: userDir, ProjectDir: projectDir}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config, baseDir))
+	assert.NoErr(t, lockstore.NewStore().Save(lockFile, lockpkg.File{
+		lockpkg.GlobalKey: {
+			{SkillID: "global-skill", SourceID: "gstack", Version: "1.0.0", Agents: []string{"universal"}},
+		},
+		filepath.Clean(baseDir): {
+			{SkillID: "project-skill", SourceID: "gstack", Version: "1.0.0", Agents: []string{"universal"}},
+		},
+	}))
+	assert.NoErr(t, repoindex.NewStore().Save(indexFile, []skill.Skill{
+		{ID: "global-skill", SourceID: "gstack", Version: "1.0.0"},
+		{ID: "project-skill", SourceID: "gstack", Version: "1.0.0"},
+	}))
+
+	result, err := NewService(configFile, baseDir).Run(Req{Agent: "universal", Scope: "user", WorkDir: baseDir})
+
+	assert.NoErr(t, err)
+	got := statusBySkill(result.Items)
+	assert.Eq(t, "installed", got["global-skill"])
+	assert.Eq(t, "unmanaged", got["global-manual"])
+	assert.Eq(t, "", got["project-skill"])
+	assert.Eq(t, "", got["project-manual"])
+	assert.Eq(t, 1, result.Summary.Installed)
+	assert.Eq(t, 1, result.Summary.Unmanaged)
+}
+
 func TestService_RunMatchesIndexByQualifiedIdentityWhenSourceIDIsMissing(t *testing.T) {
 	baseDir := t.TempDir()
 	configFile := filepath.Join(baseDir, "skillc.yaml")

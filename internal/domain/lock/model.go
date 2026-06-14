@@ -13,6 +13,7 @@ type Record struct {
 	Version             string    `json:"version"`
 	SourceID            string    `json:"source_id"`
 	SourceType          string    `json:"source_type"`
+	Profile             string    `json:"profile,omitempty"`
 	InstallEntry        string    `json:"install_entry"`
 	Agents              []string  `json:"agents"`
 	Checksum            string    `json:"checksum"`

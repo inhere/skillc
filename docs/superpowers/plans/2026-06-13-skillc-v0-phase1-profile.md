@@ -505,7 +505,7 @@ git commit -m "feat(profile): persist profiles in config"
 - Modify: `internal/app/listapp/service.go`
 - Modify: `internal/app/listapp/service_test.go`
 
-- [ ] **Step 1: Add failing install profile attribution test**
+- [x] **Step 1: Add failing install profile attribution test**
 
 Append to `internal/app/installapp/service_test.go`:
 
@@ -542,7 +542,7 @@ func TestInstallMulti_RecordsProfileName(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run focused tests to verify failure**
+- [x] **Step 2: Run focused tests to verify failure**
 
 Run:
 
@@ -552,7 +552,7 @@ go test ./internal/app/installapp -count=1
 
 Expected: FAIL because `InstallReq.Profile` and `lock.Record.Profile` do not exist.
 
-- [ ] **Step 3: Add profile field to lock and install**
+- [x] **Step 3: Add profile field to lock and install**
 
 Modify `internal/domain/lock/model.go`:
 
@@ -604,7 +604,7 @@ Profile: profileName,
 
 Keep `ReinstallAtPath` profile empty for this phase unless the update flow is later extended to preserve profile attribution. This avoids hidden service state and keeps profile attribution tied to explicit install requests.
 
-- [ ] **Step 4: Add list item profile field**
+- [x] **Step 4: Add list item profile field**
 
 Modify `internal/app/listapp/service.go` `Item`:
 
@@ -645,7 +645,7 @@ func TestList_IncludesProfileName(t *testing.T) {
 }
 ```
 
-- [ ] **Step 5: Run install/list tests**
+- [x] **Step 5: Run install/list tests**
 
 Run:
 
@@ -655,7 +655,7 @@ go test ./internal/app/installapp ./internal/app/listapp -count=1
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add internal/domain/lock/model.go internal/app/installapp/service.go internal/app/installapp/service_test.go internal/app/listapp/service.go internal/app/listapp/service_test.go

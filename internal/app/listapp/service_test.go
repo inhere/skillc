@@ -50,4 +50,29 @@ func TestService_ListReturnsStatErrors(t *testing.T) {
 	assert.False(t, os.IsNotExist(err))
 }
 
+func TestService_ListIncludesProfileName(t *testing.T) {
+	baseDir := t.TempDir()
+	lockFile := filepath.Join(baseDir, "skillc-install.lock")
+	conf := config.DefaultConfig()
+	conf.AgentTools["claude-code"] = config.AgentToolConfig{Dirname: ".claude", UserDir: filepath.Join(baseDir, "user-claude"), ProjectDir: filepath.Join(baseDir, ".claude")}
+	installedPath := filepath.Join(baseDir, ".claude", "go-pro")
+	assert.NoErr(t, os.MkdirAll(installedPath, 0o755))
 
+	store := lockstore.NewStore()
+	assert.NoErr(t, store.Save(lockFile, lockpkg.File{
+		filepath.Clean(baseDir): {
+			{
+				SkillID:  "go-pro",
+				SourceID: "gstack",
+				Agents:   []string{"claude-code"},
+				Profile:  "go-dev",
+			},
+		},
+	}))
+
+	items, err := NewService(lockFile).WithRuntime(conf, baseDir).List("claude-code", "project")
+
+	assert.NoErr(t, err)
+	assert.Len(t, items, 1)
+	assert.Eq(t, "go-dev", items[0].Profile)
+}

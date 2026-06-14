@@ -153,7 +153,7 @@ func TestService_InstallMultiContinuesAfterInstallFailure(t *testing.T) {
 			Path:                filepath.Join(baseDir, "missing"),
 		},
 		testSkill(goodSourceDir, "hello-skill", "repo-a/marketplaces/hello-skill", "local-demo"),
-	}, "claude-code", agent.ScopeProject, projectKey, targetRoot)
+	}, "claude-code", agent.ScopeProject, projectKey, targetRoot, "")
 	assert.NoErr(t, err)
 	assert.Len(t, result.Installed, 1)
 	assert.Len(t, result.Failed, 1)
@@ -192,6 +192,27 @@ func TestService_RunResolvedReturnsInstalledAndResolveFailures(t *testing.T) {
 	assert.Len(t, result.Restored, 0)
 }
 
+func TestService_RunResolvedRecordsProfileName(t *testing.T) {
+	baseDir := t.TempDir()
+	lockFile := filepath.Join(baseDir, "skillc-install.lock")
+	sourceDir := createSkillSource(t, baseDir, filepath.Join("source", "go-pro"), "SKILL.md", "# Go Pro")
+	service := NewService(lockFile)
+
+	_, err := service.RunResolved(testConfig(baseDir), InstallReq{
+		Agent:   "claude-code",
+		Scope:   "project",
+		WorkDir: baseDir,
+		Profile: "go-dev",
+	}, []skill.Skill{testSkill(sourceDir, "go-pro", "gstack/go-pro", "gstack")}, nil)
+	assert.NoErr(t, err)
+
+	projectKey, err := resolveScopeKey(agent.ScopeProject, baseDir)
+	assert.NoErr(t, err)
+	locks := mustLoadLockFile(t, service, lockFile)
+	assert.Len(t, locks[projectKey], 1)
+	assert.Eq(t, "go-dev", locks[projectKey][0].Profile)
+}
+
 func TestService_ReinstallAtPathUpdatesExistingLockRecord(t *testing.T) {
 	baseDir := t.TempDir()
 	lockFile := filepath.Join(baseDir, "skillc-install.lock")
@@ -212,6 +233,7 @@ func TestService_ReinstallAtPathUpdatesExistingLockRecord(t *testing.T) {
 				Version:             "1.0.0",
 				SourceID:            "local-demo",
 				SourceType:          "local",
+				Profile:             "go-dev",
 				InstallEntry:        "commands",
 				Agents:              []string{"claude-code"},
 				InstalledAt:         time.Date(2026, 4, 1, 1, 0, 0, 0, time.UTC),
@@ -243,6 +265,7 @@ func TestService_ReinstallAtPathUpdatesExistingLockRecord(t *testing.T) {
 	locks := mustLoadLockFile(t, service, lockFile)
 	assert.Len(t, locks[projectKey], 1)
 	assert.Eq(t, "1.1.0", locks[projectKey][0].Version)
+	assert.Eq(t, "go-dev", locks[projectKey][0].Profile)
 	assert.Eq(t, []string{"claude-code"}, locks[projectKey][0].Agents)
 }
 
@@ -346,8 +369,6 @@ func TestService_UninstallProjectScopeDoesNotTouchOtherProjectKeys(t *testing.T)
 	assert.Len(t, locks[projectBKey], 1)
 	assert.Eq(t, []string{"claude-code"}, locks[projectBKey][0].Agents)
 }
-
-
 
 func testConfig(baseDir string) cfg.Config {
 	return cfg.Config{

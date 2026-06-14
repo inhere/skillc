@@ -109,6 +109,7 @@ type InstallReq struct {
 	Agent   string
 	Scope   string
 	WorkDir string
+	Profile string
 }
 
 // Run installs skills. 通过 skill id 搜索并安装技能
@@ -148,7 +149,7 @@ func (s *Service) RunResolved(config cfg.Config, req InstallReq, items []skill.S
 		return CommandResult{}, err
 	}
 
-	installResult, err := runtimeSvc.InstallMulti(items, req.Agent, scope, scopeKey, targetRoot)
+	installResult, err := runtimeSvc.InstallMulti(items, req.Agent, scope, scopeKey, targetRoot, req.Profile)
 	if err != nil {
 		return CommandResult{}, err
 	}
@@ -160,7 +161,7 @@ func (s *Service) RunResolved(config cfg.Config, req InstallReq, items []skill.S
 }
 
 // InstallMulti installs multiple skills with a single lock file load/save.
-func (s *Service) InstallMulti(items []skill.Skill, agentName string, scope agent.Scope, scopeKey string, targetRoot string) (BatchInstallResult, error) {
+func (s *Service) InstallMulti(items []skill.Skill, agentName string, scope agent.Scope, scopeKey string, targetRoot string, profileName string) (BatchInstallResult, error) {
 	result := BatchInstallResult{
 		Installed: make([]RuntimeRecord, 0, len(items)),
 		Failed:    make([]InstallItemError, 0),
@@ -172,7 +173,7 @@ func (s *Service) InstallMulti(items []skill.Skill, agentName string, scope agen
 	}
 
 	for _, item := range items {
-		record, err := s.installInto(item, agentName, scope, scopeKey, targetRoot, locks)
+		record, err := s.installInto(item, agentName, scope, scopeKey, targetRoot, locks, profileName)
 		if err != nil {
 			result.Failed = append(result.Failed, InstallItemError{SkillID: item.ID, Reason: err.Error()})
 			continue
@@ -194,7 +195,7 @@ func (s *Service) Install(item skill.Skill, agentName string, scope agent.Scope,
 	if err != nil {
 		return RuntimeRecord{}, err
 	}
-	record, err := s.installInto(item, agentName, scope, scopeKey, targetRoot, locks)
+	record, err := s.installInto(item, agentName, scope, scopeKey, targetRoot, locks, "")
 	if err != nil {
 		return RuntimeRecord{}, err
 	}
@@ -205,7 +206,7 @@ func (s *Service) Install(item skill.Skill, agentName string, scope agent.Scope,
 }
 
 // installInto installs a skill into the provided locks map without saving.
-func (s *Service) installInto(item skill.Skill, agentName string, scope agent.Scope, scopeKey string, targetRoot string, locks lockpkg.File) (RuntimeRecord, error) {
+func (s *Service) installInto(item skill.Skill, agentName string, scope agent.Scope, scopeKey string, targetRoot string, locks lockpkg.File, profileName string) (RuntimeRecord, error) {
 	records := append([]lockpkg.Record(nil), locks[scopeKey]...)
 	now := s.now()
 	record := lockpkg.Record{
@@ -215,6 +216,7 @@ func (s *Service) installInto(item skill.Skill, agentName string, scope agent.Sc
 		Version:             item.Version,
 		SourceID:            item.SourceID,
 		SourceType:          string(item.SourceType),
+		Profile:             profileName,
 		InstallEntry:        item.InstallEntry,
 		Agents:              []string{agentName},
 		InstalledAt:         now,
@@ -455,6 +457,9 @@ func upsertRecord(records []lockpkg.Record, next lockpkg.Record) ([]lockpkg.Reco
 		if sameInstallIdentity(record, next) {
 			next.InstalledAt = record.InstalledAt
 			next.Agents = mergeAgents(record.Agents, next.Agents)
+			if next.Profile == "" {
+				next.Profile = record.Profile
+			}
 			records[i] = next
 			return records, next
 		}

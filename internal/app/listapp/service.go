@@ -22,6 +22,7 @@ type Item struct {
 	Version             string
 	SourceID            string
 	SourceType          string
+	Profile             string
 	InstalledPath       string
 	Checksum            string
 	UpdatedAt           string
@@ -122,6 +123,7 @@ func (s *Service) toItem(scopeKey string, scope agent.Scope, record lockpkg.Reco
 		Version:             record.Version,
 		SourceID:            record.SourceID,
 		SourceType:          record.SourceType,
+		Profile:             record.Profile,
 		InstalledPath:       installedPath,
 		Checksum:            record.Checksum,
 		UpdatedAt:           record.UpdatedAt.UTC().Format("2006-01-02T15:04:05Z07:00"),
@@ -254,7 +256,7 @@ func (s *Service) collectRecordedPaths(agentName string, scope agent.Scope) (map
 					continue
 				}
 				flatPath := filepath.Join(targetRoot, record.SkillID)
-			paths[flatPath] = true
+				paths[flatPath] = true
 			}
 		}
 	}

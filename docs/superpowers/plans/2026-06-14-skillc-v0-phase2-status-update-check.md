@@ -1158,7 +1158,7 @@ git commit -m "docs: add skillc phase 2 status plan"
 **Files:**
 - Modify: `docs/superpowers/plans/2026-06-14-skillc-v0-phase2-status-update-check.md`
 
-- [ ] **Step 1: Run full tests**
+- [x] **Step 1: Run full tests**
 
 Run:
 
@@ -1168,7 +1168,7 @@ go test ./...
 
 Expected: PASS.
 
-- [ ] **Step 2: Run docs self-check**
+- [x] **Step 2: Run docs self-check**
 
 Run:
 
@@ -1178,7 +1178,7 @@ rg -n -- "status|update --check|Phase 2|二期计划" README.md README.zh-CN.md 
 
 Expected: docs contain the new status/update-check references.
 
-- [ ] **Step 3: Update final verification note**
+- [x] **Step 3: Update final verification note**
 
 Append to this plan:
 
@@ -1186,7 +1186,9 @@ Append to this plan:
 **Verification note (2026-06-14):** `go test ./...` passes. README, README.zh-CN, TODO, and design docs reference Phase 2 status/update-check behavior and implementation plan.
 ```
 
-- [ ] **Step 4: Commit**
+**Verification note (2026-06-14):** `go test ./...` passes. README, README.zh-CN, TODO, and design docs reference Phase 2 status/update-check behavior and implementation plan.
+
+- [x] **Step 4: Commit**
 
 ```bash
 git add docs/superpowers/plans/2026-06-14-skillc-v0-phase2-status-update-check.md

@@ -130,19 +130,21 @@ func (s *Service) Run(req Req) (Result, error) {
 	for _, current := range listItems {
 		result.Items = append(result.Items, classifyListItem(current, indexItems, syncFailed))
 	}
-	unmanaged, err := listSvc.ScanUnrecorded(canonicalAgent, scope)
-	if err != nil {
-		return Result{}, err
-	}
-	for _, group := range unmanaged {
-		for _, skillID := range group.Skills {
-			result.Items = append(result.Items, Item{
-				SkillID: skillID,
-				Agent:   group.AgentName,
-				Scope:   string(scope),
-				Status:  StatusUnmanaged,
-				Reason:  "installed directory has no lock record",
-			})
+	if req.Profile == "" {
+		unmanaged, err := listSvc.ScanUnrecorded(canonicalAgent, scope)
+		if err != nil {
+			return Result{}, err
+		}
+		for _, group := range unmanaged {
+			for _, skillID := range group.Skills {
+				result.Items = append(result.Items, Item{
+					SkillID: skillID,
+					Agent:   group.AgentName,
+					Scope:   string(scope),
+					Status:  StatusUnmanaged,
+					Reason:  "installed directory has no lock record",
+				})
+			}
 		}
 	}
 	sortItems(result.Items)
@@ -202,6 +204,12 @@ func classifyListItem(current listapp.Item, indexItems []skill.Skill, syncFailed
 		item.Reason = "skill not found in source index"
 		return item
 	}
+	if item.SourceID == "" {
+		item.SourceID = latest.SourceID
+	}
+	if item.QualifiedName == "" {
+		item.QualifiedName = latest.QualifiedName
+	}
 	item.LatestVersion = latest.Version
 	if current.Version != "" && latest.Version != "" && current.Version != latest.Version {
 		item.Status = StatusOutdated
@@ -214,29 +222,28 @@ func classifyListItem(current listapp.Item, indexItems []skill.Skill, syncFailed
 
 func findLatest(items []skill.Skill, current listapp.Item) (skill.Skill, bool) {
 	for _, item := range items {
-		if current.SkillID != item.ID {
-			continue
-		}
-		if current.SourceID != "" || item.SourceID != "" {
-			if current.SourceID != "" && current.SourceID == item.SourceID {
-				return item, true
-			}
-			continue
-		}
-		if current.SourceQualifiedName != "" || item.SourceQualifiedName != "" {
-			if current.SourceQualifiedName != "" && current.SourceQualifiedName == item.SourceQualifiedName {
-				return item, true
-			}
-			continue
-		}
-		if current.QualifiedName != "" || item.QualifiedName != "" {
-			if current.QualifiedName != "" && current.QualifiedName == item.QualifiedName {
-				return item, true
-			}
-			continue
+		if sameIdentity(current, item) {
+			return item, true
 		}
 	}
 	return skill.Skill{}, false
+}
+
+func sameIdentity(current listapp.Item, item skill.Skill) bool {
+	if current.SkillID != item.ID {
+		return false
+	}
+	if current.SourceID != "" && item.SourceID != "" {
+		return current.SourceID == item.SourceID
+	}
+	if current.SourceQualifiedName != "" && item.SourceQualifiedName != "" {
+		return current.SourceQualifiedName == item.SourceQualifiedName
+	}
+	if current.QualifiedName != "" && item.QualifiedName != "" {
+		return current.QualifiedName == item.QualifiedName
+	}
+	return current.SourceID == "" && current.SourceQualifiedName == "" && current.QualifiedName == "" &&
+		item.SourceID == "" && item.SourceQualifiedName == "" && item.QualifiedName == ""
 }
 
 func filterByProfile(items []listapp.Item, profileName string) []listapp.Item {

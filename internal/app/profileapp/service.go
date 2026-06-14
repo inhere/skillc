@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 
+	cfg "github.com/inhere/skillc/internal/domain/config"
 	"github.com/inhere/skillc/internal/domain/profile"
 	"github.com/inhere/skillc/internal/infra/configstore"
 )
@@ -58,21 +59,44 @@ func (s *Service) Show(name string) (profile.Profile, error) {
 	return item, nil
 }
 
+func (s *Service) Create(name string, item profile.Profile) (profile.Profile, error) {
+	if err := profile.ValidateName(name); err != nil {
+		return profile.Profile{}, err
+	}
+
+	config, err := s.store.Load(s.configFile, s.baseDir)
+	if err != nil {
+		return profile.Profile{}, err
+	}
+	if _, ok := config.Profiles[name]; ok {
+		return profile.Profile{}, fmt.Errorf("profile already exists: %s", name)
+	}
+
+	if err := s.saveLoaded(config, name, item); err != nil {
+		return profile.Profile{}, err
+	}
+	return s.Show(name)
+}
+
 func (s *Service) Save(name string, item profile.Profile) error {
 	if err := profile.ValidateName(name); err != nil {
 		return err
 	}
 
+	config, err := s.store.Load(s.configFile, s.baseDir)
+	if err != nil {
+		return err
+	}
+	return s.saveLoaded(config, name, item)
+}
+
+func (s *Service) saveLoaded(config cfg.Config, name string, item profile.Profile) error {
 	targets, err := profile.NormalizeTargets(item.Targets)
 	if err != nil {
 		return err
 	}
 	item.Targets = targets
 
-	config, err := s.store.Load(s.configFile, s.baseDir)
-	if err != nil {
-		return err
-	}
 	if config.Profiles == nil {
 		config.Profiles = map[string]profile.Profile{}
 	}

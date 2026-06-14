@@ -1134,7 +1134,7 @@ git add internal/app/profileapp/service.go internal/app/profileapp/service_test.
 git commit -m "feat(profile): add profile service"
 ```
 
-**Verification note (2026-06-14):** Added `profileapp.Service` with `List`, `Show`, and `Save`; service tests cover sorted listing, show, missing profile errors, and target normalization on save. `go test ./internal/app/profileapp -count=1` and `go test ./...` pass.
+**Verification note (2026-06-14):** Added `profileapp.Service` with `List`, `Show`, `Create`, and `Save`; service tests cover sorted listing, show, missing profile errors, target normalization on save, and create-time duplicate profile rejection. `go test ./internal/app/profileapp -count=1` and `go test ./...` pass.
 
 ## Task 6: Create Profiles From Installed Skills And Collections
 

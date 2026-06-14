@@ -68,3 +68,32 @@ func TestService_SaveProfileNormalizesTargets(t *testing.T) {
 	assert.Eq(t, "go-pro", got.Targets[0].Skill)
 	assert.Eq(t, "review", got.Targets[1].Skill)
 }
+
+func TestService_CreateProfileRejectsExistingName(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	config := cfg.DefaultConfig()
+	config.Profiles = map[string]profile.Profile{
+		"go-dev": {Description: "Existing", Targets: []profile.Target{{Source: "gstack", Skill: "go-pro"}}},
+	}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config, baseDir))
+
+	svc := NewService(configFile, baseDir)
+	got, err := svc.Create("new-dev", profile.Profile{
+		Description: "New dev",
+		Targets:     []profile.Target{{Source: "gstack", Skill: "review"}},
+	})
+	assert.NoErr(t, err)
+	assert.Eq(t, "New dev", got.Description)
+
+	_, err = svc.Create("go-dev", profile.Profile{
+		Description: "Overwrite",
+		Targets:     []profile.Target{{Source: "gstack", Skill: "review"}},
+	})
+	assert.Err(t, err)
+	assert.Contains(t, err.Error(), "profile already exists: go-dev")
+
+	existing, err := svc.Show("go-dev")
+	assert.NoErr(t, err)
+	assert.Eq(t, "Existing", existing.Description)
+}

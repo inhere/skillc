@@ -45,9 +45,11 @@ type ApplyPlanItem struct {
 }
 
 func ValidateName(name string) error {
-	name = strings.TrimSpace(name)
 	if name == "" {
 		return fmt.Errorf("profile name is required")
+	}
+	if strings.TrimSpace(name) != name {
+		return fmt.Errorf("invalid profile name: %s", name)
 	}
 	if !namePattern.MatchString(name) {
 		return fmt.Errorf("invalid profile name: %s", name)

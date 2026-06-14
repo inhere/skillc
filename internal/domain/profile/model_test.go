@@ -15,6 +15,8 @@ func TestValidateName(t *testing.T) {
 		{name: "flutter_dev"},
 		{name: "security.review"},
 		{name: "", wantErr: true},
+		{name: " go-dev", wantErr: true},
+		{name: "go-dev ", wantErr: true},
 		{name: "has space", wantErr: true},
 		{name: "../bad", wantErr: true},
 	}

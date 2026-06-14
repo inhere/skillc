@@ -100,7 +100,6 @@ func TestService_RunFiltersByProfile(t *testing.T) {
 	indexFile := filepath.Join(baseDir, "index.json")
 	assert.NoErr(t, os.MkdirAll(filepath.Join(baseDir, ".agents", "skills", "go-pro"), 0o755))
 	assert.NoErr(t, os.MkdirAll(filepath.Join(baseDir, ".agents", "skills", "review"), 0o755))
-	assert.NoErr(t, os.MkdirAll(filepath.Join(baseDir, ".agents", "skills", "manual"), 0o755))
 
 	config := cfg.DefaultConfig()
 	config.LockFile = lockFile
@@ -125,14 +124,47 @@ func TestService_RunFiltersByProfile(t *testing.T) {
 	assert.Eq(t, "go-pro", result.Items[0].SkillID)
 }
 
-func TestService_RunFiltersByAgent(t *testing.T) {
+func TestService_RunProfileFilterExcludesUnmanagedDirectories(t *testing.T) {
 	baseDir := t.TempDir()
 	configFile := filepath.Join(baseDir, "skillc.yaml")
 	lockFile := filepath.Join(baseDir, "skillc.lock.json")
 	indexFile := filepath.Join(baseDir, "index.json")
 	assert.NoErr(t, os.MkdirAll(filepath.Join(baseDir, ".agents", "skills", "go-pro"), 0o755))
-	assert.NoErr(t, os.MkdirAll(filepath.Join(baseDir, ".codex", "skills", "review"), 0o755))
-	assert.NoErr(t, os.MkdirAll(filepath.Join(baseDir, ".codex", "skills", "manual-codex"), 0o755))
+	assert.NoErr(t, os.MkdirAll(filepath.Join(baseDir, ".agents", "skills", "manual"), 0o755))
+
+	config := cfg.DefaultConfig()
+	config.LockFile = lockFile
+	config.IndexFile = indexFile
+	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, ".agents")}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config, baseDir))
+	assert.NoErr(t, lockstore.NewStore().Save(lockFile, lockpkg.File{
+		filepath.Clean(baseDir): {
+			{SkillID: "go-pro", SourceID: "gstack", Version: "1.0.0", Profile: "go-dev", Agents: []string{"universal"}},
+		},
+	}))
+	assert.NoErr(t, repoindex.NewStore().Save(indexFile, []skill.Skill{
+		{ID: "go-pro", SourceID: "gstack", Version: "1.0.0"},
+	}))
+
+	result, err := NewService(configFile, baseDir).Run(Req{Agent: "universal", Scope: "project", Profile: "go-dev", WorkDir: baseDir})
+
+	assert.NoErr(t, err)
+	assert.Len(t, result.Items, 1)
+	assert.Eq(t, "go-pro", result.Items[0].SkillID)
+	assert.Eq(t, 0, result.Summary.Unmanaged)
+	for _, item := range result.Items {
+		assert.NotEq(t, "manual", item.SkillID)
+		assert.NotEq(t, StatusUnmanaged, item.Status)
+	}
+}
+
+func TestService_RunFiltersByAgent(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	lockFile := filepath.Join(baseDir, "skillc.lock.json")
+	indexFile := filepath.Join(baseDir, "index.json")
+	assert.NoErr(t, os.MkdirAll(filepath.Join(baseDir, ".agents", "skills", "universal-skill"), 0o755))
+	assert.NoErr(t, os.MkdirAll(filepath.Join(baseDir, ".codex", "skills", "codex-skill"), 0o755))
 
 	config := cfg.DefaultConfig()
 	config.LockFile = lockFile
@@ -142,23 +174,23 @@ func TestService_RunFiltersByAgent(t *testing.T) {
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config, baseDir))
 	assert.NoErr(t, lockstore.NewStore().Save(lockFile, lockpkg.File{
 		filepath.Clean(baseDir): {
-			{SkillID: "go-pro", SourceID: "gstack", Version: "1.0.0", Agents: []string{"universal"}},
-			{SkillID: "review", SourceID: "gstack", Version: "1.0.0", Agents: []string{"codex"}},
+			{SkillID: "universal-skill", SourceID: "gstack", Version: "1.0.0", Agents: []string{"universal"}},
+			{SkillID: "codex-skill", SourceID: "gstack", Version: "1.0.0", Agents: []string{"codex"}},
 		},
 	}))
 	assert.NoErr(t, repoindex.NewStore().Save(indexFile, []skill.Skill{
-		{ID: "go-pro", SourceID: "gstack", Version: "1.0.0"},
-		{ID: "review", SourceID: "gstack", Version: "1.0.0"},
+		{ID: "universal-skill", SourceID: "gstack", Version: "1.0.0"},
+		{ID: "codex-skill", SourceID: "gstack", Version: "1.0.0"},
 	}))
 
-	result, err := NewService(configFile, baseDir).Run(Req{Agent: "universal", Scope: "project", WorkDir: baseDir})
+	result, err := NewService(configFile, baseDir).Run(Req{Agent: "codex", Scope: "project", WorkDir: baseDir})
 
 	assert.NoErr(t, err)
 	assert.Len(t, result.Items, 1)
-	assert.Eq(t, "go-pro", result.Items[0].SkillID)
-	assert.Eq(t, "universal", result.Items[0].Agent)
+	assert.Eq(t, "codex-skill", result.Items[0].SkillID)
+	assert.Eq(t, "codex", result.Items[0].Agent)
+	assert.Eq(t, StatusInstalled, result.Items[0].Status)
 	assert.Eq(t, 1, result.Summary.Installed)
-	assert.Eq(t, 0, result.Summary.Unmanaged)
 }
 
 func TestService_RunFiltersByScope(t *testing.T) {
@@ -257,9 +289,10 @@ func TestService_RunReportsSourceSyncErrorsWithoutUpdatingLock(t *testing.T) {
 	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, ".agents")}
 	config.Sources = []sourcepkg.Source{{ID: "gstack", Type: sourcepkg.TypeLocal, Path: filepath.Join(baseDir, "source")}}
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config, baseDir))
-	assert.NoErr(t, lockstore.NewStore().Save(lockFile, lockpkg.File{
+	originalLock := lockpkg.File{
 		filepath.Clean(baseDir): {{SkillID: "go-pro", SourceID: "gstack", Version: "1.0.0", Agents: []string{"universal"}}},
-	}))
+	}
+	assert.NoErr(t, lockstore.NewStore().Save(lockFile, originalLock))
 	assert.NoErr(t, repoindex.NewStore().Save(indexFile, []skill.Skill{{ID: "go-pro", SourceID: "gstack", Version: "2.0.0", SourceType: sourcepkg.TypeLocal}}))
 	svc := NewService(configFile, baseDir)
 	svc.syncer = syncerStub{syncFn: func(id string) error {
@@ -273,8 +306,13 @@ func TestService_RunReportsSourceSyncErrorsWithoutUpdatingLock(t *testing.T) {
 
 	assert.NoErr(t, err)
 	assert.Len(t, result.SyncFailed, 1)
+	assert.Eq(t, "gstack", result.SyncFailed[0].SourceID)
 	assert.Eq(t, "source-error", result.Items[0].Status)
 	assert.Eq(t, "sync failed", result.Items[0].Reason)
+	assert.Eq(t, 1, result.Summary.SourceError)
+	gotLock, err := lockstore.NewStore().Load(lockFile)
+	assert.NoErr(t, err)
+	assert.Eq(t, originalLock, gotLock)
 }
 
 func statusBySkill(items []Item) map[string]string {

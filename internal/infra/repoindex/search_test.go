@@ -31,6 +31,39 @@ func TestFilter_MatchesNameDescriptionAgentAndSourceType(t *testing.T) {
 	assert.Eq(t, "hello-skill", got[0].ID)
 }
 
+func TestFilter_MatchesIdentitySourceAndCollectionFields(t *testing.T) {
+	items := []skill.Skill{{
+		ID:                  "go-pro",
+		Name:                "Go Pro",
+		Collection:          "tools",
+		QualifiedName:       "tools/go-pro",
+		SourceQualifiedName: "repo-a/tools/go-pro",
+		SourceID:            "source-a",
+		SourceName:          "workflow-repo",
+	}}
+
+	tests := []struct {
+		name    string
+		keyword string
+	}{
+		{name: "id", keyword: "go-pro"},
+		{name: "collection", keyword: "tools"},
+		{name: "qualified name", keyword: "tools/go-pro"},
+		{name: "source qualified name", keyword: "repo-a/tools"},
+		{name: "source id", keyword: "source-a"},
+		{name: "source name", keyword: "workflow"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := Filter(items, Query{Keyword: tt.keyword})
+			if assert.Len(t, got, 1) {
+				assert.Eq(t, "go-pro", got[0].ID)
+			}
+		})
+	}
+}
+
 func TestResolveSkills_SupportsCollectionTargetsAndDisambiguation(t *testing.T) {
 	items := []skill.Skill{
 		{ID: "hello-skill", Collection: "marketplaces", QualifiedName: "marketplaces/hello-skill", SourceQualifiedName: "repo-a/marketplaces/hello-skill"},

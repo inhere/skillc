@@ -18,11 +18,8 @@ type Query struct {
 func Filter(items []skill.Skill, query Query) []skill.Skill {
 	filtered := make([]skill.Skill, 0)
 	for _, item := range items {
-		if query.Keyword != "" {
-			keyword := strings.ToLower(query.Keyword)
-			if !strings.Contains(strings.ToLower(item.Name), keyword) && !strings.Contains(strings.ToLower(item.Description), keyword) {
-				continue
-			}
+		if query.Keyword != "" && !matchesKeyword(item, query.Keyword) {
+			continue
 		}
 		if query.Agent != "" && !contains(item.SupportedAgents, query.Agent) {
 			continue
@@ -33,6 +30,30 @@ func Filter(items []skill.Skill, query Query) []skill.Skill {
 		filtered = append(filtered, item)
 	}
 	return filtered
+}
+
+func matchesKeyword(item skill.Skill, keyword string) bool {
+	keyword = strings.ToLower(strings.TrimSpace(keyword))
+	if keyword == "" {
+		return true
+	}
+	fields := []string{
+		item.ID,
+		item.Name,
+		item.Description,
+		item.Collection,
+		item.QualifiedName,
+		item.SourceQualifiedName,
+		item.SourceID,
+		item.SourceName,
+		string(item.SourceType),
+	}
+	for _, field := range fields {
+		if strings.Contains(strings.ToLower(field), keyword) {
+			return true
+		}
+	}
+	return false
 }
 
 func ResolveSkills(items []skill.Skill, target string) ([]skill.Skill, error) {

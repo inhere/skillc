@@ -360,7 +360,7 @@ git commit -m "feat(termselect): add cliui multi selector adapter"
 - Modify: `internal/infra/repoindex/search.go`
 - Modify: `internal/infra/repoindex/search_test.go`
 
-- [ ] **Step 1: Write failing keyword match tests**
+- [x] **Step 1: Write failing keyword match tests**
 
 Add a test to `internal/infra/repoindex/search_test.go`:
 
@@ -398,7 +398,7 @@ func TestFilter_MatchesIdentitySourceAndCollectionFields(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run repoindex tests to verify failure**
+- [x] **Step 2: Run repoindex tests to verify failure**
 
 Run:
 
@@ -408,7 +408,7 @@ go test ./internal/infra/repoindex -count=1
 
 Expected: FAIL for at least source/qualified-field matching.
 
-- [ ] **Step 3: Implement `matchesKeyword` helper**
+- [x] **Step 3: Implement `matchesKeyword` helper**
 
 In `internal/infra/repoindex/search.go`, replace the current name/description-only condition with:
 
@@ -446,7 +446,7 @@ func matchesKeyword(item skill.Skill, keyword string) bool {
 }
 ```
 
-- [ ] **Step 4: Run repoindex tests**
+- [x] **Step 4: Run repoindex tests**
 
 Run:
 
@@ -456,12 +456,14 @@ go test ./internal/infra/repoindex -count=1
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add internal/infra/repoindex/search.go internal/infra/repoindex/search_test.go
 git commit -m "feat(search): match skill identity fields"
 ```
+
+**Verification note (2026-06-15):** Added a RED test for ID, collection, qualified name, source-qualified name, source ID, and source name keyword matching. `go test ./internal/infra/repoindex -count=1` and `go test ./...` pass.
 
 ## Task 3: Add CLI Interactive Helper Boundary
 

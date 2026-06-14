@@ -235,7 +235,7 @@ git commit -m "fix(list): filter unrecorded scan by agent"
 - Create: `internal/app/statusapp/service.go`
 - Create: `internal/app/statusapp/service_test.go`
 
-- [ ] **Step 1: Write failing statusapp tests**
+- [x] **Step 1: Write failing statusapp tests**
 
 Create `internal/app/statusapp/service_test.go`:
 
@@ -408,7 +408,7 @@ func statusBySkill(items []Item) map[string]string {
 }
 ```
 
-- [ ] **Step 2: Run statusapp tests to verify failure**
+- [x] **Step 2: Run statusapp tests to verify failure**
 
 Run:
 
@@ -418,7 +418,7 @@ go test ./internal/app/statusapp -count=1
 
 Expected: FAIL because `internal/app/statusapp` does not exist.
 
-- [ ] **Step 3: Implement statusapp service**
+- [x] **Step 3: Implement statusapp service**
 
 Create `internal/app/statusapp/service.go`:
 
@@ -718,7 +718,7 @@ func defaultString(value string, fallback string) string {
 }
 ```
 
-- [ ] **Step 4: Run statusapp tests**
+- [x] **Step 4: Run statusapp tests**
 
 Run:
 
@@ -728,7 +728,9 @@ go test ./internal/app/statusapp -count=1
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+**Verification note (2026-06-14):** `go test ./internal/app/statusapp -count=1` and `go test ./...` pass after adding `statusapp`.
+
+- [x] **Step 5: Commit**
 
 ```bash
 git add internal/app/statusapp/service.go internal/app/statusapp/service_test.go

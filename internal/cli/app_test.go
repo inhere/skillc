@@ -402,6 +402,26 @@ func TestProfileCreateFromCollectionCommand(t *testing.T) {
 	assert.Len(t, loaded.Profiles["go-dev"].Targets, 1)
 }
 
+func TestProfileCreateCommandRequiresExactlyOneSource(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	indexFile := filepath.Join(baseDir, "index.json")
+	config := cfg.DefaultConfig()
+	config.IndexFile = indexFile
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
+	assert.NoErr(t, repoindex.NewStore().Save(indexFile, []skill.Skill{
+		{ID: "go-pro", SourceID: "gstack", Collection: "go"},
+	}))
+
+	output := runAppInDirWithStdout(t, baseDir, []string{"profile", "create", "go-dev", "--from-installed", "--from-collection", "gstack/go"})
+
+	assert.Contains(t, output, "use exactly one")
+	loaded, err := configstore.NewYAMLStore().Load(configFile, baseDir)
+	assert.NoErr(t, err)
+	_, ok := loaded.Profiles["go-dev"]
+	assert.False(t, ok)
+}
+
 func TestProfileApplyDryRunPrintsPlan(t *testing.T) {
 	baseDir := t.TempDir()
 	configFile := filepath.Join(baseDir, "skillc.yaml")
@@ -421,6 +441,40 @@ func TestProfileApplyDryRunPrintsPlan(t *testing.T) {
 	assert.Contains(t, output, "Profile Plan")
 	assert.Contains(t, output, "install")
 	assert.Contains(t, output, "go-pro")
+}
+
+func TestProfileApplyCommandPrintsInstallFailures(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	indexFile := filepath.Join(baseDir, "index.json")
+	lockFile := filepath.Join(baseDir, "skillc.lock.json")
+	sourceDir := filepath.Join(baseDir, "source", "review")
+	assert.NoErr(t, os.MkdirAll(sourceDir, 0o755))
+	assert.NoErr(t, os.WriteFile(filepath.Join(sourceDir, "SKILL.md"), []byte("# Review"), 0o644))
+
+	config := cfg.DefaultConfig()
+	config.IndexFile = indexFile
+	config.LockFile = lockFile
+	config.Profiles = map[string]profile.Profile{
+		"go-dev": {
+			InstallMode: "copy",
+			Targets: []profile.Target{
+				{Source: "gstack", Skill: "broken"},
+				{Source: "gstack", Skill: "review"},
+			},
+		},
+	}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
+	assert.NoErr(t, repoindex.NewStore().Save(indexFile, []skill.Skill{
+		{ID: "broken", SourceID: "gstack", InstallEntry: ".", Path: filepath.Join(baseDir, "missing")},
+		{ID: "review", SourceID: "gstack", InstallEntry: ".", Path: sourceDir},
+	}))
+
+	output := runAppInDirWithStdout(t, baseDir, []string{"profile", "apply", "go-dev", "--yes"})
+
+	assert.Contains(t, output, "installed review")
+	assert.Contains(t, output, "install failed broken")
+	assert.Contains(t, output, "profile apply failed")
 }
 
 func TestSearchCommand_ReturnsMatchesForQueryArgument(t *testing.T) {

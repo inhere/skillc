@@ -89,6 +89,18 @@ func buildProfileCreateCommand() *gcli.Command {
 			}()
 			name := c.Arg("name").String()
 			fillProfileCreateOptions(c.RawArgs(), &fromInstalled, &fromCollection, &agentName, &scope)
+			sourceCount := 0
+			if fromInstalled {
+				sourceCount++
+			}
+			if fromCollection != "" {
+				sourceCount++
+			}
+			if sourceCount != 1 {
+				err := fmt.Errorf("use exactly one of --from-installed or --from-collection")
+				ccolor.Errorf("%v\n", err)
+				return err
+			}
 			svc := newProfileService()
 			switch {
 			case fromCollection != "":
@@ -191,7 +203,14 @@ func buildProfileApplyCommand() *gcli.Command {
 				}
 			}
 			result, err := svc.Apply(name, req)
+			for _, record := range result.Installed {
+				ccolor.Infof("- installed %s %s\n", record.SkillID, record.InstalledPath)
+			}
+			for _, failed := range result.InstallFailed {
+				ccolor.Errorf("- install failed %s %s\n", failed.SkillID, failed.Reason)
+			}
 			if err != nil {
+				ccolor.Errorf("%v\n", err)
 				return err
 			}
 			ccolor.Successf("profile applied: %s installed=%d\n", name, len(result.Installed))

@@ -752,7 +752,7 @@ git commit -m "feat(status): add status query service"
 - Modify: `internal/cli/manage_cmd.go`
 - Modify: `internal/cli/app_test.go`
 
-- [ ] **Step 1: Add failing CLI tests**
+- [x] **Step 1: Add failing CLI tests**
 
 Add to `internal/cli/app_test.go`:
 
@@ -796,7 +796,7 @@ func TestStatusCommand_PrintsSkillHealth(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run CLI tests to verify failure**
+- [x] **Step 2: Run CLI tests to verify failure**
 
 Run:
 
@@ -806,7 +806,7 @@ go test ./internal/cli -run "TestNewApp_RegistersStatusCommand|TestStatusCommand
 
 Expected: FAIL because `status` command is not registered.
 
-- [ ] **Step 3: Register status command**
+- [x] **Step 3: Register status command**
 
 Modify `internal/cli/app.go`:
 
@@ -816,7 +816,7 @@ app.Add(buildStatusCommand())
 
 Place it after `buildListCommand()` and before `buildDoctorCommand()`.
 
-- [ ] **Step 4: Implement buildStatusCommand**
+- [x] **Step 4: Implement buildStatusCommand**
 
 Modify imports in `internal/cli/manage_cmd.go`:
 
@@ -887,7 +887,7 @@ func printStatusResult(result statusapp.Result, _ cfg.Config) error {
 }
 ```
 
-- [ ] **Step 5: Run CLI tests**
+- [x] **Step 5: Run CLI tests**
 
 Run:
 
@@ -898,7 +898,9 @@ go test ./internal/cli -count=1
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+**Verification note (2026-06-14):** `go test ./internal/cli -run "TestNewApp_RegistersStatusCommand|TestStatusCommand_PrintsSkillHealth" -count=1` and `go test ./internal/cli -count=1` pass after registering `skillc status`.
+
+- [x] **Step 6: Commit**
 
 ```bash
 git add internal/cli/app.go internal/cli/manage_cmd.go internal/cli/app_test.go

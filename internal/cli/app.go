@@ -32,6 +32,7 @@ func NewApp(version, gitHash, buildTime string) *gcli.App {
 	app.Add(buildUpdateCommand())
 	app.Add(buildUninstallCommand())
 	app.Add(buildListCommand())
+	app.Add(buildStatusCommand())
 	app.Add(buildDoctorCommand())
 	return app
 }

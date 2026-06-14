@@ -13,6 +13,7 @@ import (
 	"github.com/gookit/slog"
 	"github.com/inhere/skillc/internal/app/installapp"
 	"github.com/inhere/skillc/internal/app/listapp"
+	"github.com/inhere/skillc/internal/app/statusapp"
 	"github.com/inhere/skillc/internal/app/updateapp"
 	"github.com/inhere/skillc/internal/app/webapp"
 	"github.com/inhere/skillc/internal/domain/agent"
@@ -418,6 +419,62 @@ func buildListCommand() *gcli.Command {
 			return nil
 		},
 	}
+}
+
+func buildStatusCommand() *gcli.Command {
+	var opts ManageOptions
+	var profileName string
+	return &gcli.Command{
+		Name: "status",
+		Desc: "Show skill status",
+		Config: func(c *gcli.Command) {
+			opts.bindCommand(c)
+			c.StrOpt(&profileName, "profile", "p", "", "profile name")
+		},
+		Func: func(c *gcli.Command, _ []string) error {
+			config, cwd, err := loadConfig()
+			if err != nil {
+				return err
+			}
+			scope, err := parseScope(opts.Scope)
+			if err != nil {
+				return err
+			}
+			result, err := statusapp.NewService(defaultConfigFile(cwd), cwd).Run(statusapp.Req{
+				Agent:   opts.Agent,
+				Scope:   string(scope),
+				Profile: profileName,
+				WorkDir: cwd,
+			})
+			if err != nil {
+				return err
+			}
+			return printStatusResult(result, config)
+		},
+	}
+}
+
+func printStatusResult(result statusapp.Result, _ cfg.Config) error {
+	if len(result.Items) == 0 {
+		ccolor.Warnln("no skills found")
+		return nil
+	}
+	tb := table.New("Skill Status").SetHeads("Status", "Skill", "Source", "Agent", "Scope", "Profile", "Current", "Latest", "Reason")
+	for _, item := range result.Items {
+		tb.AddRow(item.Status, item.SkillID, item.SourceID, item.Agent, item.Scope, item.Profile, item.CurrentVersion, item.LatestVersion, item.Reason)
+	}
+	if _, err := fmt.Fprint(os.Stdout, tb.Render()); err != nil {
+		return err
+	}
+	ccolor.Infof("summary installed=%d missing=%d outdated=%d orphan=%d unmanaged=%d source_error=%d\n",
+		result.Summary.Installed,
+		result.Summary.Missing,
+		result.Summary.Outdated,
+		result.Summary.Orphan,
+		result.Summary.Unmanaged,
+		result.Summary.SourceError,
+	)
+	return nil
 }
 
 func buildDoctorCommand() *gcli.Command {

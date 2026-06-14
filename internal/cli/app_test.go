@@ -63,6 +63,17 @@ func TestNewApp_RegistersUpdateCommand(t *testing.T) {
 	assert.Eq(t, "Update installed skills", update.Desc)
 }
 
+func TestNewApp_RegistersStatusCommand(t *testing.T) {
+	app := newTestApp()
+
+	status := findCommandByName(app, "status")
+	assert.NotNil(t, status)
+	if status == nil {
+		return
+	}
+	assert.Eq(t, "Show skill status", status.Desc)
+}
+
 func TestNewApp_RegistersProfileCommand(t *testing.T) {
 	app := newTestApp()
 
@@ -118,6 +129,33 @@ func TestUpdateCommand_TargetFlagTakesPrecedenceOverSkillArgument(t *testing.T) 
 	runAppInDirWithStdout(t, baseDir, []string{"update", "--target", "flag-skill", "arg-skill"})
 
 	assert.Eq(t, "flag-skill", gotReq.Target)
+}
+
+func TestStatusCommand_PrintsSkillHealth(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	lockFile := filepath.Join(baseDir, "skillc.lock.json")
+	indexFile := filepath.Join(baseDir, "index.json")
+	assert.NoErr(t, os.MkdirAll(filepath.Join(baseDir, ".agents", "skills", "go-pro"), 0o755))
+
+	config := cfg.DefaultConfig()
+	config.LockFile = lockFile
+	config.IndexFile = indexFile
+	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, ".agents")}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
+	assert.NoErr(t, lockstore.NewStore().Save(lockFile, lockpkg.File{
+		filepath.Clean(baseDir): {{SkillID: "go-pro", SourceID: "gstack", Version: "1.0.0", Profile: "go-dev", Agents: []string{"universal"}}},
+	}))
+	assert.NoErr(t, repoindex.NewStore().Save(indexFile, []skill.Skill{{ID: "go-pro", SourceID: "gstack", Version: "2.0.0"}}))
+
+	output := runAppInDirWithStdout(t, baseDir, []string{"status", "--agent", "universal", "--scope", "project", "--profile", "go-dev"})
+
+	assert.Contains(t, output, "Skill Status")
+	assert.Contains(t, output, "outdated")
+	assert.Contains(t, output, "go-pro")
+	assert.Contains(t, output, "go-dev")
+	assert.Contains(t, output, "1.0.0")
+	assert.Contains(t, output, "2.0.0")
 }
 
 func TestNewApp_RegistersInstallListAndDoctorCommands(t *testing.T) {

@@ -3,7 +3,7 @@ package profile
 import (
 	"testing"
 
-	"github.com/gookit/goutil/x/assert"
+	"github.com/gookit/goutil/testutil/assert"
 )
 
 func TestValidateName(t *testing.T) {
@@ -52,4 +52,28 @@ func TestNormalizeTargetsRejectsEmptySkill(t *testing.T) {
 	_, err := NormalizeTargets([]Target{{Source: "gstack"}})
 
 	assert.NotNil(t, err)
+}
+
+func TestValidateTarget(t *testing.T) {
+	tests := []struct {
+		name    string
+		target  Target
+		wantErr bool
+	}{
+		{name: "source qualified skill", target: Target{Source: "gstack", Skill: "review"}},
+		{name: "local skill", target: Target{Skill: "local-only"}},
+		{name: "empty skill", target: Target{Source: "gstack"}, wantErr: true},
+		{name: "blank skill", target: Target{Source: "gstack", Skill: "  "}, wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateTarget(tt.target)
+			if tt.wantErr {
+				assert.NotNil(t, err)
+				return
+			}
+			assert.NoErr(t, err)
+		})
+	}
 }

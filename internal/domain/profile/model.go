@@ -55,14 +55,21 @@ func ValidateName(name string) error {
 	return nil
 }
 
+func ValidateTarget(target Target) error {
+	if strings.TrimSpace(target.Skill) == "" {
+		return fmt.Errorf("profile target skill is required")
+	}
+	return nil
+}
+
 func NormalizeTargets(targets []Target) ([]Target, error) {
 	seen := make(map[string]struct{}, len(targets))
 	out := make([]Target, 0, len(targets))
 	for _, target := range targets {
 		target.Source = strings.TrimSpace(target.Source)
 		target.Skill = strings.TrimSpace(target.Skill)
-		if target.Skill == "" {
-			return nil, fmt.Errorf("profile target skill is required")
+		if err := ValidateTarget(target); err != nil {
+			return nil, err
 		}
 		key := target.Source + "\x00" + target.Skill
 		if _, ok := seen[key]; ok {

@@ -163,7 +163,7 @@ skillc profile create go-dev --interactive --agent codex --scope project
 - Create: `internal/infra/termselect/selector.go`
 - Create: `internal/infra/termselect/selector_test.go`
 
-- [ ] **Step 1: Write failing adapter tests**
+- [x] **Step 1: Write failing adapter tests**
 
 Create `internal/infra/termselect/selector_test.go`:
 
@@ -204,7 +204,7 @@ func TestCliUISelectorSelectMultiWithFilter(t *testing.T) {
 
 Also add `TestCliUISelectorSelectMultiWithTypedKeys` and `TestCliUISelectorReturnsEmptyForNoItems`.
 
-- [ ] **Step 2: Run adapter tests to verify failure**
+- [x] **Step 2: Run adapter tests to verify failure**
 
 Run:
 
@@ -214,7 +214,7 @@ go test ./internal/infra/termselect -count=1
 
 Expected: FAIL because `internal/infra/termselect` does not exist.
 
-- [ ] **Step 3: Implement minimal cliui adapter**
+- [x] **Step 3: Implement minimal cliui adapter**
 
 Create `internal/infra/termselect/selector.go`:
 
@@ -335,7 +335,7 @@ Mapping rules:
 - `termselect.Item.Value` stores the stable business target, usually source-qualified target.
 - `ui.Item.Value` stores the original `termselect.Item` so selected results can be mapped back without parsing UI text.
 
-- [ ] **Step 4: Run adapter tests**
+- [x] **Step 4: Run adapter tests**
 
 Run:
 
@@ -345,12 +345,14 @@ go test ./internal/infra/termselect -count=1
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add internal/infra/termselect
 git commit -m "feat(termselect): add cliui multi selector adapter"
 ```
+
+**Verification note (2026-06-15):** `go test ./internal/infra/termselect -count=1` and `go test ./...` pass. The adapter delegates filtering, multi-select, and typed key parsing to `gookit/cliui`; empty item lists return an empty result before opening the TUI.
 
 ## Task 2: Expand Index Keyword Matching for Interactive Search
 

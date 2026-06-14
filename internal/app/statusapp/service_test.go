@@ -125,6 +125,42 @@ func TestService_RunFiltersByProfile(t *testing.T) {
 	assert.Eq(t, "go-pro", result.Items[0].SkillID)
 }
 
+func TestService_RunFiltersByAgent(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	lockFile := filepath.Join(baseDir, "skillc.lock.json")
+	indexFile := filepath.Join(baseDir, "index.json")
+	assert.NoErr(t, os.MkdirAll(filepath.Join(baseDir, ".agents", "skills", "go-pro"), 0o755))
+	assert.NoErr(t, os.MkdirAll(filepath.Join(baseDir, ".codex", "skills", "review"), 0o755))
+	assert.NoErr(t, os.MkdirAll(filepath.Join(baseDir, ".codex", "skills", "manual-codex"), 0o755))
+
+	config := cfg.DefaultConfig()
+	config.LockFile = lockFile
+	config.IndexFile = indexFile
+	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, ".agents")}
+	config.AgentTools["codex"] = cfg.AgentToolConfig{Dirname: ".codex", ProjectDir: filepath.Join(baseDir, ".codex")}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config, baseDir))
+	assert.NoErr(t, lockstore.NewStore().Save(lockFile, lockpkg.File{
+		filepath.Clean(baseDir): {
+			{SkillID: "go-pro", SourceID: "gstack", Version: "1.0.0", Agents: []string{"universal"}},
+			{SkillID: "review", SourceID: "gstack", Version: "1.0.0", Agents: []string{"codex"}},
+		},
+	}))
+	assert.NoErr(t, repoindex.NewStore().Save(indexFile, []skill.Skill{
+		{ID: "go-pro", SourceID: "gstack", Version: "1.0.0"},
+		{ID: "review", SourceID: "gstack", Version: "1.0.0"},
+	}))
+
+	result, err := NewService(configFile, baseDir).Run(Req{Agent: "universal", Scope: "project", WorkDir: baseDir})
+
+	assert.NoErr(t, err)
+	assert.Len(t, result.Items, 1)
+	assert.Eq(t, "go-pro", result.Items[0].SkillID)
+	assert.Eq(t, "universal", result.Items[0].Agent)
+	assert.Eq(t, 1, result.Summary.Installed)
+	assert.Eq(t, 0, result.Summary.Unmanaged)
+}
+
 func TestService_RunMatchesIndexByQualifiedIdentityWhenSourceIDIsMissing(t *testing.T) {
 	baseDir := t.TempDir()
 	configFile := filepath.Join(baseDir, "skillc.yaml")

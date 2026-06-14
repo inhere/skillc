@@ -732,6 +732,8 @@ Expected: PASS.
 
 **Review fix note (2026-06-14):** profile-filtered status now excludes unmanaged directories because they have no profile attribution, and index matching now falls back to qualified identity when older lock records do not carry `source_id`. `go test ./internal/app/statusapp -count=1` and `go test ./...` pass.
 
+**Coverage follow-up (2026-06-14):** added direct statusapp coverage for agent filtering across both lock records and unmanaged directory scanning. `go test ./internal/app/statusapp -count=1` and `go test ./...` pass.
+
 - [x] **Step 5: Commit**
 
 ```bash

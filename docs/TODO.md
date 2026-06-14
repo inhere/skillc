@@ -23,6 +23,7 @@
 一期状态：profile 最小闭环已完成，包括 profile 配置、from-installed/from-collection、apply/dry-run、source-scoped collection 浏览，以及移除 `install --collection` CLI。
 二期计划：`docs/superpowers/plans/2026-06-14-skillc-v0-phase2-status-update-check.md`
 三期计划：`docs/superpowers/plans/2026-06-14-skillc-v0-phase3-interactive-selection.md`
+三期状态：`install --interactive`、`update --interactive`、`profile create --interactive` 已实现，基于 `gookit/cliui` 支持输入过滤和多选；最终验证记录见三期计划 Task 7。
 
 cli 优先，这样可以方便的进入任何目录进行操作
 skillc 技能场景 - 自由选择多个技能配置为一个场景(eg: go-dev, flutter-dev)

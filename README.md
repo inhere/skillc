@@ -19,6 +19,7 @@
 - 🔒 **Lock file tracking** — Records origin, version, and install path; supports `restore`
 - 🤖 **Multi-agent adapters** — Automatically targets each agent's install directory
 - 🔄 **Batch update** — Update all installed Skills with one command
+- ⌨️ **Interactive selection** — Filter and multi-select Skills for install, update, and profile creation
 
 ## Installation
 
@@ -102,6 +103,7 @@ skillc profile list                              # list saved profiles
 skillc profile show <name>                       # show profile details
 skillc profile create <name> --from-installed    # create from current installed Skills
 skillc profile create <name> --from-collection <source>/<collection>
+skillc profile create go-dev --interactive       # pick Skills interactively
 skillc profile diff <name>                       # preview profile apply plan
 skillc profile apply <name> --dry-run            # print plan without installing
 skillc profile apply <name> --yes                # apply profile without confirmation
@@ -113,6 +115,7 @@ skillc profile apply <name> --yes                # apply profile without confirm
 skillc install <skill-id>             # install a Skill
 skillc install <id1>,<id2>            # install multiple (comma-separated)
 skillc install                        # restore all Skills from lock file
+skillc install --interactive [keyword] # filter and multi-select Skills
 
 # One-shot: register source → sync → install
 skillc install --source https://github.com/org/skills.git my-skill
@@ -127,8 +130,11 @@ skillc install --source /path/to/local-skills my-skill
 | `--agent` | `-a` | `claude-code` | Target agent name or directory |
 | `--yes` | `-y` | `false` | Skip confirmation prompt |
 | `--source` | `-S` | | Git URL or local path — auto-register & sync before installing |
+| `--interactive` | `-i` | `false` | Open an interactive Skill selector |
 | `--install-mode` | | | Install mode (`symlink` / `junction` / `copy`) |
 | `--copy` | | `false` | Install by copying files |
+
+Interactive selection uses `gookit/cliui`: type to filter the candidate list, press Space to multi-select, and press Enter to continue into the normal install confirmation and execution flow.
 
 ### `update` — Update Skills
 
@@ -136,6 +142,7 @@ skillc install --source /path/to/local-skills my-skill
 skillc update                        # update all installed Skills
 skillc update --target <skill-id>    # update a specific Skill
 skillc update --check                # preview update candidates without installing
+skillc update --interactive          # filter and multi-select update candidates
 ```
 
 ### `status` — Skill health

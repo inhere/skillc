@@ -21,6 +21,7 @@ Skillc 统一管理 `claude-code`、`opencode`、`codex` 等 AI Agent 的 Skills
 - 🔒 **锁文件追踪** — 记录每个 Skill 的来源、版本和安装位置，支持 `restore`
 - 🤖 **多 Agent 适配** — 自动适配不同 Agent 的安装目录规范
 - 🔄 **批量更新** — 一条命令更新所有已安装的 skills
+- ⌨️ **交互式选择** — 安装、更新、创建 Profile 时支持过滤和多选 Skills
 
 ## 安装
 
@@ -104,6 +105,7 @@ skillc profile list                                      # 列出已保存的 Pr
 skillc profile show <name>                               # 查看 Profile 详情
 skillc profile create <name> --from-installed            # 从当前已安装 Skills 创建 Profile
 skillc profile create <name> --from-collection <source>/<collection>
+skillc profile create go-dev --interactive               # 交互式选择 Skills 创建 Profile
 skillc profile diff <name>                               # 预览应用计划
 skillc profile apply <name> --dry-run                    # 只输出计划，不安装
 skillc profile apply <name> --yes                        # 跳过确认并应用 Profile
@@ -115,6 +117,7 @@ skillc profile apply <name> --yes                        # 跳过确认并应用
 skillc install <skill-id>                      # 安装指定 Skill
 skillc install <id1>,<id2>                     # 批量安装（逗号分隔）
 skillc install                                 # 从锁文件恢复所有 Skills
+skillc install --interactive [keyword]         # 交互式过滤并多选 Skills
 
 # 一次性：新增来源 → 同步 → 安装（支持 Git URL 或本地路径）
 skillc install --source https://github.com/org/skills.git my-skill
@@ -125,9 +128,12 @@ skillc install --source /path/to/local-skills my-skill
 -a, --agent   目标 Agent（默认: claude-code）
 -y, --yes     跳过确认提示
 -S, --source  Git URL 或本地路径，安装前自动注册并同步
+-i, --interactive  打开交互式 Skill 选择器
     --install-mode <mode> 安装方式：symlink / junction / copy
     --copy    等同于 --install-mode copy
 ```
+
+交互式选择基于 `gookit/cliui`：输入关键词过滤候选项，按空格多选，按回车确认后继续走原有安装计划、确认和执行流程。
 
 > 默认安装方式按平台选择：Windows 使用 **junction**，其他系统使用 **symlink**。
 > `symlink` 便于多个项目共享同一份 skill 源；Windows 上若没有创建符号链接的权限，会自动回退到 copy 模式并打印提示。
@@ -140,6 +146,7 @@ skillc install --source /path/to/local-skills my-skill
 skillc update                           # 更新所有已安装的 Skills
 skillc update --target <skill-id>       # 更新指定 Skill
 skillc update --check                   # 只预览更新候选，不安装
+skillc update --interactive             # 交互式过滤并多选可更新项
 ```
 
 ### `status` — Skill 状态

@@ -10,6 +10,7 @@
 | 2026-06-14 | v0.6 | Codex | 记录 Phase 1 已落地 profile CLI，并明确 `install --collection` 已从 CLI 移除 |
 | 2026-06-14 | v0.7 | Codex | 增加 Phase 2 status/update-check 实施计划链接，并收窄本期实现边界 |
 | 2026-06-14 | v0.8 | Codex | 增加 Phase 3 interactive selection 实施计划链接，并明确交互式 TUI 基于 `gookit/cliui` |
+| 2026-06-15 | v0.9 | Codex | 记录 Phase 3 已落地 install/update/profile create 交互式选择入口 |
 
 状态：Draft
 
@@ -31,6 +32,8 @@
 二期开发计划：`docs/superpowers/plans/2026-06-14-skillc-v0-phase2-status-update-check.md`
 
 三期开发计划：`docs/superpowers/plans/2026-06-14-skillc-v0-phase3-interactive-selection.md`
+
+三期状态：`install --interactive [keyword]`、`update --interactive`、`profile create <name> --interactive` 已落地。交互入口通过 `internal/infra/termselect` 作为 `gookit/cliui` 薄 adapter，CLI 层使用 fake selector 注入完成测试，业务执行仍复用现有 app service。
 
 ## 1. 设计结论
 
@@ -847,6 +850,8 @@ internal/infra/termselect/
 目标：安装、更新、profile 创建支持多选和过滤。
 
 实施计划：`docs/superpowers/plans/2026-06-14-skillc-v0-phase3-interactive-selection.md`
+
+当前状态：已完成第一轮实现，`install --interactive [keyword]` 从索引候选中多选安装，`update --interactive` 只展示 `outdated` / `missing` 候选并逐项更新，`profile create <name> --interactive` 将选中 Skills 保存为明确 profile targets。
 
 任务：
 

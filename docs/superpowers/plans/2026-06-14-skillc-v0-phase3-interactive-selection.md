@@ -872,7 +872,7 @@ git commit -m "feat(cli): add interactive profile create"
 - Modify: `docs/TODO.md`
 - Modify: `docs/superpowers/plans/2026-06-14-skillc-v0-phase3-interactive-selection.md`
 
-- [ ] **Step 1: Update README command examples**
+- [x] **Step 1: Update README command examples**
 
 Add examples:
 
@@ -884,11 +884,11 @@ skillc profile create go-dev --interactive
 
 Mention that interactive selection is based on `gookit/cliui` and supports type-to-filter + multi-select.
 
-- [ ] **Step 2: Update Chinese README**
+- [x] **Step 2: Update Chinese README**
 
 Add equivalent Chinese examples and one sentence explaining filter/multi-select behavior.
 
-- [ ] **Step 3: Update design and TODO docs**
+- [x] **Step 3: Update design and TODO docs**
 
 Ensure these docs link to this plan:
 
@@ -897,7 +897,7 @@ Ensure these docs link to this plan:
 
 Do not mark the TODO interactive item complete until implementation is actually done.
 
-- [ ] **Step 4: Run focused tests**
+- [x] **Step 4: Run focused tests**
 
 Run:
 
@@ -907,7 +907,7 @@ go test ./internal/infra/termselect ./internal/infra/repoindex ./internal/app/st
 
 Expected: PASS.
 
-- [ ] **Step 5: Run full test suite**
+- [x] **Step 5: Run full test suite**
 
 Run:
 
@@ -917,7 +917,7 @@ go test ./...
 
 Expected: PASS.
 
-- [ ] **Step 6: Run doc/search sanity checks**
+- [x] **Step 6: Run doc/search sanity checks**
 
 Run:
 
@@ -927,7 +927,7 @@ rg -n -- "interactive|gookit/cliui|Phase 3|三期计划|termselect" README.md RE
 
 Expected: docs contain Phase 3 references and no stale self-built parser wording.
 
-- [ ] **Step 7: Update plan verification note**
+- [x] **Step 7: Update plan verification note**
 
 At the bottom of this file, add:
 
@@ -935,7 +935,9 @@ At the bottom of this file, add:
 **Verification note (YYYY-MM-DD):** `go test ./internal/infra/termselect ./internal/infra/repoindex ./internal/app/statusapp ./internal/cli -count=1` and `go test ./...` pass. README, README.zh-CN, TODO, and design docs reference Phase 3 interactive selection behavior.
 ```
 
-- [ ] **Step 8: Commit docs and final checkbox updates**
+**Verification note (2026-06-15):** `go test ./internal/infra/termselect ./internal/infra/repoindex ./internal/app/statusapp ./internal/cli -count=1` and `go test ./...` pass. README, README.zh-CN, TODO, and design docs reference Phase 3 interactive selection behavior. Doc sanity check with `rg -n -- "interactive|gookit/cliui|Phase 3|三期计划|termselect|自研|self-built parser" ...` confirms Phase 3 references are present and the design remains on the `gookit/cliui` adapter path.
+
+- [x] **Step 8: Commit docs and final checkbox updates**
 
 ```bash
 git add README.md README.zh-CN.md docs/design/skillc-v0-enhance-design.md docs/TODO.md docs/superpowers/plans/2026-06-14-skillc-v0-phase3-interactive-selection.md
@@ -944,15 +946,15 @@ git commit -m "docs: document interactive selection commands"
 
 ## Self-Review Checklist
 
-- [ ] `termselect` is a `gookit/cliui` adapter only; it does not implement its own terminal parser, range parser, or filtering engine.
-- [ ] CLI tests use fake selector injection and do not require a real TTY.
-- [ ] Adapter tests use `interact.NewUIFakeBackend`.
-- [ ] Non-interactive install/update/profile commands keep their current behavior.
-- [ ] `install --interactive` treats positional `skill` as a search keyword only.
-- [ ] `update --interactive` only offers `outdated` and `missing`.
-- [ ] `profile create --interactive` is mutually exclusive with `--from-installed` and `--from-collection`.
-- [ ] Keyword search matches ID, description, qualified names, source id/name, collection.
-- [ ] `go test ./...` passes before marking the plan complete.
+- [x] `termselect` is a `gookit/cliui` adapter only; it does not implement its own terminal parser, range parser, or filtering engine.
+- [x] CLI tests use fake selector injection and do not require a real TTY.
+- [x] Adapter tests use `interact.NewUIFakeBackend`.
+- [x] Non-interactive install/update/profile commands keep their current behavior.
+- [x] `install --interactive` treats positional `skill` as a search keyword only.
+- [x] `update --interactive` only offers `outdated` and `missing`.
+- [x] `profile create --interactive` is mutually exclusive with `--from-installed` and `--from-collection`.
+- [x] Keyword search matches ID, description, qualified names, source id/name, collection.
+- [x] `go test ./...` passes before marking the plan complete.
 
 ## Acceptance Criteria
 

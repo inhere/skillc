@@ -900,6 +900,8 @@ Expected: PASS.
 
 **Verification note (2026-06-14):** `go test ./internal/cli -run "TestNewApp_RegistersStatusCommand|TestStatusCommand_PrintsSkillHealth" -count=1` and `go test ./internal/cli -count=1` pass after registering `skillc status`.
 
+**Coverage follow-up (2026-06-14):** added CLI coverage proving `skillc status --agent codex --scope user` filters out project/universal records. `go test ./internal/cli -run TestStatusCommand_HonorsAgentAndScopeFilters -count=1` and `go test ./internal/cli -count=1` pass.
+
 - [x] **Step 6: Commit**
 
 ```bash

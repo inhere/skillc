@@ -158,6 +158,45 @@ func TestStatusCommand_PrintsSkillHealth(t *testing.T) {
 	assert.Contains(t, output, "2.0.0")
 }
 
+func TestStatusCommand_HonorsAgentAndScopeFilters(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	lockFile := filepath.Join(baseDir, "skillc.lock.json")
+	indexFile := filepath.Join(baseDir, "index.json")
+	codexUserDir := filepath.Join(baseDir, "user-codex")
+	universalProjectDir := filepath.Join(baseDir, ".agents")
+	assert.NoErr(t, os.MkdirAll(filepath.Join(codexUserDir, "skills", "codex-user"), 0o755))
+	assert.NoErr(t, os.MkdirAll(filepath.Join(universalProjectDir, "skills", "universal-project"), 0o755))
+
+	config := cfg.DefaultConfig()
+	config.LockFile = lockFile
+	config.IndexFile = indexFile
+	config.AgentTools["codex"] = cfg.AgentToolConfig{Dirname: ".codex", UserDir: codexUserDir, ProjectDir: filepath.Join(baseDir, ".codex")}
+	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: universalProjectDir}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
+	assert.NoErr(t, lockstore.NewStore().Save(lockFile, lockpkg.File{
+		lockpkg.GlobalKey: {
+			{SkillID: "codex-user", SourceID: "gstack", Version: "1.0.0", Agents: []string{"codex"}},
+		},
+		filepath.Clean(baseDir): {
+			{SkillID: "universal-project", SourceID: "gstack", Version: "1.0.0", Agents: []string{"universal"}},
+		},
+	}))
+	assert.NoErr(t, repoindex.NewStore().Save(indexFile, []skill.Skill{
+		{ID: "codex-user", SourceID: "gstack", Version: "1.0.0"},
+		{ID: "universal-project", SourceID: "gstack", Version: "1.0.0"},
+	}))
+
+	output := runAppInDirWithStdout(t, baseDir, []string{"status", "--agent", "codex", "--scope", "user"})
+
+	assert.Contains(t, output, "Skill Status")
+	assert.Contains(t, output, "codex-user")
+	assert.Contains(t, output, "codex")
+	assert.Contains(t, output, "user")
+	assert.NotContains(t, output, "universal-project")
+	assert.NotContains(t, output, "project")
+}
+
 func TestNewApp_RegistersInstallListAndDoctorCommands(t *testing.T) {
 	app := newTestApp()
 

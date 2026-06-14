@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"regexp"
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/inhere/skillc/internal/domain/skill"
@@ -66,7 +65,7 @@ func ValidateTarget(target Target) error {
 }
 
 func NormalizeTargets(targets []Target) ([]Target, error) {
-	seen := make(map[string]struct{}, len(targets))
+	seen := make(map[string]int, len(targets))
 	out := make([]Target, 0, len(targets))
 	for _, target := range targets {
 		target.Source = strings.TrimSpace(target.Source)
@@ -74,11 +73,12 @@ func NormalizeTargets(targets []Target) ([]Target, error) {
 		if err := ValidateTarget(target); err != nil {
 			return nil, err
 		}
-		key := target.Source + "\x00" + target.Skill + "\x00" + strconv.FormatBool(target.Pinned)
-		if _, ok := seen[key]; ok {
+		key := target.Source + "\x00" + target.Skill
+		if idx, ok := seen[key]; ok {
+			out[idx].Pinned = out[idx].Pinned || target.Pinned
 			continue
 		}
-		seen[key] = struct{}{}
+		seen[key] = len(out)
 		out = append(out, target)
 	}
 	slices.SortFunc(out, func(a, b Target) int {
@@ -92,12 +92,6 @@ func NormalizeTargets(targets []Target) ([]Target, error) {
 			return -1
 		}
 		if a.Skill > b.Skill {
-			return 1
-		}
-		if a.Pinned != b.Pinned {
-			if !a.Pinned {
-				return -1
-			}
 			return 1
 		}
 		return 0

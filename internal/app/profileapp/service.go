@@ -214,12 +214,12 @@ func (s *Service) PlanApply(name string, req ApplyReq) (profile.ApplyPlan, error
 
 	plan := profile.ApplyPlan{Profile: name, Agent: canonicalAgent, Scope: string(scope)}
 	for _, target := range item.Targets {
-		found, ok := findTargetSkill(indexItems, target)
+		found, reason, ok := findTargetSkill(indexItems, target)
 		if !ok {
 			plan.Items = append(plan.Items, profile.ApplyPlanItem{
 				Action: "error",
 				Target: target,
-				Reason: "skill not found in index",
+				Reason: reason,
 			})
 			continue
 		}
@@ -314,16 +314,57 @@ func firstNonEmpty(values ...string) string {
 	return ""
 }
 
-func findTargetSkill(items []skill.Skill, target profile.Target) (skill.Skill, bool) {
+func findTargetSkill(items []skill.Skill, target profile.Target) (skill.Skill, string, bool) {
+	candidates := make([]skill.Skill, 0, len(items))
 	for _, item := range items {
 		if target.Source != "" && item.SourceID != target.Source && item.SourceName != target.Source {
 			continue
 		}
-		if item.ID == target.Skill || item.QualifiedName == target.Skill || item.SourceQualifiedName == target.Skill {
-			return item, true
+		candidates = append(candidates, item)
+	}
+
+	exact := make([]skill.Skill, 0)
+	for _, item := range candidates {
+		if item.SourceQualifiedName == target.Skill || item.QualifiedName == target.Skill {
+			exact = append(exact, item)
 		}
 	}
-	return skill.Skill{}, false
+	if len(exact) > 1 {
+		return skill.Skill{}, fmt.Sprintf("ambiguous skill target: %s", target.Skill), false
+	}
+	if len(exact) == 1 {
+		return exact[0], "", true
+	}
+	if strings.Contains(target.Skill, "/") {
+		return skill.Skill{}, "skill not found in index", false
+	}
+
+	exactID := make([]skill.Skill, 0)
+	for _, item := range candidates {
+		if item.ID == target.Skill {
+			exactID = append(exactID, item)
+		}
+	}
+	if len(exactID) > 1 {
+		return skill.Skill{}, fmt.Sprintf("ambiguous skill target: %s", target.Skill), false
+	}
+	if len(exactID) == 1 {
+		return exactID[0], "", true
+	}
+
+	tailMatches := make([]skill.Skill, 0)
+	for _, item := range candidates {
+		if idx := strings.LastIndex(item.QualifiedName, "/"); idx >= 0 && idx < len(item.QualifiedName)-1 && item.QualifiedName[idx+1:] == target.Skill {
+			tailMatches = append(tailMatches, item)
+		}
+	}
+	if len(tailMatches) > 1 {
+		return skill.Skill{}, fmt.Sprintf("ambiguous skill target: %s", target.Skill), false
+	}
+	if len(tailMatches) == 1 {
+		return tailMatches[0], "", true
+	}
+	return skill.Skill{}, "skill not found in index", false
 }
 
 func isTargetInstalled(installedSet map[string]struct{}, target profile.Target, found skill.Skill) bool {

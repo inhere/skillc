@@ -1598,6 +1598,8 @@ git commit -m "feat(profile): plan and apply profiles"
 
 **Verification note (2026-06-14):** `PlanApply` validates agent/scope, resolves agent aliases to canonical names, treats missing lock records as install candidates, and emits `error` items for unresolved targets. `Apply` refuses to install partial plans when any error item exists, and successful installs record the profile name in lock. `go test ./internal/app/profileapp -count=1` and `go test ./...` pass.
 
+**Fix note (2026-06-14):** `PlanApply` now rejects ambiguous unqualified profile targets instead of silently selecting the first indexed skill. Added regression coverage for duplicated skill IDs across sources. `go test ./internal/app/profileapp -count=1` and `go test ./...` pass.
+
 ## Task 8: Add Profile CLI And Remove Install Collection Flag
 
 **Files:**

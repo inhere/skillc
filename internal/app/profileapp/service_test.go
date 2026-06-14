@@ -342,6 +342,34 @@ func TestService_PlanApplyReportsMissingTarget(t *testing.T) {
 	assert.Contains(t, plan.Items[0].Reason, "skill not found in index")
 }
 
+func TestService_PlanApplyReportsAmbiguousUnqualifiedTarget(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	indexFile := filepath.Join(baseDir, "index.json")
+
+	config := cfg.DefaultConfig()
+	config.IndexFile = indexFile
+	config.Profiles = map[string]profile.Profile{
+		"go-dev": {Targets: []profile.Target{{Skill: "shared-skill"}}},
+	}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config, baseDir))
+	assert.NoErr(t, repoindex.NewStore().Save(indexFile, []skill.Skill{
+		{ID: "shared-skill", SourceID: "repo-a", QualifiedName: "alpha/shared-skill", SourceQualifiedName: "repo-a/alpha/shared-skill"},
+		{ID: "shared-skill", SourceID: "repo-b", QualifiedName: "beta/shared-skill", SourceQualifiedName: "repo-b/beta/shared-skill"},
+	}))
+
+	plan, err := NewService(configFile, baseDir).PlanApply("go-dev", ApplyReq{
+		Agent:   "universal",
+		Scope:   "project",
+		WorkDir: baseDir,
+	})
+
+	assert.NoErr(t, err)
+	assert.Len(t, plan.Items, 1)
+	assert.Eq(t, "error", plan.Items[0].Action)
+	assert.Contains(t, plan.Items[0].Reason, "ambiguous skill target")
+}
+
 func TestService_PlanApplyResolvesAgentAlias(t *testing.T) {
 	baseDir := t.TempDir()
 	configFile := filepath.Join(baseDir, "skillc.yaml")

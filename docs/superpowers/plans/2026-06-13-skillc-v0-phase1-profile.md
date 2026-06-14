@@ -966,7 +966,7 @@ git commit -m "refactor(cli): move collection browsing under source"
 - Create: `internal/app/profileapp/service.go`
 - Test: `internal/app/profileapp/service_test.go`
 
-- [ ] **Step 1: Add failing profile service tests**
+- [x] **Step 1: Add failing profile service tests**
 
 Create `internal/app/profileapp/service_test.go` with:
 
@@ -1025,7 +1025,7 @@ func TestService_SaveProfileNormalizesTargets(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run profileapp tests to verify failure**
+- [x] **Step 2: Run profileapp tests to verify failure**
 
 Run:
 
@@ -1035,7 +1035,7 @@ go test ./internal/app/profileapp -count=1
 
 Expected: FAIL because package does not exist.
 
-- [ ] **Step 3: Implement profile service CRUD**
+- [x] **Step 3: Implement profile service CRUD**
 
 Create `internal/app/profileapp/service.go`:
 
@@ -1117,7 +1117,7 @@ func (s *Service) Save(name string, item profile.Profile) error {
 }
 ```
 
-- [ ] **Step 4: Run profileapp tests**
+- [x] **Step 4: Run profileapp tests**
 
 Run:
 
@@ -1127,12 +1127,14 @@ go test ./internal/app/profileapp -count=1
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add internal/app/profileapp/service.go internal/app/profileapp/service_test.go
 git commit -m "feat(profile): add profile service"
 ```
+
+**Verification note (2026-06-14):** Added `profileapp.Service` with `List`, `Show`, and `Save`; service tests cover sorted listing, show, missing profile errors, and target normalization on save. `go test ./internal/app/profileapp -count=1` and `go test ./...` pass.
 
 ## Task 6: Create Profiles From Installed Skills And Collections
 

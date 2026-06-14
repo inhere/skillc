@@ -1142,7 +1142,7 @@ git commit -m "feat(profile): add profile service"
 - Modify: `internal/app/profileapp/service.go`
 - Modify: `internal/app/profileapp/service_test.go`
 
-- [ ] **Step 1: Add failing tests for profile creation sources**
+- [x] **Step 1: Add failing tests for profile creation sources**
 
 Append tests:
 
@@ -1217,7 +1217,7 @@ import (
 )
 ```
 
-- [ ] **Step 2: Run profileapp tests to verify failure**
+- [x] **Step 2: Run profileapp tests to verify failure**
 
 Run:
 
@@ -1227,7 +1227,7 @@ go test ./internal/app/profileapp -count=1
 
 Expected: FAIL because methods do not exist.
 
-- [ ] **Step 3: Implement create from installed**
+- [x] **Step 3: Implement create from installed**
 
 Add request type and method to `internal/app/profileapp/service.go`:
 
@@ -1290,7 +1290,7 @@ import (
 )
 ```
 
-- [ ] **Step 4: Implement create from collection**
+- [x] **Step 4: Implement create from collection**
 
 Add:
 
@@ -1324,7 +1324,7 @@ func (s *Service) CreateFromCollection(name string, selector string) (profile.Pr
 }
 ```
 
-- [ ] **Step 5: Run profileapp tests**
+- [x] **Step 5: Run profileapp tests**
 
 Run:
 
@@ -1334,12 +1334,14 @@ go test ./internal/app/profileapp -count=1
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add internal/app/profileapp/service.go internal/app/profileapp/service_test.go
 git commit -m "feat(profile): create profiles from installed skills and collections"
 ```
+
+**Verification note (2026-06-14):** `CreateFromInstalled` validates agent/scope options, builds profile targets from current installed records only, and skips stale missing lock records; `CreateFromCollection` expands `<source>/<collection>` into explicit `source + skill` targets. `go test ./internal/app/profileapp -count=1` and `go test ./...` pass.
 
 ## Task 7: Add Profile Apply Plan And Apply Execution
 

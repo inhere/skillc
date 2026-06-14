@@ -139,6 +139,15 @@ skillc install --source /path/to/local-skills my-skill
 ```bash
 skillc update                           # 更新所有已安装的 Skills
 skillc update --target <skill-id>       # 更新指定 Skill
+skillc update --check                   # 只预览更新候选，不安装
+```
+
+### `status` — Skill 状态
+
+```bash
+skillc status                           # 查看当前项目 Skill 状态
+skillc status --profile go-dev          # 按 Profile 过滤
+skillc status --agent claude-code       # 按 Agent 过滤
 ```
 
 ### `uninstall` — 卸载 Skills

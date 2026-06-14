@@ -1074,7 +1074,7 @@ git commit -m "feat(cli): add update check"
 
 规划阶段已补齐 `docs/design/skillc-v0-enhance-design.md` 与 `docs/TODO.md` 到本计划的互链。实现阶段仍需更新 README 命令手册，并在最终验收后复核这些链接和状态描述。
 
-- [ ] **Step 1: Update README command reference**
+- [x] **Step 1: Update README command reference**
 
 In `README.md`, add:
 
@@ -1094,7 +1094,7 @@ In the `update` section, add:
 skillc update --check                 # preview update candidates without installing
 ```
 
-- [ ] **Step 2: Update Chinese README command reference**
+- [x] **Step 2: Update Chinese README command reference**
 
 In `README.zh-CN.md`, add equivalent Chinese text:
 
@@ -1114,7 +1114,7 @@ In update section, add:
 skillc update --check                 # 只预览更新候选，不安装
 ```
 
-- [ ] **Step 3: Update design document links**
+- [x] **Step 3: Update design document links**
 
 Add revision row to `docs/design/skillc-v0-enhance-design.md`:
 
@@ -1134,7 +1134,7 @@ Under Phase 2 section, add:
 实施计划：`docs/superpowers/plans/2026-06-14-skillc-v0-phase2-status-update-check.md`
 ```
 
-- [ ] **Step 4: Update TODO links**
+- [x] **Step 4: Update TODO links**
 
 In `docs/TODO.md`, add:
 
@@ -1142,11 +1142,11 @@ In `docs/TODO.md`, add:
 二期计划：`docs/superpowers/plans/2026-06-14-skillc-v0-phase2-status-update-check.md`
 ```
 
-- [ ] **Step 5: Mark this plan's documentation task complete**
+- [x] **Step 5: Mark this plan's documentation task complete**
 
 Update this Task 5 checklist to checked when the docs are updated.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add README.md README.zh-CN.md docs/design/skillc-v0-enhance-design.md docs/TODO.md docs/superpowers/plans/2026-06-14-skillc-v0-phase2-status-update-check.md

@@ -135,6 +135,15 @@ skillc install --source /path/to/local-skills my-skill
 ```bash
 skillc update                        # update all installed Skills
 skillc update --target <skill-id>    # update a specific Skill
+skillc update --check                # preview update candidates without installing
+```
+
+### `status` — Skill health
+
+```bash
+skillc status                        # show current project skill status
+skillc status --profile go-dev       # filter by profile
+skillc status --agent claude-code    # filter by agent
 ```
 
 ### `uninstall` — Remove Skills

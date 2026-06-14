@@ -736,6 +736,8 @@ Expected: PASS.
 
 **Review fix note (2026-06-14):** source sync failures now also apply to older lock records that omit `source_id` but retain `source_qualified_name`, so the status path reports `source-error` before outdated/orphan checks for that source. `go test ./internal/app/statusapp -count=1` and `go test ./...` pass.
 
+**Review fix note (2026-06-14):** source-qualified sync failure attribution now maps the leading `source_qualified_name` segment through configured source name/ID aliases, so records from sources whose `name` differs from `id` still report `source-error` with the real source ID. `go test ./internal/app/statusapp -count=1` and `go test ./...` pass.
+
 - [x] **Step 5: Commit**
 
 ```bash

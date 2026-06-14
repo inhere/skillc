@@ -123,13 +123,14 @@ func (s *Service) Run(req Req) (Result, error) {
 			syncFailed[failed.SourceID] = failed.Reason
 		}
 	}
+	sourceIDs := sourceIDByQualifier(config.Sources)
 
 	indexItems, err := s.loadIndex(config.IndexFile)
 	if err != nil {
 		return Result{}, err
 	}
 	for _, current := range listItems {
-		result.Items = append(result.Items, classifyListItem(current, indexItems, syncFailed))
+		result.Items = append(result.Items, classifyListItem(current, indexItems, syncFailed, sourceIDs))
 	}
 	if req.Profile == "" {
 		unmanaged, err := listSvc.ScanUnrecorded(canonicalAgent, scope)
@@ -178,7 +179,7 @@ func (s *Service) syncSources(sources []sourcepkg.Source) []SourceSyncError {
 	return out
 }
 
-func classifyListItem(current listapp.Item, indexItems []skill.Skill, syncFailed map[string]string) Item {
+func classifyListItem(current listapp.Item, indexItems []skill.Skill, syncFailed map[string]string, sourceIDs map[string]string) Item {
 	item := Item{
 		SkillID:        current.SkillID,
 		QualifiedName:  current.QualifiedName,
@@ -194,7 +195,7 @@ func classifyListItem(current listapp.Item, indexItems []skill.Skill, syncFailed
 		item.Reason = reason
 		return item
 	}
-	if sourceID, reason, ok := sourceQualifiedSyncFailure(current.SourceQualifiedName, syncFailed); ok {
+	if sourceID, reason, ok := sourceQualifiedSyncFailure(current.SourceQualifiedName, syncFailed, sourceIDs); ok {
 		item.SourceID = sourceID
 		item.Status = StatusSourceError
 		item.Reason = reason
@@ -253,10 +254,28 @@ func sameIdentity(current listapp.Item, item skill.Skill) bool {
 		item.SourceID == "" && item.SourceQualifiedName == "" && item.QualifiedName == ""
 }
 
-func sourceQualifiedSyncFailure(sourceQualifiedName string, syncFailed map[string]string) (string, string, bool) {
-	sourceID, _, ok := strings.Cut(sourceQualifiedName, "/")
-	if !ok || sourceID == "" {
+func sourceIDByQualifier(sources []sourcepkg.Source) map[string]string {
+	out := make(map[string]string, len(sources))
+	for _, source := range sources {
+		if source.ID == "" {
+			continue
+		}
+		out[source.ID] = source.ID
+		if source.Name != "" {
+			out[source.Name] = source.ID
+		}
+	}
+	return out
+}
+
+func sourceQualifiedSyncFailure(sourceQualifiedName string, syncFailed map[string]string, sourceIDs map[string]string) (string, string, bool) {
+	qualifier, _, ok := strings.Cut(sourceQualifiedName, "/")
+	if !ok || qualifier == "" {
 		return "", "", false
+	}
+	sourceID := qualifier
+	if resolved, ok := sourceIDs[qualifier]; ok {
+		sourceID = resolved
 	}
 	reason, failed := syncFailed[sourceID]
 	return sourceID, reason, failed

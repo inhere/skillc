@@ -345,6 +345,8 @@ git add internal/domain/profile/model.go internal/domain/profile/model_test.go
 git commit -m "feat(profile): add profile domain model"
 ```
 
+**Fix note (2026-06-14):** `NormalizeTargets` now treats `Pinned` as part of the profile target identity, so pinned and unpinned variants of the same `source + skill` target are not collapsed during deduplication. Verified with `go test ./internal/domain/profile -count=1` and `go test ./...`.
+
 ## Task 2: Persist Profiles In Config
 
 **Files:**

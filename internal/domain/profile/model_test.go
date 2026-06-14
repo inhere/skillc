@@ -50,6 +50,21 @@ func TestNormalizeTargetsSortsAndDeduplicates(t *testing.T) {
 	assert.Eq(t, "review", got[2].Skill)
 }
 
+func TestNormalizeTargetsKeepsPinnedVariants(t *testing.T) {
+	targets := []Target{
+		{Source: "gstack", Skill: "review", Pinned: true},
+		{Source: "gstack", Skill: "review"},
+		{Source: "gstack", Skill: "review", Pinned: true},
+	}
+
+	got, err := NormalizeTargets(targets)
+
+	assert.NoErr(t, err)
+	assert.Len(t, got, 2)
+	assert.False(t, got[0].Pinned)
+	assert.True(t, got[1].Pinned)
+}
+
 func TestNormalizeTargetsRejectsEmptySkill(t *testing.T) {
 	_, err := NormalizeTargets([]Target{{Source: "gstack"}})
 

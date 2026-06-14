@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/inhere/skillc/internal/domain/skill"
@@ -73,7 +74,7 @@ func NormalizeTargets(targets []Target) ([]Target, error) {
 		if err := ValidateTarget(target); err != nil {
 			return nil, err
 		}
-		key := target.Source + "\x00" + target.Skill
+		key := target.Source + "\x00" + target.Skill + "\x00" + strconv.FormatBool(target.Pinned)
 		if _, ok := seen[key]; ok {
 			continue
 		}
@@ -91,6 +92,12 @@ func NormalizeTargets(targets []Target) ([]Target, error) {
 			return -1
 		}
 		if a.Skill > b.Skill {
+			return 1
+		}
+		if a.Pinned != b.Pinned {
+			if !a.Pinned {
+				return -1
+			}
 			return 1
 		}
 		return 0

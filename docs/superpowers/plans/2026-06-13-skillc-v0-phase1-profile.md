@@ -1963,8 +1963,10 @@ git commit -m "feat(cli): add profile commands"
 **Files:**
 - Modify: `docs/design/skillc-v0-enhance-design.md`
 - Modify: `docs/TODO.md`
+- Modify: `README.md`
+- Modify: `README.zh-CN.md`
 
-- [ ] **Step 1: Run full test suite**
+- [x] **Step 1: Run full test suite**
 
 Run:
 
@@ -1974,7 +1976,7 @@ go test ./...
 
 Expected: PASS.
 
-- [ ] **Step 2: Update design document implementation link**
+- [x] **Step 2: Update design document implementation link**
 
 Ensure `docs/design/skillc-v0-enhance-design.md` contains:
 
@@ -1982,7 +1984,7 @@ Ensure `docs/design/skillc-v0-enhance-design.md` contains:
 一期开发计划：`docs/superpowers/plans/2026-06-13-skillc-v0-phase1-profile.md`
 ```
 
-- [ ] **Step 3: Update TODO plan link**
+- [x] **Step 3: Update TODO plan link**
 
 Ensure `docs/TODO.md` contains:
 
@@ -1992,7 +1994,7 @@ Ensure `docs/TODO.md` contains:
 
 Do not mark the feature checkbox complete until implementation is finished and verified.
 
-- [ ] **Step 4: Run docs grep self-check**
+- [x] **Step 4: Run docs grep self-check**
 
 Run:
 
@@ -2002,12 +2004,14 @@ rg -n -- "collection \\(coll\\)|install --collection|Collection string|include_c
 
 Expected: matches only in sections describing current-state compatibility or explicitly non-recommended behavior.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
-git add docs/design/skillc-v0-enhance-design.md docs/TODO.md docs/superpowers/plans/2026-06-13-skillc-v0-phase1-profile.md
-git commit -m "docs: add skillc v0 phase 1 profile plan"
+git add README.md README.zh-CN.md docs/design/skillc-v0-enhance-design.md docs/TODO.md docs/superpowers/plans/2026-06-13-skillc-v0-phase1-profile.md
+git commit -m "docs: update skillc phase 1 profile status"
 ```
+
+**Verification note (2026-06-14):** Full `go test ./...` passes. README and README.zh-CN now document `profile` and source-scoped collection browsing instead of recommending removed `install --collection` / top-level `collection` commands. Design and TODO links remain in place, and docs grep only leaves historical/non-recommended `install --collection` references in design/plan text.
 
 ## Self-Review
 

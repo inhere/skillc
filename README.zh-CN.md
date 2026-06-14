@@ -17,6 +17,7 @@ Skillc 统一管理 `claude-code`、`opencode`、`codex` 等 AI Agent 的 Skills
 - 📦 **多来源管理** — 支持本地路径与 Git 仓库作为 Skill 来源
 - 🔍 **索引与搜索** — 自动扫描来源并建立索引，支持关键词搜索
 - ⚡ **一键安装** — 支持 `--source` 选项同时完成来源注册、同步和安装
+- 🧩 **Profile 技能组合** — 保存一组可复用 Skills，并在任意项目预览后应用
 - 🔒 **锁文件追踪** — 记录每个 Skill 的来源、版本和安装位置，支持 `restore`
 - 🤖 **多 Agent 适配** — 自动适配不同 Agent 的安装目录规范
 - 🔄 **批量更新** — 一条命令更新所有已安装的 skills
@@ -88,17 +89,31 @@ skillc source add local <path>                 # 添加本地来源
 skillc source sync <id>                        # 同步指定来源（支持部分 ID 匹配）
 skillc source sync --all                       # 同步所有来源
 skillc source status                           # 查看来源状态
+skillc source collections [source]             # 查看来源下的 Collection
+skillc source skills <source>                  # 查看来源下的 Skills
+skillc source skills <source> --collection <name>
 skillc source remove <id>                      # 删除来源
 ```
 
 > `source sync` 支持 **部分 ID 匹配**，例如 `skillc source sync edge` 可匹配 `local-golang-edge-skills`。
+
+### `profile` — Skill 组合
+
+```bash
+skillc profile list                                      # 列出已保存的 Profiles
+skillc profile show <name>                               # 查看 Profile 详情
+skillc profile create <name> --from-installed            # 从当前已安装 Skills 创建 Profile
+skillc profile create <name> --from-collection <source>/<collection>
+skillc profile diff <name>                               # 预览应用计划
+skillc profile apply <name> --dry-run                    # 只输出计划，不安装
+skillc profile apply <name> --yes                        # 跳过确认并应用 Profile
+```
 
 ### `install` — 安装 Skills
 
 ```bash
 skillc install <skill-id>                      # 安装指定 Skill
 skillc install <id1>,<id2>                     # 批量安装（逗号分隔）
-skillc install --collection <collection>       # 安装整个 Collection
 skillc install                                 # 从锁文件恢复所有 Skills
 
 # 一次性：新增来源 → 同步 → 安装（支持 Git URL 或本地路径）
@@ -109,7 +124,6 @@ skillc install --source /path/to/local-skills my-skill
 -s, --scope   安装范围（project / global）默认: project
 -a, --agent   目标 Agent（默认: claude-code）
 -y, --yes     跳过确认提示
--c, --collection  将目标视为 Collection 选择器
 -S, --source  Git URL 或本地路径，安装前自动注册并同步
     --install-mode <mode> 安装方式：symlink / junction / copy
     --copy    等同于 --install-mode copy
@@ -148,12 +162,7 @@ skillc search <keyword> --agent claude  # 过滤指定 Agent
 skillc show <skill-id>                  # 查看 Skill 详情
 ```
 
-### `collection` — Collection 浏览
-
-```bash
-skillc collection list                  # 列出所有 Collection
-skillc collection skills <name>         # 列出 Collection 内的 Skills
-```
+Collection 通过 `source collections` 和 `source skills --collection` 浏览；如果要把某个 Collection 作为项目可复用技能组合，请先 `profile create --from-collection`，再 `profile apply`。
 
 ### `doctor` — 环境诊断
 

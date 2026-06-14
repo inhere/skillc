@@ -20,6 +20,7 @@
 设计草案：`docs/design/skillc-v0-enhance-design.md`
 参考分析：`docs/design/skillc-reference-projects-analysis.md`
 一期计划：`docs/superpowers/plans/2026-06-13-skillc-v0-phase1-profile.md`
+一期状态：profile 最小闭环已完成，包括 profile 配置、from-installed/from-collection、apply/dry-run、source-scoped collection 浏览，以及移除 `install --collection` CLI。
 
 cli 优先，这样可以方便的进入任何目录进行操作
 skillc 技能场景 - 自由选择多个技能配置为一个场景(eg: go-dev, flutter-dev)

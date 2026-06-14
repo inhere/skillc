@@ -15,6 +15,7 @@
 - 📦 **Multi-source management** — Local paths and Git repositories as Skill sources
 - 🔍 **Index & search** — Auto-scans sources and builds a searchable index
 - ⚡ **One-shot install** — `--source` flag registers, syncs, and installs in a single command
+- 🧩 **Profiles** — Save a reusable Skill set and apply it to any project with a dry-run plan
 - 🔒 **Lock file tracking** — Records origin, version, and install path; supports `restore`
 - 🤖 **Multi-agent adapters** — Automatically targets each agent's install directory
 - 🔄 **Batch update** — Update all installed Skills with one command
@@ -86,17 +87,31 @@ skillc source add local <path>        # add a local source
 skillc source sync <id>               # sync a source (partial ID match supported)
 skillc source sync --all              # sync all sources
 skillc source status                  # show source status
+skillc source collections [source]    # list collections under sources
+skillc source skills <source>         # list skills under a source
+skillc source skills <source> --collection <name>
 skillc source remove <id>             # remove a source
 ```
 
 > `source sync` supports **partial ID matching** — e.g. `skillc source sync edge` matches `local-golang-edge-skills`.
+
+### `profile` — Saved Skill sets
+
+```bash
+skillc profile list                              # list saved profiles
+skillc profile show <name>                       # show profile details
+skillc profile create <name> --from-installed    # create from current installed Skills
+skillc profile create <name> --from-collection <source>/<collection>
+skillc profile diff <name>                       # preview profile apply plan
+skillc profile apply <name> --dry-run            # print plan without installing
+skillc profile apply <name> --yes                # apply profile without confirmation
+```
 
 ### `install` — Install Skills
 
 ```bash
 skillc install <skill-id>             # install a Skill
 skillc install <id1>,<id2>            # install multiple (comma-separated)
-skillc install --collection <name>    # install an entire Collection
 skillc install                        # restore all Skills from lock file
 
 # One-shot: register source → sync → install
@@ -111,8 +126,9 @@ skillc install --source /path/to/local-skills my-skill
 | `--scope` | `-s` | `project` | Install scope (`project` / `global`) |
 | `--agent` | `-a` | `claude-code` | Target agent name or directory |
 | `--yes` | `-y` | `false` | Skip confirmation prompt |
-| `--collection` | `-c` | `false` | Treat targets as Collection selectors |
 | `--source` | `-S` | | Git URL or local path — auto-register & sync before installing |
+| `--install-mode` | | | Install mode (`symlink` / `junction` / `copy`) |
+| `--copy` | | `false` | Install by copying files |
 
 ### `update` — Update Skills
 
@@ -142,12 +158,7 @@ skillc search <keyword> --agent claude  # filter by agent
 skillc show <skill-id>               # show Skill details
 ```
 
-### `collection` — Browse Collections
-
-```bash
-skillc collection list               # list all Collections
-skillc collection skills <name>      # list Skills in a Collection
-```
+Collections are browsed through `source collections` and `source skills --collection`; to reuse a collection as a project Skill set, create a profile from it and apply the profile.
 
 ### `doctor` — Environment check
 

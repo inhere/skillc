@@ -7,6 +7,7 @@
 | 2026-06-13 | v0.3 | Codex | 补充当前 CLI 命令全景图和调整后的 CLI 命令组织图 |
 | 2026-06-13 | v0.4 | Codex | 调整 v0 最优命令设计：移除顶级 collection 命令，收敛到 source 下 |
 | 2026-06-13 | v0.5 | Codex | 复审参考项目，补充参考分析文档链接和 Phase 1 边界校验 |
+| 2026-06-14 | v0.6 | Codex | 记录 Phase 1 已落地 profile CLI，并明确 `install --collection` 已从 CLI 移除 |
 
 状态：Draft
 
@@ -171,13 +172,13 @@ skillc profile edit go-dev
 skillc profile apply go-dev
 ```
 
-而不是长期依赖：
+而不是历史上的 collection 直装路径：
 
 ```bash
 skillc install --collection go
 ```
 
-在 v0 最优设计里，后者不再作为推荐命令；如果实现里已有，可以作为兼容入口短期保留，但新文档和新用户路径不应强调它。
+在 v0 最优设计里，后者不再作为推荐命令；Phase 1 已从 CLI 中移除该 flag，新文档和新用户路径不应强调它。
 
 ### 3.4 Registry
 
@@ -289,7 +290,7 @@ skillc
 - `show --web` 是单个 skill 查看器，不是管理入口。
 - `list` 只能看当前 agent/scope 的安装状态，不能回答“这个 skill 被装到了哪些项目”。
 - `update` 偏执行动作，还缺少 `--check` / `outdated` 这种不改文件的预览入口。
-- `install --collection` 是快捷能力，但如果继续作为主路径，会加剧 collection/profile 混淆。
+- `install --collection` 曾是快捷能力，但如果继续作为主路径，会加剧 collection/profile 混淆；Phase 1 已移除该 CLI flag。
 
 ### 4.2 调整后的 CLI 命令组织图
 

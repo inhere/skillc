@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"github.com/inhere/skillc/internal/app/apputil"
 	"github.com/inhere/skillc/internal/app/configapp"
@@ -193,6 +194,12 @@ func classifyListItem(current listapp.Item, indexItems []skill.Skill, syncFailed
 		item.Reason = reason
 		return item
 	}
+	if sourceID, reason, ok := sourceQualifiedSyncFailure(current.SourceQualifiedName, syncFailed); ok {
+		item.SourceID = sourceID
+		item.Status = StatusSourceError
+		item.Reason = reason
+		return item
+	}
 	if current.Status == StatusMissing {
 		item.Status = StatusMissing
 		item.Reason = "installed path is missing"
@@ -244,6 +251,15 @@ func sameIdentity(current listapp.Item, item skill.Skill) bool {
 	}
 	return current.SourceID == "" && current.SourceQualifiedName == "" && current.QualifiedName == "" &&
 		item.SourceID == "" && item.SourceQualifiedName == "" && item.QualifiedName == ""
+}
+
+func sourceQualifiedSyncFailure(sourceQualifiedName string, syncFailed map[string]string) (string, string, bool) {
+	sourceID, _, ok := strings.Cut(sourceQualifiedName, "/")
+	if !ok || sourceID == "" {
+		return "", "", false
+	}
+	reason, failed := syncFailed[sourceID]
+	return sourceID, reason, failed
 }
 
 func filterByProfile(items []listapp.Item, profileName string) []listapp.Item {

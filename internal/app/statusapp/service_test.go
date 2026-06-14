@@ -276,6 +276,58 @@ func TestService_RunMatchesIndexByQualifiedIdentityWhenSourceIDIsMissing(t *test
 	assert.Eq(t, "gstack", result.Items[0].SourceID)
 }
 
+func TestService_RunReportsSourceSyncErrorForQualifiedLockWithoutSourceID(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	lockFile := filepath.Join(baseDir, "skillc.lock.json")
+	indexFile := filepath.Join(baseDir, "index.json")
+	assert.NoErr(t, os.MkdirAll(filepath.Join(baseDir, ".agents", "skills", "go-pro"), 0o755))
+
+	config := cfg.DefaultConfig()
+	config.LockFile = lockFile
+	config.IndexFile = indexFile
+	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, ".agents")}
+	config.Sources = []sourcepkg.Source{{ID: "gstack", Type: sourcepkg.TypeLocal, Path: filepath.Join(baseDir, "source")}}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config, baseDir))
+	assert.NoErr(t, lockstore.NewStore().Save(lockFile, lockpkg.File{
+		filepath.Clean(baseDir): {
+			{
+				SkillID:             "go-pro",
+				SourceQualifiedName: "gstack/go-pro",
+				QualifiedName:       "gstack/go-pro",
+				Version:             "1.0.0",
+				Agents:              []string{"universal"},
+			},
+		},
+	}))
+	assert.NoErr(t, repoindex.NewStore().Save(indexFile, []skill.Skill{
+		{
+			ID:                  "go-pro",
+			SourceID:            "gstack",
+			SourceQualifiedName: "gstack/go-pro",
+			QualifiedName:       "gstack/go-pro",
+			Version:             "2.0.0",
+		},
+	}))
+	svc := NewService(configFile, baseDir)
+	svc.syncer = syncerStub{syncFn: func(id string) error {
+		if id == "gstack" {
+			return errors.New("sync failed")
+		}
+		return nil
+	}}
+
+	result, err := svc.Run(Req{Agent: "universal", Scope: "project", WorkDir: baseDir, Sync: true})
+
+	assert.NoErr(t, err)
+	assert.Len(t, result.Items, 1)
+	assert.Eq(t, StatusSourceError, result.Items[0].Status)
+	assert.Eq(t, "gstack", result.Items[0].SourceID)
+	assert.Eq(t, "sync failed", result.Items[0].Reason)
+	assert.Eq(t, 1, result.Summary.SourceError)
+	assert.Eq(t, 0, result.Summary.Outdated)
+}
+
 func TestService_RunReportsSourceSyncErrorsWithoutUpdatingLock(t *testing.T) {
 	baseDir := t.TempDir()
 	configFile := filepath.Join(baseDir, "skillc.yaml")

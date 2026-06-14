@@ -734,6 +734,8 @@ Expected: PASS.
 
 **Coverage follow-up (2026-06-14):** added direct statusapp coverage for agent filtering across both lock records and unmanaged directory scanning. `go test ./internal/app/statusapp -count=1` and `go test ./...` pass.
 
+**Review fix note (2026-06-14):** source sync failures now also apply to older lock records that omit `source_id` but retain `source_qualified_name`, so the status path reports `source-error` before outdated/orphan checks for that source. `go test ./internal/app/statusapp -count=1` and `go test ./...` pass.
+
 - [x] **Step 5: Commit**
 
 ```bash

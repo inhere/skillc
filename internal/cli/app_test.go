@@ -197,6 +197,24 @@ func TestStatusCommand_HonorsAgentAndScopeFilters(t *testing.T) {
 	assert.NotContains(t, output, "project")
 }
 
+func TestStatusCommand_PrintsNoSkillsFoundWhenEmpty(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	lockFile := filepath.Join(baseDir, "skillc.lock.json")
+	indexFile := filepath.Join(baseDir, "index.json")
+
+	config := cfg.DefaultConfig()
+	config.LockFile = lockFile
+	config.IndexFile = indexFile
+	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, ".agents")}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
+	assert.NoErr(t, repoindex.NewStore().Save(indexFile, []skill.Skill{}))
+
+	output := runAppInDirWithStdout(t, baseDir, []string{"status", "--agent", "universal"})
+
+	assert.Contains(t, output, "no skills found")
+}
+
 func TestNewApp_RegistersInstallListAndDoctorCommands(t *testing.T) {
 	app := newTestApp()
 

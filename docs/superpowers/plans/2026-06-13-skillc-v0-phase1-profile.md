@@ -1600,6 +1600,8 @@ git commit -m "feat(profile): plan and apply profiles"
 
 **Fix note (2026-06-14):** `PlanApply` now rejects ambiguous unqualified profile targets instead of silently selecting the first indexed skill. Added regression coverage for duplicated skill IDs across sources. `go test ./internal/app/profileapp -count=1` and `go test ./...` pass.
 
+**Fix note (2026-06-14):** `Apply` now honors profile-level `install_mode` when installing missing skills, and returns install failures instead of reporting a successful apply with only partial/no installs. Added focused regression coverage for both cases. `go test ./internal/app/profileapp -count=1` and `go test ./...` pass.
+
 ## Task 8: Add Profile CLI And Remove Install Collection Flag
 
 **Files:**

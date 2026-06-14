@@ -13,6 +13,7 @@ import (
 	cfg "github.com/inhere/skillc/internal/domain/config"
 	"github.com/inhere/skillc/internal/domain/profile"
 	"github.com/inhere/skillc/internal/domain/skill"
+	"github.com/inhere/skillc/internal/infra/agentfs"
 	"github.com/inhere/skillc/internal/infra/configstore"
 	"github.com/inhere/skillc/internal/infra/repoindex"
 )
@@ -36,8 +37,9 @@ type ApplyReq struct {
 }
 
 type ApplyResult struct {
-	Plan      profile.ApplyPlan
-	Installed []installapp.RuntimeRecord
+	Plan          profile.ApplyPlan
+	Installed     []installapp.RuntimeRecord
+	InstallFailed []installapp.InstallItemError
 }
 
 func NewService(configFile string, baseDir string) *Service {
@@ -265,8 +267,19 @@ func (s *Service) Apply(name string, req ApplyReq) (ApplyResult, error) {
 		return ApplyResult{Plan: plan}, nil
 	}
 
+	item, err := s.Show(name)
+	if err != nil {
+		return ApplyResult{}, err
+	}
 	workDir := firstNonEmpty(req.WorkDir, s.baseDir)
-	result, err := installapp.NewService(config.LockFile).RunResolved(config, installapp.InstallReq{
+	installer := installapp.NewService(config.LockFile)
+	if installMode := strings.TrimSpace(item.InstallMode); installMode != "" {
+		if !agentfs.IsValidMode(installMode) {
+			return ApplyResult{Plan: plan}, fmt.Errorf("invalid profile install_mode: %s", installMode)
+		}
+		installer = installer.WithInstallMode(agentfs.NormalizeMode(installMode))
+	}
+	result, err := installer.RunResolved(config, installapp.InstallReq{
 		Agent:   plan.Agent,
 		Scope:   plan.Scope,
 		WorkDir: workDir,
@@ -275,7 +288,11 @@ func (s *Service) Apply(name string, req ApplyReq) (ApplyResult, error) {
 	if err != nil {
 		return ApplyResult{}, err
 	}
-	return ApplyResult{Plan: plan, Installed: result.Installed}, nil
+	applyResult := ApplyResult{Plan: plan, Installed: result.Installed, InstallFailed: result.InstallFailed}
+	if len(result.InstallFailed) > 0 {
+		return applyResult, fmt.Errorf("profile apply failed: install failed")
+	}
+	return applyResult, nil
 }
 
 func (s *Service) Save(name string, item profile.Profile) error {

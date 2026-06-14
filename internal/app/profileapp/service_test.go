@@ -476,3 +476,113 @@ func TestService_ApplyInstallsMissingSkillsWithProfile(t *testing.T) {
 	assert.NoErr(t, err)
 	assert.Eq(t, "go-dev", records[filepath.Clean(baseDir)][0].Profile)
 }
+
+func TestService_ApplyUsesProfileInstallMode(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	indexFile := filepath.Join(baseDir, "index.json")
+	lockFile := filepath.Join(baseDir, "skillc.lock.json")
+	sourceDir := filepath.Join(baseDir, "source", "review")
+	assert.NoErr(t, os.MkdirAll(sourceDir, 0o755))
+	assert.NoErr(t, os.WriteFile(filepath.Join(sourceDir, "SKILL.md"), []byte("# Review"), 0o644))
+
+	config := cfg.DefaultConfig()
+	config.InstallMode = "junction"
+	config.IndexFile = indexFile
+	config.LockFile = lockFile
+	config.Profiles = map[string]profile.Profile{
+		"go-dev": {
+			InstallMode: "copy",
+			Targets:     []profile.Target{{Source: "gstack", Skill: "review"}},
+		},
+	}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config, baseDir))
+	assert.NoErr(t, repoindex.NewStore().Save(indexFile, []skill.Skill{
+		{ID: "review", SourceID: "gstack", InstallEntry: ".", Path: sourceDir},
+	}))
+
+	_, err := NewService(configFile, baseDir).Apply("go-dev", ApplyReq{
+		Agent:   "universal",
+		Scope:   "project",
+		WorkDir: baseDir,
+	})
+
+	assert.NoErr(t, err)
+	assert.NoErr(t, os.WriteFile(filepath.Join(sourceDir, "SKILL.md"), []byte("# Changed"), 0o644))
+	data, err := os.ReadFile(filepath.Join(baseDir, ".agents", "skills", "review", "SKILL.md"))
+	assert.NoErr(t, err)
+	assert.Eq(t, "# Review", string(data))
+}
+
+func TestService_ApplyReportsInstallFailures(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	indexFile := filepath.Join(baseDir, "index.json")
+	lockFile := filepath.Join(baseDir, "skillc.lock.json")
+	sourceDir := filepath.Join(baseDir, "source", "review")
+	assert.NoErr(t, os.MkdirAll(sourceDir, 0o755))
+	assert.NoErr(t, os.WriteFile(filepath.Join(sourceDir, "SKILL.md"), []byte("# Review"), 0o644))
+	missingDir := filepath.Join(baseDir, "source", "missing")
+
+	config := cfg.DefaultConfig()
+	config.IndexFile = indexFile
+	config.LockFile = lockFile
+	config.Profiles = map[string]profile.Profile{
+		"go-dev": {Targets: []profile.Target{
+			{Source: "gstack", Skill: "broken"},
+			{Source: "gstack", Skill: "review"},
+		}},
+	}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config, baseDir))
+	assert.NoErr(t, repoindex.NewStore().Save(indexFile, []skill.Skill{
+		{ID: "review", SourceID: "gstack", InstallEntry: ".", Path: sourceDir},
+		{ID: "broken", SourceID: "gstack", InstallEntry: ".", Path: missingDir},
+	}))
+
+	result, err := NewService(configFile, baseDir).Apply("go-dev", ApplyReq{
+		Agent:   "universal",
+		Scope:   "project",
+		WorkDir: baseDir,
+	})
+
+	assert.Err(t, err)
+	assert.Contains(t, err.Error(), "profile apply failed")
+	assert.Len(t, result.Installed, 1)
+	assert.Len(t, result.InstallFailed, 1)
+	assert.Eq(t, "broken", result.InstallFailed[0].SkillID)
+}
+
+func TestService_ApplyRejectsInvalidProfileInstallMode(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	indexFile := filepath.Join(baseDir, "index.json")
+	lockFile := filepath.Join(baseDir, "skillc.lock.json")
+	sourceDir := filepath.Join(baseDir, "source", "review")
+	assert.NoErr(t, os.MkdirAll(sourceDir, 0o755))
+	assert.NoErr(t, os.WriteFile(filepath.Join(sourceDir, "SKILL.md"), []byte("# Review"), 0o644))
+
+	config := cfg.DefaultConfig()
+	config.IndexFile = indexFile
+	config.LockFile = lockFile
+	config.Profiles = map[string]profile.Profile{
+		"go-dev": {
+			InstallMode: "bad",
+			Targets:     []profile.Target{{Source: "gstack", Skill: "review"}},
+		},
+	}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config, baseDir))
+	assert.NoErr(t, repoindex.NewStore().Save(indexFile, []skill.Skill{
+		{ID: "review", SourceID: "gstack", InstallEntry: ".", Path: sourceDir},
+	}))
+
+	_, err := NewService(configFile, baseDir).Apply("go-dev", ApplyReq{
+		Agent:   "universal",
+		Scope:   "project",
+		WorkDir: baseDir,
+	})
+
+	assert.Err(t, err)
+	assert.Contains(t, err.Error(), "invalid profile install_mode")
+	_, statErr := os.Stat(filepath.Join(baseDir, ".agents", "skills", "review"))
+	assert.True(t, os.IsNotExist(statErr))
+}

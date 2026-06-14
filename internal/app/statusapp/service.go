@@ -229,29 +229,41 @@ func classifyListItem(current listapp.Item, indexItems []skill.Skill, syncFailed
 }
 
 func findLatest(items []skill.Skill, current listapp.Item) (skill.Skill, bool) {
+	if current.SourceID != "" {
+		for _, item := range items {
+			if current.SkillID == item.ID && item.SourceID != "" && current.SourceID == item.SourceID {
+				return item, true
+			}
+		}
+		return skill.Skill{}, false
+	}
+	if current.SourceQualifiedName != "" {
+		for _, item := range items {
+			if current.SkillID == item.ID && item.SourceQualifiedName != "" && current.SourceQualifiedName == item.SourceQualifiedName {
+				return item, true
+			}
+		}
+		return skill.Skill{}, false
+	}
+	if current.QualifiedName != "" {
+		var found skill.Skill
+		for _, item := range items {
+			if current.SkillID != item.ID || item.QualifiedName == "" || current.QualifiedName != item.QualifiedName {
+				continue
+			}
+			if found.ID != "" {
+				return skill.Skill{}, false
+			}
+			found = item
+		}
+		return found, found.ID != ""
+	}
 	for _, item := range items {
-		if sameIdentity(current, item) {
+		if current.SkillID == item.ID && item.SourceID == "" && item.SourceQualifiedName == "" && item.QualifiedName == "" {
 			return item, true
 		}
 	}
 	return skill.Skill{}, false
-}
-
-func sameIdentity(current listapp.Item, item skill.Skill) bool {
-	if current.SkillID != item.ID {
-		return false
-	}
-	if current.SourceID != "" && item.SourceID != "" {
-		return current.SourceID == item.SourceID
-	}
-	if current.SourceQualifiedName != "" && item.SourceQualifiedName != "" {
-		return current.SourceQualifiedName == item.SourceQualifiedName
-	}
-	if current.QualifiedName != "" && item.QualifiedName != "" {
-		return current.QualifiedName == item.QualifiedName
-	}
-	return current.SourceID == "" && current.SourceQualifiedName == "" && current.QualifiedName == "" &&
-		item.SourceID == "" && item.SourceQualifiedName == "" && item.QualifiedName == ""
 }
 
 func sourceIDByQualifier(sources []sourcepkg.Source) map[string]string {

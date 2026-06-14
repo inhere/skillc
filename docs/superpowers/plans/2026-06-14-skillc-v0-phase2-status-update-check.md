@@ -738,6 +738,8 @@ Expected: PASS.
 
 **Review fix note (2026-06-14):** source-qualified sync failure attribution now maps the leading `source_qualified_name` segment through configured source name/ID aliases, so records from sources whose `name` differs from `id` still report `source-error` with the real source ID. `go test ./internal/app/statusapp -count=1` and `go test ./...` pass.
 
+**Final review fix note (2026-06-14):** qualified-name-only legacy lock records now match index entries only when that qualified name is unique across sources, preventing false outdated results when multiple sources share the same collection-qualified skill name. `go test ./internal/app/statusapp -count=1` and `go test ./...` pass.
+
 - [x] **Step 5: Commit**
 
 ```bash

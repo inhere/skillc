@@ -276,6 +276,55 @@ func TestService_RunMatchesIndexByQualifiedIdentityWhenSourceIDIsMissing(t *test
 	assert.Eq(t, "gstack", result.Items[0].SourceID)
 }
 
+func TestService_RunTreatsQualifiedOnlyLockAsOrphanWhenIndexHasAmbiguousSources(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	lockFile := filepath.Join(baseDir, "skillc.lock.json")
+	indexFile := filepath.Join(baseDir, "index.json")
+	assert.NoErr(t, os.MkdirAll(filepath.Join(baseDir, ".agents", "skills", "go-pro"), 0o755))
+
+	config := cfg.DefaultConfig()
+	config.LockFile = lockFile
+	config.IndexFile = indexFile
+	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, ".agents")}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config, baseDir))
+	assert.NoErr(t, lockstore.NewStore().Save(lockFile, lockpkg.File{
+		filepath.Clean(baseDir): {
+			{
+				SkillID:       "go-pro",
+				QualifiedName: "tools/go-pro",
+				Version:       "1.0.0",
+				Agents:        []string{"universal"},
+			},
+		},
+	}))
+	assert.NoErr(t, repoindex.NewStore().Save(indexFile, []skill.Skill{
+		{
+			ID:                  "go-pro",
+			SourceID:            "repo-a",
+			SourceQualifiedName: "repo-a/tools/go-pro",
+			QualifiedName:       "tools/go-pro",
+			Version:             "2.0.0",
+		},
+		{
+			ID:                  "go-pro",
+			SourceID:            "repo-b",
+			SourceQualifiedName: "repo-b/tools/go-pro",
+			QualifiedName:       "tools/go-pro",
+			Version:             "3.0.0",
+		},
+	}))
+
+	result, err := NewService(configFile, baseDir).Run(Req{Agent: "universal", Scope: "project", WorkDir: baseDir})
+
+	assert.NoErr(t, err)
+	assert.Len(t, result.Items, 1)
+	assert.Eq(t, StatusOrphan, result.Items[0].Status)
+	assert.Eq(t, "skill not found in source index", result.Items[0].Reason)
+	assert.Eq(t, "", result.Items[0].LatestVersion)
+	assert.Eq(t, "", result.Items[0].SourceID)
+}
+
 func TestService_RunReportsSourceSyncErrorForQualifiedLockWithoutSourceID(t *testing.T) {
 	baseDir := t.TempDir()
 	configFile := filepath.Join(baseDir, "skillc.yaml")

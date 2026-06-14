@@ -1349,7 +1349,7 @@ git commit -m "feat(profile): create profiles from installed skills and collecti
 - Modify: `internal/app/profileapp/service.go`
 - Modify: `internal/app/profileapp/service_test.go`
 
-- [ ] **Step 1: Add failing apply plan tests**
+- [x] **Step 1: Add failing apply plan tests**
 
 Append:
 
@@ -1397,7 +1397,7 @@ func TestService_PlanApplySkipsInstalledAndInstallsMissing(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run profileapp tests to verify failure**
+- [x] **Step 2: Run profileapp tests to verify failure**
 
 Run:
 
@@ -1407,7 +1407,7 @@ go test ./internal/app/profileapp -count=1
 
 Expected: FAIL because `ApplyReq` and `PlanApply` do not exist.
 
-- [ ] **Step 3: Implement apply planning**
+- [x] **Step 3: Implement apply planning**
 
 Add to `internal/app/profileapp/service.go`:
 
@@ -1503,7 +1503,7 @@ func findTargetSkill(items []skill.Skill, target profile.Target) (skill.Skill, b
 }
 ```
 
-- [ ] **Step 4: Implement apply execution**
+- [x] **Step 4: Implement apply execution**
 
 Add:
 
@@ -1540,7 +1540,7 @@ func (s *Service) Apply(name string, req ApplyReq) (ApplyResult, error) {
 }
 ```
 
-- [ ] **Step 5: Add apply execution test**
+- [x] **Step 5: Add apply execution test**
 
 Append:
 
@@ -1579,7 +1579,7 @@ func TestService_ApplyInstallsMissingSkillsWithProfile(t *testing.T) {
 }
 ```
 
-- [ ] **Step 6: Run profileapp tests**
+- [x] **Step 6: Run profileapp tests**
 
 Run:
 
@@ -1589,12 +1589,14 @@ go test ./internal/app/profileapp -count=1
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add internal/app/profileapp/service.go internal/app/profileapp/service_test.go
 git commit -m "feat(profile): plan and apply profiles"
 ```
+
+**Verification note (2026-06-14):** `PlanApply` validates agent/scope, resolves agent aliases to canonical names, treats missing lock records as install candidates, and emits `error` items for unresolved targets. `Apply` refuses to install partial plans when any error item exists, and successful installs record the profile name in lock. `go test ./internal/app/profileapp -count=1` and `go test ./...` pass.
 
 ## Task 8: Add Profile CLI And Remove Install Collection Flag
 

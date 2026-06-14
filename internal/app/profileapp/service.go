@@ -6,12 +6,15 @@ import (
 	"strings"
 
 	"github.com/inhere/skillc/internal/app/apputil"
+	"github.com/inhere/skillc/internal/app/installapp"
 	"github.com/inhere/skillc/internal/app/listapp"
 	"github.com/inhere/skillc/internal/app/searchapp"
 	"github.com/inhere/skillc/internal/domain/agent"
 	cfg "github.com/inhere/skillc/internal/domain/config"
 	"github.com/inhere/skillc/internal/domain/profile"
+	"github.com/inhere/skillc/internal/domain/skill"
 	"github.com/inhere/skillc/internal/infra/configstore"
+	"github.com/inhere/skillc/internal/infra/repoindex"
 )
 
 type Service struct {
@@ -24,6 +27,17 @@ type CreateFromInstalledReq struct {
 	Agent   string
 	Scope   string
 	WorkDir string
+}
+
+type ApplyReq struct {
+	Agent   string
+	Scope   string
+	WorkDir string
+}
+
+type ApplyResult struct {
+	Plan      profile.ApplyPlan
+	Installed []installapp.RuntimeRecord
 }
 
 func NewService(configFile string, baseDir string) *Service {
@@ -159,6 +173,111 @@ func (s *Service) CreateFromCollection(name string, selector string) (profile.Pr
 	return s.Create(name, profile.Profile{Targets: targets})
 }
 
+func (s *Service) PlanApply(name string, req ApplyReq) (profile.ApplyPlan, error) {
+	item, err := s.Show(name)
+	if err != nil {
+		return profile.ApplyPlan{}, err
+	}
+
+	config, err := s.store.Load(s.configFile, s.baseDir)
+	if err != nil {
+		return profile.ApplyPlan{}, err
+	}
+	agentName := firstNonEmpty(req.Agent, item.DefaultAgent, agent.DefaultAgentName)
+	canonicalAgent, _, ok := config.ResolveAgentTool(agentName)
+	if !ok {
+		return profile.ApplyPlan{}, fmt.Errorf("unsupported agent: %s", agentName)
+	}
+	scope, err := apputil.ParseScope(firstNonEmpty(req.Scope, item.DefaultScope, string(agent.ScopeProject)))
+	if err != nil {
+		return profile.ApplyPlan{}, err
+	}
+	workDir := firstNonEmpty(req.WorkDir, s.baseDir)
+
+	indexItems, err := repoindex.NewStore().Load(config.IndexFile)
+	if err != nil {
+		return profile.ApplyPlan{}, err
+	}
+	installed, err := listapp.NewService(config.LockFile).WithRuntime(config, workDir).List(canonicalAgent, string(scope))
+	if err != nil {
+		return profile.ApplyPlan{}, err
+	}
+
+	installedSet := make(map[string]struct{}, len(installed)*2)
+	for _, current := range installed {
+		if current.Status != "installed" {
+			continue
+		}
+		installedSet[current.SourceID+"\x00"+current.SkillID] = struct{}{}
+		installedSet["\x00"+current.SkillID] = struct{}{}
+	}
+
+	plan := profile.ApplyPlan{Profile: name, Agent: canonicalAgent, Scope: string(scope)}
+	for _, target := range item.Targets {
+		found, ok := findTargetSkill(indexItems, target)
+		if !ok {
+			plan.Items = append(plan.Items, profile.ApplyPlanItem{
+				Action: "error",
+				Target: target,
+				Reason: "skill not found in index",
+			})
+			continue
+		}
+		if isTargetInstalled(installedSet, target, found) {
+			plan.Items = append(plan.Items, profile.ApplyPlanItem{
+				Action: "skip",
+				Target: target,
+				Skill:  found,
+				Reason: "already installed",
+			})
+			continue
+		}
+		plan.Items = append(plan.Items, profile.ApplyPlanItem{
+			Action: "install",
+			Target: target,
+			Skill:  found,
+		})
+	}
+	return plan, nil
+}
+
+func (s *Service) Apply(name string, req ApplyReq) (ApplyResult, error) {
+	plan, err := s.PlanApply(name, req)
+	if err != nil {
+		return ApplyResult{}, err
+	}
+
+	config, err := s.store.Load(s.configFile, s.baseDir)
+	if err != nil {
+		return ApplyResult{}, err
+	}
+
+	toInstall := make([]skill.Skill, 0)
+	for _, item := range plan.Items {
+		if item.Action == "error" {
+			return ApplyResult{Plan: plan}, fmt.Errorf("profile apply plan has errors")
+		}
+		if item.Action == "install" {
+			toInstall = append(toInstall, item.Skill)
+		}
+	}
+	if len(toInstall) == 0 {
+		return ApplyResult{Plan: plan}, nil
+	}
+
+	workDir := firstNonEmpty(req.WorkDir, s.baseDir)
+	result, err := installapp.NewService(config.LockFile).RunResolved(config, installapp.InstallReq{
+		Agent:   plan.Agent,
+		Scope:   plan.Scope,
+		WorkDir: workDir,
+		Profile: name,
+	}, toInstall, nil)
+	if err != nil {
+		return ApplyResult{}, err
+	}
+	return ApplyResult{Plan: plan, Installed: result.Installed}, nil
+}
+
 func (s *Service) Save(name string, item profile.Profile) error {
 	if err := profile.ValidateName(name); err != nil {
 		return err
@@ -193,4 +312,33 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
+}
+
+func findTargetSkill(items []skill.Skill, target profile.Target) (skill.Skill, bool) {
+	for _, item := range items {
+		if target.Source != "" && item.SourceID != target.Source && item.SourceName != target.Source {
+			continue
+		}
+		if item.ID == target.Skill || item.QualifiedName == target.Skill || item.SourceQualifiedName == target.Skill {
+			return item, true
+		}
+	}
+	return skill.Skill{}, false
+}
+
+func isTargetInstalled(installedSet map[string]struct{}, target profile.Target, found skill.Skill) bool {
+	if target.Source != "" {
+		if _, ok := installedSet[target.Source+"\x00"+target.Skill]; ok {
+			return true
+		}
+	}
+	if target.Source == "" {
+		if _, ok := installedSet["\x00"+target.Skill]; ok {
+			return true
+		}
+	}
+	if _, ok := installedSet[found.SourceID+"\x00"+found.ID]; ok {
+		return true
+	}
+	return false
 }

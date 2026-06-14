@@ -237,3 +237,214 @@ func TestService_CreateFromCollectionRejectsInvalidSelector(t *testing.T) {
 	assert.Err(t, err)
 	assert.Contains(t, err.Error(), "collection selector must be <source>/<collection>")
 }
+
+func TestService_PlanApplySkipsInstalledAndInstallsMissing(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	indexFile := filepath.Join(baseDir, "index.json")
+	lockFile := filepath.Join(baseDir, "skillc.lock.json")
+	installedPath := filepath.Join(baseDir, ".agents", "skills", "go-pro")
+	assert.NoErr(t, os.MkdirAll(installedPath, 0o755))
+
+	config := cfg.DefaultConfig()
+	config.IndexFile = indexFile
+	config.LockFile = lockFile
+	config.Profiles = map[string]profile.Profile{
+		"go-dev": {Targets: []profile.Target{
+			{Source: "gstack", Skill: "go-pro"},
+			{Source: "gstack", Skill: "review"},
+		}},
+	}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config, baseDir))
+	assert.NoErr(t, repoindex.NewStore().Save(indexFile, []skill.Skill{
+		{ID: "go-pro", SourceID: "gstack"},
+		{ID: "review", SourceID: "gstack"},
+	}))
+	assert.NoErr(t, lockstore.NewStore().Save(lockFile, lockpkg.File{
+		filepath.Clean(baseDir): {{
+			SkillID:  "go-pro",
+			SourceID: "gstack",
+			Agents:   []string{"universal"},
+		}},
+	}))
+
+	plan, err := NewService(configFile, baseDir).PlanApply("go-dev", ApplyReq{
+		Agent:   "universal",
+		Scope:   "project",
+		WorkDir: baseDir,
+	})
+
+	assert.NoErr(t, err)
+	assert.Len(t, plan.Items, 2)
+	assert.Eq(t, "skip", plan.Items[0].Action)
+	assert.Eq(t, "install", plan.Items[1].Action)
+}
+
+func TestService_PlanApplyTreatsMissingLockRecordAsInstall(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	indexFile := filepath.Join(baseDir, "index.json")
+	lockFile := filepath.Join(baseDir, "skillc.lock.json")
+
+	config := cfg.DefaultConfig()
+	config.IndexFile = indexFile
+	config.LockFile = lockFile
+	config.Profiles = map[string]profile.Profile{
+		"go-dev": {Targets: []profile.Target{{Source: "gstack", Skill: "go-pro"}}},
+	}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config, baseDir))
+	assert.NoErr(t, repoindex.NewStore().Save(indexFile, []skill.Skill{
+		{ID: "go-pro", SourceID: "gstack"},
+	}))
+	assert.NoErr(t, lockstore.NewStore().Save(lockFile, lockpkg.File{
+		filepath.Clean(baseDir): {{
+			SkillID:  "go-pro",
+			SourceID: "gstack",
+			Agents:   []string{"universal"},
+		}},
+	}))
+
+	plan, err := NewService(configFile, baseDir).PlanApply("go-dev", ApplyReq{
+		Agent:   "universal",
+		Scope:   "project",
+		WorkDir: baseDir,
+	})
+
+	assert.NoErr(t, err)
+	assert.Len(t, plan.Items, 1)
+	assert.Eq(t, "install", plan.Items[0].Action)
+}
+
+func TestService_PlanApplyReportsMissingTarget(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	indexFile := filepath.Join(baseDir, "index.json")
+
+	config := cfg.DefaultConfig()
+	config.IndexFile = indexFile
+	config.Profiles = map[string]profile.Profile{
+		"go-dev": {Targets: []profile.Target{{Source: "gstack", Skill: "missing"}}},
+	}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config, baseDir))
+	assert.NoErr(t, repoindex.NewStore().Save(indexFile, []skill.Skill{
+		{ID: "go-pro", SourceID: "gstack"},
+	}))
+
+	plan, err := NewService(configFile, baseDir).PlanApply("go-dev", ApplyReq{
+		Agent:   "universal",
+		Scope:   "project",
+		WorkDir: baseDir,
+	})
+
+	assert.NoErr(t, err)
+	assert.Len(t, plan.Items, 1)
+	assert.Eq(t, "error", plan.Items[0].Action)
+	assert.Contains(t, plan.Items[0].Reason, "skill not found in index")
+}
+
+func TestService_PlanApplyResolvesAgentAlias(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	indexFile := filepath.Join(baseDir, "index.json")
+
+	config := cfg.DefaultConfig()
+	config.IndexFile = indexFile
+	config.AgentTools["claude-code"] = cfg.AgentToolConfig{
+		Dirname:    ".claude",
+		Aliases:    []string{"claude"},
+		ProjectDir: filepath.Join(baseDir, ".claude"),
+	}
+	config.Profiles = map[string]profile.Profile{
+		"go-dev": {Targets: []profile.Target{{Source: "gstack", Skill: "review"}}},
+	}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config, baseDir))
+	assert.NoErr(t, repoindex.NewStore().Save(indexFile, []skill.Skill{
+		{ID: "review", SourceID: "gstack"},
+	}))
+
+	plan, err := NewService(configFile, baseDir).PlanApply("go-dev", ApplyReq{
+		Agent:   "claude",
+		Scope:   "project",
+		WorkDir: baseDir,
+	})
+
+	assert.NoErr(t, err)
+	assert.Eq(t, "claude-code", plan.Agent)
+	assert.Eq(t, "project", plan.Scope)
+}
+
+func TestService_ApplyRefusesPlanWithErrors(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	indexFile := filepath.Join(baseDir, "index.json")
+	lockFile := filepath.Join(baseDir, "skillc.lock.json")
+	sourceDir := filepath.Join(baseDir, "source", "review")
+	assert.NoErr(t, os.MkdirAll(sourceDir, 0o755))
+	assert.NoErr(t, os.WriteFile(filepath.Join(sourceDir, "SKILL.md"), []byte("# Review"), 0o644))
+
+	config := cfg.DefaultConfig()
+	config.IndexFile = indexFile
+	config.LockFile = lockFile
+	config.Profiles = map[string]profile.Profile{
+		"go-dev": {Targets: []profile.Target{
+			{Source: "gstack", Skill: "review"},
+			{Source: "gstack", Skill: "missing"},
+		}},
+	}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config, baseDir))
+	assert.NoErr(t, repoindex.NewStore().Save(indexFile, []skill.Skill{
+		{ID: "review", SourceID: "gstack", InstallEntry: ".", Path: sourceDir},
+	}))
+
+	_, err := NewService(configFile, baseDir).Apply("go-dev", ApplyReq{
+		Agent:   "universal",
+		Scope:   "project",
+		WorkDir: baseDir,
+	})
+
+	if err == nil {
+		t.Fatalf("Apply() error = nil, want plan error")
+	}
+	assert.Contains(t, err.Error(), "profile apply plan has errors")
+	_, statErr := os.Stat(filepath.Join(baseDir, ".agents", "skills", "review"))
+	assert.True(t, os.IsNotExist(statErr))
+	records, loadErr := lockstore.NewStore().Load(lockFile)
+	if loadErr == nil {
+		assert.Len(t, records, 0)
+		return
+	}
+	assert.True(t, os.IsNotExist(loadErr))
+}
+
+func TestService_ApplyInstallsMissingSkillsWithProfile(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	indexFile := filepath.Join(baseDir, "index.json")
+	lockFile := filepath.Join(baseDir, "skillc.lock.json")
+	sourceDir := filepath.Join(baseDir, "source", "review")
+	assert.NoErr(t, os.MkdirAll(sourceDir, 0o755))
+	assert.NoErr(t, os.WriteFile(filepath.Join(sourceDir, "SKILL.md"), []byte("# Review"), 0o644))
+
+	config := cfg.DefaultConfig()
+	config.IndexFile = indexFile
+	config.LockFile = lockFile
+	config.Profiles = map[string]profile.Profile{
+		"go-dev": {Targets: []profile.Target{{Source: "gstack", Skill: "review"}}},
+	}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config, baseDir))
+	assert.NoErr(t, repoindex.NewStore().Save(indexFile, []skill.Skill{
+		{ID: "review", SourceID: "gstack", InstallEntry: ".", Path: sourceDir},
+	}))
+
+	result, err := NewService(configFile, baseDir).Apply("go-dev", ApplyReq{
+		Agent:   "universal",
+		Scope:   "project",
+		WorkDir: baseDir,
+	})
+
+	assert.NoErr(t, err)
+	assert.Len(t, result.Installed, 1)
+	records, err := lockstore.NewStore().Load(lockFile)
+	assert.NoErr(t, err)
+	assert.Eq(t, "go-dev", records[filepath.Clean(baseDir)][0].Profile)
+}

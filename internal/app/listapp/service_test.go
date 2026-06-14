@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/gookit/goutil/testutil/assert"
+	"github.com/inhere/skillc/internal/domain/agent"
 	"github.com/inhere/skillc/internal/domain/config"
 	lockpkg "github.com/inhere/skillc/internal/domain/lock"
 	"github.com/inhere/skillc/internal/infra/lockstore"
@@ -75,4 +76,21 @@ func TestService_ListIncludesProfileName(t *testing.T) {
 	assert.NoErr(t, err)
 	assert.Len(t, items, 1)
 	assert.Eq(t, "go-dev", items[0].Profile)
+}
+
+func TestService_ScanUnrecordedFiltersByRequestedAgent(t *testing.T) {
+	baseDir := t.TempDir()
+	lockFile := filepath.Join(baseDir, "skillc-install.lock")
+	conf := config.DefaultConfig()
+	conf.AgentTools["claude-code"] = config.AgentToolConfig{Dirname: ".claude", ProjectDir: filepath.Join(baseDir, ".claude")}
+	conf.AgentTools["codex"] = config.AgentToolConfig{Dirname: ".codex", ProjectDir: filepath.Join(baseDir, ".codex")}
+	assert.NoErr(t, os.MkdirAll(filepath.Join(baseDir, ".claude", "skills", "claude-only"), 0o755))
+	assert.NoErr(t, os.MkdirAll(filepath.Join(baseDir, ".codex", "skills", "codex-only"), 0o755))
+
+	groups, err := NewService(lockFile).WithRuntime(conf, baseDir).ScanUnrecorded("claude-code", agent.ScopeProject)
+
+	assert.NoErr(t, err)
+	assert.Len(t, groups, 1)
+	assert.Eq(t, "claude-code", groups[0].AgentName)
+	assert.Eq(t, []string{"claude-only"}, groups[0].Skills)
 }

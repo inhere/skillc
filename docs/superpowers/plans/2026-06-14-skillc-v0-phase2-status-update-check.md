@@ -153,7 +153,7 @@ type SourceSyncError struct {
 - Modify: `internal/app/listapp/service.go`
 - Modify: `internal/app/listapp/service_test.go`
 
-- [ ] **Step 1: Write failing test for agent-scoped unrecorded scan**
+- [x] **Step 1: Write failing test for agent-scoped unrecorded scan**
 
 Append to `internal/app/listapp/service_test.go`:
 
@@ -182,7 +182,7 @@ Add import if needed:
 import "github.com/inhere/skillc/internal/domain/agent"
 ```
 
-- [ ] **Step 2: Run listapp tests to verify failure**
+- [x] **Step 2: Run listapp tests to verify failure**
 
 Run:
 
@@ -192,7 +192,7 @@ go test ./internal/app/listapp -run TestService_ScanUnrecordedFiltersByRequested
 
 Expected: FAIL because `ScanUnrecorded("claude-code", ...)` still scans codex.
 
-- [ ] **Step 3: Implement agent filter**
+- [x] **Step 3: Implement agent filter**
 
 Modify `internal/app/listapp/service.go` inside `ScanUnrecorded` loop:
 
@@ -212,7 +212,7 @@ for name, tool := range rc.AgentTools {
 }
 ```
 
-- [ ] **Step 4: Run listapp tests**
+- [x] **Step 4: Run listapp tests**
 
 Run:
 
@@ -222,7 +222,7 @@ go test ./internal/app/listapp -count=1
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add internal/app/listapp/service.go internal/app/listapp/service_test.go

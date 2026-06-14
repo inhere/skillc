@@ -184,6 +184,12 @@ func (s *Service) ScanUnrecorded(agentName string, scope agent.Scope) ([]Unrecor
 
 	var groups []UnrecordedGroup
 	for name, tool := range rc.AgentTools {
+		if agentName != "" {
+			canonicalName, _, ok := rc.ResolveAgentTool(agentName)
+			if !ok || canonicalName != name {
+				continue
+			}
+		}
 		skillsDir, err := resolveSkillsDir(rc, workDir, name, tool, scope)
 		if err != nil || skillsDir == "" {
 			continue

@@ -9,6 +9,7 @@
 | 2026-06-13 | v0.5 | Codex | 复审参考项目，补充参考分析文档链接和 Phase 1 边界校验 |
 | 2026-06-14 | v0.6 | Codex | 记录 Phase 1 已落地 profile CLI，并明确 `install --collection` 已从 CLI 移除 |
 | 2026-06-14 | v0.7 | Codex | 增加 Phase 2 status/update-check 实施计划链接，并收窄本期实现边界 |
+| 2026-06-14 | v0.8 | Codex | 增加 Phase 3 interactive selection 实施计划链接，并明确交互式 TUI 基于 `gookit/cliui` |
 
 状态：Draft
 
@@ -18,6 +19,7 @@
 - `docs/design/skillc-reference-projects-analysis.md`
 - `docs/superpowers/plans/2026-06-13-skillc-v0-phase1-profile.md`
 - `docs/superpowers/plans/2026-06-14-skillc-v0-phase2-status-update-check.md`
+- `docs/superpowers/plans/2026-06-14-skillc-v0-phase3-interactive-selection.md`
 - `docs/prd.md`
 - `docs/arch.md`
 - `docs/plan.md`
@@ -27,6 +29,8 @@
 一期开发计划：`docs/superpowers/plans/2026-06-13-skillc-v0-phase1-profile.md`
 
 二期开发计划：`docs/superpowers/plans/2026-06-14-skillc-v0-phase2-status-update-check.md`
+
+三期开发计划：`docs/superpowers/plans/2026-06-14-skillc-v0-phase3-interactive-selection.md`
 
 ## 1. 设计结论
 
@@ -523,6 +527,8 @@ skillc update --interactive
 skillc profile create go-dev --interactive
 ```
 
+本期交互式 TUI 复用已引入的 `gookit/cliui`，优先使用 `interact` / `interact/ui` / `interact/backend` 已支持的过滤、多选和 fake backend 测试能力；`skillc` 只封装薄 adapter 和 CLI 注入边界。
+
 交互功能建议：
 
 - 支持关键字过滤。
@@ -840,9 +846,11 @@ internal/infra/termselect/
 
 目标：安装、更新、profile 创建支持多选和过滤。
 
+实施计划：`docs/superpowers/plans/2026-06-14-skillc-v0-phase3-interactive-selection.md`
+
 任务：
 
-- 引入终端选择组件或封装最小交互接口。
+- 基于已引入的 `gookit/cliui` 封装最小交互接口。
 - `install --interactive`。
 - `update --interactive`。
 - `profile create --interactive`。

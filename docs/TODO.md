@@ -15,6 +15,22 @@
   - 可以在项目里快速切换使用不同的 skill 组合，方便测试和观察效果
 - [ ] 不要给 source 名称加 local/git 前缀; 现在无法方便的查看一个 source 的信息
 
+## [ ] skillc 增强重构
+
+设计草案：`docs/design/skillc-v0-enhance-design.md`
+参考分析：`docs/design/skillc-reference-projects-analysis.md`
+一期计划：`docs/superpowers/plans/2026-06-13-skillc-v0-phase1-profile.md`
+
+cli 优先，这样可以方便的进入任何目录进行操作
+skillc 技能场景 - 自由选择多个技能配置为一个场景(eg: go-dev, flutter-dev)
+在任意项目下 一键安装，启用 场景技能、集合技能
+技能安装，更新 都支持交互式选择，过滤
+web server 查看技能，源，也可以进行安装，更新，配置场景技能等管理操作
+
+现有概念：
+source -  skill源
+collection - skill集合
+
 参考项目：
 - https://github.com/xingkongliang/skills-manager
 - https://github.com/runkids/skillshare

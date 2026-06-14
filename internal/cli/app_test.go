@@ -346,6 +346,149 @@ func TestUpdateCommand_CheckPrintsNoCandidatesWhenHealthy(t *testing.T) {
 	assert.NotContains(t, output, "Update Check")
 }
 
+func TestUpdateCommandInteractiveSelectsAndUpdatesCandidates(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	lockFile := filepath.Join(baseDir, "skillc.lock.json")
+	indexFile := filepath.Join(baseDir, "index.json")
+	installedPath := filepath.Join(baseDir, ".agents", "skills", "go-pro")
+	assert.NoErr(t, os.MkdirAll(installedPath, 0o755))
+
+	config := cfg.DefaultConfig()
+	config.LockFile = lockFile
+	config.IndexFile = indexFile
+	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, ".agents")}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
+	assert.NoErr(t, lockstore.NewStore().Save(lockFile, lockpkg.File{
+		filepath.Clean(baseDir): {{
+			SkillID:             "go-pro",
+			QualifiedName:       "tools/go-pro",
+			SourceQualifiedName: "repo-a/tools/go-pro",
+			SourceID:            "repo-a",
+			Version:             "1.0.0",
+			Agents:              []string{"universal"},
+		}},
+	}))
+	assert.NoErr(t, repoindex.NewStore().Save(indexFile, []skill.Skill{{
+		ID:                  "go-pro",
+		QualifiedName:       "tools/go-pro",
+		SourceQualifiedName: "repo-a/tools/go-pro",
+		SourceID:            "repo-a",
+		Version:             "2.0.0",
+	}}))
+
+	stub := &selectorStub{items: []termselect.Item{{Value: "repo-a/tools/go-pro"}}}
+	prevSelector := newMultiSelector
+	newMultiSelector = func() multiSelector { return stub }
+	defer func() { newMultiSelector = prevSelector }()
+
+	gotReqs := make([]updateapp.Req, 0)
+	prevFactory := newUpdateService
+	newUpdateService = func(configFile string, baseDir string) updateRunner {
+		return updateRunnerStub{runFn: func(req updateapp.Req) (updateapp.Result, error) {
+			gotReqs = append(gotReqs, req)
+			return updateapp.Result{
+				Updated: []installapp.RuntimeRecord{{
+					Record:        lockpkg.Record{SkillID: "go-pro"},
+					InstalledPath: installedPath,
+				}},
+			}, nil
+		}}
+	}
+	defer func() { newUpdateService = prevFactory }()
+
+	output := runAppInDirWithStdout(t, baseDir, []string{"update", "--interactive", "--agent", "universal"})
+
+	assert.Contains(t, stub.got.Title, "Update")
+	assert.Len(t, gotReqs, 1)
+	if len(gotReqs) == 0 {
+		return
+	}
+	assert.Eq(t, "repo-a/tools/go-pro", gotReqs[0].Target)
+	assert.Contains(t, output, "updated go-pro "+installedPath)
+}
+
+func TestUpdateCommandInteractiveUsesTargetFilterBeforeSelecting(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	lockFile := filepath.Join(baseDir, "skillc.lock.json")
+	indexFile := filepath.Join(baseDir, "index.json")
+	assert.NoErr(t, os.MkdirAll(filepath.Join(baseDir, ".agents", "skills", "go-pro"), 0o755))
+	assert.NoErr(t, os.MkdirAll(filepath.Join(baseDir, ".agents", "skills", "rust-pro"), 0o755))
+
+	config := cfg.DefaultConfig()
+	config.LockFile = lockFile
+	config.IndexFile = indexFile
+	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, ".agents")}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
+	assert.NoErr(t, lockstore.NewStore().Save(lockFile, lockpkg.File{
+		filepath.Clean(baseDir): {
+			{SkillID: "go-pro", QualifiedName: "tools/go-pro", SourceQualifiedName: "repo-a/tools/go-pro", SourceID: "repo-a", Version: "1.0.0", Agents: []string{"universal"}},
+			{SkillID: "rust-pro", QualifiedName: "tools/rust-pro", SourceQualifiedName: "repo-a/tools/rust-pro", SourceID: "repo-a", Version: "1.0.0", Agents: []string{"universal"}},
+		},
+	}))
+	assert.NoErr(t, repoindex.NewStore().Save(indexFile, []skill.Skill{
+		{ID: "go-pro", QualifiedName: "tools/go-pro", SourceQualifiedName: "repo-a/tools/go-pro", SourceID: "repo-a", Version: "2.0.0"},
+		{ID: "rust-pro", QualifiedName: "tools/rust-pro", SourceQualifiedName: "repo-a/tools/rust-pro", SourceID: "repo-a", Version: "2.0.0"},
+	}))
+
+	stub := &selectorStub{items: []termselect.Item{{Value: "repo-a/tools/go-pro"}}}
+	prevSelector := newMultiSelector
+	newMultiSelector = func() multiSelector { return stub }
+	defer func() { newMultiSelector = prevSelector }()
+
+	prevFactory := newUpdateService
+	newUpdateService = func(configFile string, baseDir string) updateRunner {
+		return updateRunnerStub{runFn: func(req updateapp.Req) (updateapp.Result, error) {
+			return updateapp.Result{}, nil
+		}}
+	}
+	defer func() { newUpdateService = prevFactory }()
+
+	runAppInDirWithStdout(t, baseDir, []string{"update", "--interactive", "--agent", "universal", "--target", "go-pro"})
+
+	assert.Len(t, stub.got.Items, 1)
+	if len(stub.got.Items) == 0 {
+		return
+	}
+	assert.Eq(t, "repo-a/tools/go-pro", stub.got.Items[0].Value)
+}
+
+func TestUpdateCommandInteractiveNoCandidatesDoesNotOpenSelector(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	lockFile := filepath.Join(baseDir, "skillc.lock.json")
+	indexFile := filepath.Join(baseDir, "index.json")
+	assert.NoErr(t, os.MkdirAll(filepath.Join(baseDir, ".agents", "skills", "go-pro"), 0o755))
+
+	config := cfg.DefaultConfig()
+	config.LockFile = lockFile
+	config.IndexFile = indexFile
+	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, ".agents")}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
+	assert.NoErr(t, lockstore.NewStore().Save(lockFile, lockpkg.File{
+		filepath.Clean(baseDir): {{SkillID: "go-pro", SourceID: "repo-a", Version: "1.0.0", Agents: []string{"universal"}}},
+	}))
+	assert.NoErr(t, repoindex.NewStore().Save(indexFile, []skill.Skill{{ID: "go-pro", SourceID: "repo-a", Version: "1.0.0"}}))
+
+	stub := &selectorStub{}
+	prevSelector := newMultiSelector
+	newMultiSelector = func() multiSelector { return stub }
+	defer func() { newMultiSelector = prevSelector }()
+
+	output := runAppInDirWithStdout(t, baseDir, []string{"update", "--interactive", "--agent", "universal"})
+
+	assert.Contains(t, output, "no update candidates")
+	assert.False(t, stub.called)
+}
+
+func TestUpdateCommandInteractiveRejectsCheckMode(t *testing.T) {
+	err := validateUpdateMode(true, true)
+
+	assert.Err(t, err)
+	assert.Contains(t, err.Error(), "--check and --interactive are mutually exclusive")
+}
+
 func TestStatusCommand_PrintsSkillHealth(t *testing.T) {
 	baseDir := t.TempDir()
 	configFile := filepath.Join(baseDir, "skillc.yaml")

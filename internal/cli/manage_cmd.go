@@ -357,6 +357,7 @@ func buildUpdateCommand() *gcli.Command {
 	var opts ManageOptions
 	var target string
 	var checkOnly bool
+	var interactive bool
 	return &gcli.Command{
 		Name:    "update",
 		Desc:    "Update installed skills",
@@ -365,6 +366,7 @@ func buildUpdateCommand() *gcli.Command {
 			opts.bindCommand(c)
 			c.StrOpt(&target, "target", "t", "", "skill id to update (default: update all)")
 			c.BoolOpt(&checkOnly, "check", "", false, "check update candidates without installing")
+			c.BoolOpt(&interactive, "interactive", "i", false, "interactively select update candidates")
 			c.AddArg("skill", "skill id to update (same as --target)")
 		},
 		Func: func(c *gcli.Command, _ []string) error {
@@ -374,6 +376,9 @@ func buildUpdateCommand() *gcli.Command {
 			}
 			if target == "" {
 				target = c.Arg("skill").String()
+			}
+			if err := validateUpdateMode(checkOnly, interactive); err != nil {
+				return err
 			}
 			if checkOnly {
 				result, err := statusapp.NewService(defaultConfigFile(cwd), cwd).Run(statusapp.Req{
@@ -387,6 +392,50 @@ func buildUpdateCommand() *gcli.Command {
 				}
 				return printUpdateCheckResult(result, target)
 			}
+			if interactive {
+				result, err := statusapp.NewService(defaultConfigFile(cwd), cwd).Run(statusapp.Req{
+					Agent:   opts.Agent,
+					Scope:   opts.Scope,
+					WorkDir: cwd,
+					Sync:    true,
+				})
+				if err != nil {
+					return err
+				}
+				candidates := filterUpdateCandidates(result.Items, target)
+				selectItems := updateSelectItems(candidates)
+				if len(selectItems) == 0 {
+					ccolor.Successln("no update candidates")
+					return nil
+				}
+				selected, err := newMultiSelector().SelectMulti(context.Background(), termselect.Options{
+					Title:        "Update skills",
+					Items:        selectItems,
+					FilterPrompt: "filter update candidates",
+				})
+				if err != nil {
+					return err
+				}
+				targets := selectedUpdateTargets(candidates, selected)
+				if len(targets) == 0 {
+					ccolor.Warnln("no update targets selected")
+					return nil
+				}
+				for _, selectedTarget := range targets {
+					result, err := newUpdateService(defaultConfigFile(cwd), cwd).Run(updateapp.Req{
+						Target:  selectedTarget,
+						Agent:   opts.Agent,
+						Scope:   opts.Scope,
+						WorkDir: cwd,
+					})
+					if err != nil {
+						slog.Error(err)
+						return err
+					}
+					printUpdateResult(result)
+				}
+				return nil
+			}
 
 			result, err := newUpdateService(defaultConfigFile(cwd), cwd).Run(updateapp.Req{
 				Target:  target,
@@ -398,34 +447,21 @@ func buildUpdateCommand() *gcli.Command {
 				slog.Error(err)
 				return err
 			}
-			for _, record := range result.Updated {
-				ccolor.Infof("updated %s %s\n", record.SkillID, record.InstalledPath)
-			}
-			for _, skipped := range result.Skipped {
-				ccolor.Infof("skipped %s %s\n", skipped.SkillID, skipped.Reason)
-			}
-			for _, failed := range result.CleanupFailed {
-				ccolor.Errorf("cleanup failed %s %s\n", failed.SkillID, failed.Reason)
-			}
-			for _, failed := range result.Failed {
-				ccolor.Errorf("update failed %s %s\n", failed.SkillID, failed.Reason)
-			}
+			printUpdateResult(result)
 			return nil
 		},
 	}
 }
 
-func printUpdateCheckResult(result statusapp.Result, target string) error {
-	items := make([]statusapp.Item, 0, len(result.Items))
-	for _, item := range result.Items {
-		if target != "" && item.SkillID != target && item.QualifiedName != target {
-			continue
-		}
-		if item.Status == statusapp.StatusInstalled {
-			continue
-		}
-		items = append(items, item)
+func validateUpdateMode(checkOnly bool, interactive bool) error {
+	if checkOnly && interactive {
+		return fmt.Errorf("--check and --interactive are mutually exclusive")
 	}
+	return nil
+}
+
+func printUpdateCheckResult(result statusapp.Result, target string) error {
+	items := filterUpdateCheckItems(result.Items, target)
 	if len(items) == 0 {
 		ccolor.Successln("no update candidates")
 		return nil
@@ -436,6 +472,53 @@ func printUpdateCheckResult(result statusapp.Result, target string) error {
 	}
 	_, err := fmt.Fprint(os.Stdout, tb.Render())
 	return err
+}
+
+func filterUpdateCandidates(items []statusapp.Item, target string) []statusapp.Item {
+	out := make([]statusapp.Item, 0, len(items))
+	for _, item := range items {
+		if item.Status != statusapp.StatusOutdated && item.Status != statusapp.StatusMissing {
+			continue
+		}
+		if target != "" && !matchesStatusTarget(item, target) {
+			continue
+		}
+		out = append(out, item)
+	}
+	return out
+}
+
+func filterUpdateCheckItems(items []statusapp.Item, target string) []statusapp.Item {
+	out := make([]statusapp.Item, 0, len(items))
+	for _, item := range items {
+		if target != "" && !matchesStatusTarget(item, target) {
+			continue
+		}
+		if item.Status == statusapp.StatusInstalled {
+			continue
+		}
+		out = append(out, item)
+	}
+	return out
+}
+
+func matchesStatusTarget(item statusapp.Item, target string) bool {
+	return item.SkillID == target || item.QualifiedName == target || item.SourceQualifiedName == target
+}
+
+func printUpdateResult(result updateapp.Result) {
+	for _, record := range result.Updated {
+		ccolor.Infof("updated %s %s\n", record.SkillID, record.InstalledPath)
+	}
+	for _, skipped := range result.Skipped {
+		ccolor.Infof("skipped %s %s\n", skipped.SkillID, skipped.Reason)
+	}
+	for _, failed := range result.CleanupFailed {
+		ccolor.Errorf("cleanup failed %s %s\n", failed.SkillID, failed.Reason)
+	}
+	for _, failed := range result.Failed {
+		ccolor.Errorf("update failed %s %s\n", failed.SkillID, failed.Reason)
+	}
 }
 
 func buildUninstallCommand() *gcli.Command {

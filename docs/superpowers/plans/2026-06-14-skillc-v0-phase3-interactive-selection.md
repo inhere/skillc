@@ -688,11 +688,11 @@ git commit -m "feat(cli): add interactive install"
 - Modify: `internal/cli/manage_cmd.go`
 - Modify: `internal/cli/app_test.go`
 
-- [ ] **Step 1: Write failing status `SourceQualifiedName` test**
+- [x] **Step 1: Write failing status `SourceQualifiedName` test**
 
 Add or extend status tests so an indexed skill with `SourceQualifiedName: "repo-a/tools/go-pro"` produces `statusapp.Item.SourceQualifiedName == "repo-a/tools/go-pro"` for installed/outdated/missing classifications.
 
-- [ ] **Step 2: Run status tests to verify failure**
+- [x] **Step 2: Run status tests to verify failure**
 
 Run:
 
@@ -702,7 +702,7 @@ go test ./internal/app/statusapp -run SourceQualifiedName -count=1
 
 Expected: FAIL because `statusapp.Item` does not expose `SourceQualifiedName`.
 
-- [ ] **Step 3: Implement status target propagation**
+- [x] **Step 3: Implement status target propagation**
 
 In `statusapp.Item`, add:
 
@@ -712,7 +712,7 @@ SourceQualifiedName string
 
 In `classifyListItem`, copy `current.SourceQualifiedName` initially, and after `findLatest`, fill it from `latest.SourceQualifiedName` when missing.
 
-- [ ] **Step 4: Write failing update interactive CLI test**
+- [x] **Step 4: Write failing update interactive CLI test**
 
 Add test with:
 
@@ -728,7 +728,7 @@ Expected assertions:
 - update req target equals `repo-a/tools/go-pro`
 - output includes runner result lines
 
-- [ ] **Step 5: Run update interactive tests to verify failure**
+- [x] **Step 5: Run update interactive tests to verify failure**
 
 Run:
 
@@ -738,7 +738,7 @@ go test ./internal/cli -run 'TestUpdateCommandInteractive' -count=1
 
 Expected: FAIL because `--interactive` update path does not exist.
 
-- [ ] **Step 6: Implement update interactive flag and branch**
+- [x] **Step 6: Implement update interactive flag and branch**
 
 In `buildUpdateCommand`:
 
@@ -754,7 +754,7 @@ In `buildUpdateCommand`:
   - call `newUpdateService(...).Run(updateapp.Req{Target: selectedTarget, Agent: opts.Agent, Scope: opts.Scope, WorkDir: cwd})` for each selected target
   - reuse existing update result printing
 
-- [ ] **Step 7: Run update/status tests**
+- [x] **Step 7: Run update/status tests**
 
 Run:
 
@@ -764,12 +764,14 @@ go test ./internal/app/statusapp ./internal/cli -run 'Test.*Interactive|TestServ
 
 Expected: PASS.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add internal/app/statusapp/service.go internal/app/statusapp/service_test.go internal/cli/manage_cmd.go internal/cli/app_test.go
 git commit -m "feat(cli): add interactive update"
 ```
+
+**Verification note (2026-06-15):** Status `SourceQualifiedName` propagation was already covered by Task 3 follow-up tests in this branch. Added RED CLI coverage for `update --interactive` selection/update, target filtering before selector display, no-candidate behavior, and `--check`/`--interactive` mutual exclusion. Initial focused run failed because `--interactive` was not registered. After implementation, `go test ./internal/app/statusapp ./internal/cli -run 'Test.*Interactive|TestService_.*SourceQualifiedName|TestUpdateCommand_' -count=1`, `go test ./internal/cli -count=1`, and `go test ./...` pass.
 
 ## Task 6: Add `profile create --interactive`
 

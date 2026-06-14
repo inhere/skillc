@@ -779,7 +779,7 @@ git commit -m "feat(cli): add interactive update"
 - Modify: `internal/cli/profile_cmd.go`
 - Modify: `internal/cli/app_test.go`
 
-- [ ] **Step 1: Write failing profile create interactive tests**
+- [x] **Step 1: Write failing profile create interactive tests**
 
 Add:
 
@@ -793,7 +793,7 @@ Expected behavior:
 - command prints `profile created: <name>`
 - no profile is written when mutually exclusive flags are combined
 
-- [ ] **Step 2: Run profile interactive tests to verify failure**
+- [x] **Step 2: Run profile interactive tests to verify failure**
 
 Run:
 
@@ -803,7 +803,7 @@ go test ./internal/cli -run 'TestProfileCreateInteractive' -count=1
 
 Expected: FAIL because `--interactive` is not supported.
 
-- [ ] **Step 3: Implement profile create interactive branch**
+- [x] **Step 3: Implement profile create interactive branch**
 
 In `buildProfileCreateCommand`:
 
@@ -844,7 +844,7 @@ _, err = svc.Create(name, profile.Profile{
 
 If no candidates or no selected skills, return a clear error and do not create an empty profile.
 
-- [ ] **Step 4: Run profile interactive tests**
+- [x] **Step 4: Run profile interactive tests**
 
 Run:
 
@@ -854,12 +854,14 @@ go test ./internal/cli -run 'TestProfileCreateInteractive|TestProfileCreateComma
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add internal/cli/profile_cmd.go internal/cli/app_test.go
 git commit -m "feat(cli): add interactive profile create"
 ```
+
+**Verification note (2026-06-15):** Added RED CLI coverage for `profile create <name> --interactive` selection/persistence, mutual exclusion with `--from-installed` / `--from-collection`, no-candidate, and no-selection paths. Initial focused run failed because interactive profile creation was unsupported. After implementation and follow-up edge coverage, `go test ./internal/cli -run 'TestProfileCreateInteractive|TestProfileCreateCommandRequiresExactlyOneSource' -count=1`, `go test ./internal/cli -count=1`, and `go test ./...` pass.
 
 ## Task 7: Documentation and Full Verification
 

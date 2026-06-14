@@ -1024,6 +1024,143 @@ func TestProfileCreateCommandRequiresExactlyOneSource(t *testing.T) {
 	assert.False(t, ok)
 }
 
+func TestProfileCreateInteractiveSelectsSkills(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	indexFile := filepath.Join(baseDir, "index.json")
+	config := cfg.DefaultConfig()
+	config.IndexFile = indexFile
+	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, ".agents")}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
+	assert.NoErr(t, repoindex.NewStore().Save(indexFile, []skill.Skill{
+		{
+			ID:                  "go-pro",
+			Name:                "Go Pro",
+			SourceID:            "repo-a",
+			Collection:          "tools",
+			QualifiedName:       "tools/go-pro",
+			SourceQualifiedName: "repo-a/tools/go-pro",
+			Version:             "1.0.0",
+			SupportedAgents:     []string{"universal"},
+		},
+		{
+			ID:                  "review",
+			Name:                "Review",
+			SourceID:            "repo-a",
+			Collection:          "ops",
+			QualifiedName:       "ops/review",
+			SourceQualifiedName: "repo-a/ops/review",
+			Version:             "1.0.0",
+			SupportedAgents:     []string{"universal"},
+		},
+	}))
+
+	stub := &selectorStub{items: []termselect.Item{{Value: "repo-a/tools/go-pro"}}}
+	prevSelector := newMultiSelector
+	newMultiSelector = func() multiSelector { return stub }
+	defer func() { newMultiSelector = prevSelector }()
+
+	output := runAppInDirWithStdout(t, baseDir, []string{"profile", "create", "go-dev", "--interactive", "--agent", "universal", "--scope", "project"})
+
+	assert.Contains(t, stub.got.Title, "Create profile go-dev")
+	assert.Len(t, stub.got.Items, 2)
+	assert.Contains(t, output, "profile created: go-dev")
+	loaded, err := configstore.NewYAMLStore().Load(configFile, baseDir)
+	assert.NoErr(t, err)
+	got := loaded.Profiles["go-dev"]
+	assert.Eq(t, "universal", got.DefaultAgent)
+	assert.Eq(t, "project", got.DefaultScope)
+	assert.Eq(t, []profile.Target{{Source: "repo-a", Skill: "go-pro"}}, got.Targets)
+}
+
+func TestProfileCreateInteractiveIsMutuallyExclusiveWithFromInstalled(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	indexFile := filepath.Join(baseDir, "index.json")
+	config := cfg.DefaultConfig()
+	config.IndexFile = indexFile
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
+	assert.NoErr(t, repoindex.NewStore().Save(indexFile, []skill.Skill{{ID: "go-pro", SourceID: "repo-a"}}))
+
+	output := runAppInDirWithStdout(t, baseDir, []string{"profile", "create", "go-dev", "--interactive", "--from-installed"})
+
+	assert.Contains(t, output, "use exactly one")
+	loaded, err := configstore.NewYAMLStore().Load(configFile, baseDir)
+	assert.NoErr(t, err)
+	_, ok := loaded.Profiles["go-dev"]
+	assert.False(t, ok)
+}
+
+func TestProfileCreateInteractiveIsMutuallyExclusiveWithFromCollection(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	indexFile := filepath.Join(baseDir, "index.json")
+	config := cfg.DefaultConfig()
+	config.IndexFile = indexFile
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
+	assert.NoErr(t, repoindex.NewStore().Save(indexFile, []skill.Skill{{ID: "go-pro", SourceID: "repo-a", Collection: "tools"}}))
+
+	output := runAppInDirWithStdout(t, baseDir, []string{"profile", "create", "go-dev", "--interactive", "--from-collection", "repo-a/tools"})
+
+	assert.Contains(t, output, "use exactly one")
+	loaded, err := configstore.NewYAMLStore().Load(configFile, baseDir)
+	assert.NoErr(t, err)
+	_, ok := loaded.Profiles["go-dev"]
+	assert.False(t, ok)
+}
+
+func TestProfileCreateInteractiveNoCandidatesDoesNotOpenSelector(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	indexFile := filepath.Join(baseDir, "index.json")
+	config := cfg.DefaultConfig()
+	config.IndexFile = indexFile
+	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, ".agents")}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
+	assert.NoErr(t, repoindex.NewStore().Save(indexFile, []skill.Skill{}))
+
+	stub := &selectorStub{}
+	prevSelector := newMultiSelector
+	newMultiSelector = func() multiSelector { return stub }
+	defer func() { newMultiSelector = prevSelector }()
+
+	runAppInDirWithStdout(t, baseDir, []string{"profile", "create", "go-dev", "--interactive", "--agent", "universal"})
+
+	assert.False(t, stub.called)
+	loaded, err := configstore.NewYAMLStore().Load(configFile, baseDir)
+	assert.NoErr(t, err)
+	_, ok := loaded.Profiles["go-dev"]
+	assert.False(t, ok)
+}
+
+func TestProfileCreateInteractiveNoSelectionDoesNotCreateProfile(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	indexFile := filepath.Join(baseDir, "index.json")
+	config := cfg.DefaultConfig()
+	config.IndexFile = indexFile
+	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, ".agents")}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
+	assert.NoErr(t, repoindex.NewStore().Save(indexFile, []skill.Skill{{
+		ID:              "go-pro",
+		SourceID:        "repo-a",
+		SupportedAgents: []string{"universal"},
+	}}))
+
+	stub := &selectorStub{}
+	prevSelector := newMultiSelector
+	newMultiSelector = func() multiSelector { return stub }
+	defer func() { newMultiSelector = prevSelector }()
+
+	runAppInDirWithStdout(t, baseDir, []string{"profile", "create", "go-dev", "--interactive", "--agent", "universal"})
+
+	assert.True(t, stub.called)
+	loaded, err := configstore.NewYAMLStore().Load(configFile, baseDir)
+	assert.NoErr(t, err)
+	_, ok := loaded.Profiles["go-dev"]
+	assert.False(t, ok)
+}
+
 func TestProfileApplyDryRunPrintsPlan(t *testing.T) {
 	baseDir := t.TempDir()
 	configFile := filepath.Join(baseDir, "skillc.yaml")

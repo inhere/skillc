@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/gookit/goutil/x/ccolor"
 	"github.com/inhere/skillc/internal/app/profileapp"
 	"github.com/inhere/skillc/internal/domain/profile"
+	"github.com/inhere/skillc/internal/infra/termselect"
 )
 
 func newProfileService() *profileapp.Service {
@@ -68,6 +70,7 @@ func buildProfileShowCommand() *gcli.Command {
 func buildProfileCreateCommand() *gcli.Command {
 	var fromInstalled bool
 	var fromCollection string
+	var interactive bool
 	var agentName string
 	var scope string
 	return &gcli.Command{
@@ -77,6 +80,7 @@ func buildProfileCreateCommand() *gcli.Command {
 			c.AddArg("name", "profile name", true)
 			c.BoolOpt(&fromInstalled, "from-installed", "", false, "create from installed skills")
 			c.StrOpt(&fromCollection, "from-collection", "", "", "create from <source>/<collection>")
+			c.BoolOpt(&interactive, "interactive", "i", false, "interactively select skills")
 			c.StrOpt(&agentName, "agent", "a", "", "agent name")
 			c.StrOpt(&scope, "scope", "s", "project", "scope")
 		},
@@ -84,12 +88,16 @@ func buildProfileCreateCommand() *gcli.Command {
 			defer func() {
 				fromInstalled = false
 				fromCollection = ""
+				interactive = false
 				agentName = ""
 				scope = "project"
 			}()
 			name := c.Arg("name").String()
-			fillProfileCreateOptions(c.RawArgs(), &fromInstalled, &fromCollection, &agentName, &scope)
+			fillProfileCreateOptions(c.RawArgs(), &fromInstalled, &fromCollection, &interactive, &agentName, &scope)
 			sourceCount := 0
+			if interactive {
+				sourceCount++
+			}
 			if fromInstalled {
 				sourceCount++
 			}
@@ -97,12 +105,44 @@ func buildProfileCreateCommand() *gcli.Command {
 				sourceCount++
 			}
 			if sourceCount != 1 {
-				err := fmt.Errorf("use exactly one of --from-installed or --from-collection")
+				err := fmt.Errorf("use exactly one of --interactive, --from-installed or --from-collection")
 				ccolor.Errorf("%v\n", err)
 				return err
 			}
 			svc := newProfileService()
 			switch {
+			case interactive:
+				items, err := newSearchService().Search("", agentName, "")
+				if err != nil {
+					return err
+				}
+				if len(items) == 0 {
+					return fmt.Errorf("no skills found")
+				}
+				selected, err := newMultiSelector().SelectMulti(context.Background(), termselect.Options{
+					Title:        "Create profile " + name,
+					Items:        skillSelectItems(items),
+					FilterPrompt: "filter skills",
+				})
+				if err != nil {
+					return err
+				}
+				chosen := selectedSkills(items, selected)
+				if len(chosen) == 0 {
+					return fmt.Errorf("no skills selected")
+				}
+				targets := make([]profile.Target, 0, len(chosen))
+				for _, item := range chosen {
+					targets = append(targets, profile.Target{Source: item.SourceID, Skill: item.ID})
+				}
+				_, err = svc.Create(name, profile.Profile{
+					DefaultAgent: agentName,
+					DefaultScope: scope,
+					Targets:      targets,
+				})
+				if err != nil {
+					return err
+				}
 			case fromCollection != "":
 				_, err := svc.CreateFromCollection(name, fromCollection)
 				if err != nil {
@@ -118,7 +158,7 @@ func buildProfileCreateCommand() *gcli.Command {
 					return err
 				}
 			default:
-				return fmt.Errorf("use --from-installed or --from-collection")
+				return fmt.Errorf("use --interactive, --from-installed or --from-collection")
 			}
 			ccolor.Successf("profile created: %s\n", name)
 			return nil
@@ -228,7 +268,7 @@ func printProfilePlan(plan profile.ApplyPlan) error {
 	return err
 }
 
-func fillProfileCreateOptions(args []string, fromInstalled *bool, fromCollection *string, agentName *string, scope *string) {
+func fillProfileCreateOptions(args []string, fromInstalled *bool, fromCollection *string, interactive *bool, agentName *string, scope *string) {
 	for i, arg := range rawArgsAfterFirst(args) {
 		switch arg {
 		case "--from-installed":
@@ -237,6 +277,8 @@ func fillProfileCreateOptions(args []string, fromInstalled *bool, fromCollection
 			if i+2 <= len(rawArgsAfterFirst(args)) {
 				*fromCollection = rawArgsAfterFirst(args)[i+1]
 			}
+		case "--interactive", "-i":
+			*interactive = true
 		case "--agent", "-a":
 			if i+2 <= len(rawArgsAfterFirst(args)) {
 				*agentName = rawArgsAfterFirst(args)[i+1]

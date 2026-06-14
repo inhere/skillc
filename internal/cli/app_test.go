@@ -168,6 +168,60 @@ func TestUpdateCommand_CheckPrintsCandidatesWithoutCallingUpdateRunner(t *testin
 	assert.False(t, calledUpdateRunner)
 }
 
+func TestUpdateCommand_CheckHonorsTargetFilter(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	lockFile := filepath.Join(baseDir, "skillc.lock.json")
+	indexFile := filepath.Join(baseDir, "index.json")
+	assert.NoErr(t, os.MkdirAll(filepath.Join(baseDir, ".agents", "skills", "go-pro"), 0o755))
+	assert.NoErr(t, os.MkdirAll(filepath.Join(baseDir, ".agents", "skills", "rust-pro"), 0o755))
+
+	config := cfg.DefaultConfig()
+	config.LockFile = lockFile
+	config.IndexFile = indexFile
+	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, ".agents")}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
+	assert.NoErr(t, lockstore.NewStore().Save(lockFile, lockpkg.File{
+		filepath.Clean(baseDir): {
+			{SkillID: "go-pro", SourceID: "gstack", Version: "1.0.0", Agents: []string{"universal"}},
+			{SkillID: "rust-pro", SourceID: "gstack", Version: "1.0.0", Agents: []string{"universal"}},
+		},
+	}))
+	assert.NoErr(t, repoindex.NewStore().Save(indexFile, []skill.Skill{
+		{ID: "go-pro", SourceID: "gstack", Version: "2.0.0"},
+		{ID: "rust-pro", SourceID: "gstack", Version: "2.0.0"},
+	}))
+
+	output := runAppInDirWithStdout(t, baseDir, []string{"update", "--check", "--agent", "universal", "--target", "go-pro"})
+
+	assert.Contains(t, output, "Update Check")
+	assert.Contains(t, output, "go-pro")
+	assert.NotContains(t, output, "rust-pro")
+}
+
+func TestUpdateCommand_CheckPrintsNoCandidatesWhenHealthy(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	lockFile := filepath.Join(baseDir, "skillc.lock.json")
+	indexFile := filepath.Join(baseDir, "index.json")
+	assert.NoErr(t, os.MkdirAll(filepath.Join(baseDir, ".agents", "skills", "go-pro"), 0o755))
+
+	config := cfg.DefaultConfig()
+	config.LockFile = lockFile
+	config.IndexFile = indexFile
+	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, ".agents")}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
+	assert.NoErr(t, lockstore.NewStore().Save(lockFile, lockpkg.File{
+		filepath.Clean(baseDir): {{SkillID: "go-pro", SourceID: "gstack", Version: "1.0.0", Agents: []string{"universal"}}},
+	}))
+	assert.NoErr(t, repoindex.NewStore().Save(indexFile, []skill.Skill{{ID: "go-pro", SourceID: "gstack", Version: "1.0.0"}}))
+
+	output := runAppInDirWithStdout(t, baseDir, []string{"update", "--check", "--agent", "universal"})
+
+	assert.Contains(t, output, "no update candidates")
+	assert.NotContains(t, output, "Update Check")
+}
+
 func TestStatusCommand_PrintsSkillHealth(t *testing.T) {
 	baseDir := t.TempDir()
 	configFile := filepath.Join(baseDir, "skillc.yaml")

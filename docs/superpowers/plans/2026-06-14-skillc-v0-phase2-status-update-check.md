@@ -1054,6 +1054,8 @@ Expected: PASS.
 
 **Verification note (2026-06-14):** `go test ./internal/cli -run TestUpdateCommand_CheckPrintsCandidatesWithoutCallingUpdateRunner -count=1` and `go test ./internal/cli -count=1` pass after adding `skillc update --check`.
 
+**Coverage follow-up (2026-06-14):** added CLI coverage for `update --check --target` filtering and healthy installs returning `no update candidates`. `go test ./internal/cli -run "TestUpdateCommand_Check" -count=1` passes.
+
 - [x] **Step 5: Commit**
 
 ```bash

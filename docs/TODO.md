@@ -6,7 +6,7 @@
 -->
 
 - [x] 支持链接方式安装 skill，方便多项目维护更新（Windows 默认 junction，其他系统默认 symlink；显式 symlink 在 Windows 无权限时自动回退到 copy）
-- [ ] 支持快速检测已经安装到项目的 skill 是否需要更新
+- [x] 支持快速检测已经安装到项目的 skill 是否需要更新（当前项目维度已支持 `skillc update --check`）
   - [ ] 支持一键批量更新所有下游项目的 skills 版本
 - [ ] 通过 web 界面管理 skills，包括安装、更新、删除、查看等操作
   - 参考 https://github.com/xingkongliang/skills-manager

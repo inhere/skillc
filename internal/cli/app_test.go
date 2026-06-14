@@ -11,6 +11,7 @@ import (
 	"github.com/gookit/goutil/testutil/assert"
 	"github.com/gookit/goutil/x/ccolor"
 	"github.com/inhere/skillc/internal/app/installapp"
+	"github.com/inhere/skillc/internal/app/statusapp"
 	"github.com/inhere/skillc/internal/app/updateapp"
 	cfg "github.com/inhere/skillc/internal/domain/config"
 	lockpkg "github.com/inhere/skillc/internal/domain/lock"
@@ -21,6 +22,7 @@ import (
 	"github.com/inhere/skillc/internal/infra/configstore"
 	"github.com/inhere/skillc/internal/infra/lockstore"
 	"github.com/inhere/skillc/internal/infra/repoindex"
+	"github.com/inhere/skillc/internal/infra/termselect"
 )
 
 func newTestApp() *gcli.App {
@@ -83,6 +85,115 @@ func TestNewApp_RegistersProfileCommand(t *testing.T) {
 		return
 	}
 	assert.Eq(t, "Manage Skillc profiles", profileCmd.Desc)
+}
+
+func TestSkillSelectItemsUseStableSourceQualifiedTargets(t *testing.T) {
+	items := skillSelectItems([]skill.Skill{{
+		ID:                  "go-pro",
+		Name:                "Go Pro",
+		Version:             "1.2.3",
+		SourceID:            "repo-a",
+		Collection:          "tools",
+		QualifiedName:       "tools/go-pro",
+		SourceQualifiedName: "repo-a/tools/go-pro",
+	}})
+
+	assert.Len(t, items, 1)
+	assert.Eq(t, "1", items[0].Key)
+	assert.Eq(t, "repo-a/tools/go-pro", items[0].Value)
+	assert.Contains(t, items[0].Label, "Go Pro")
+	assert.Contains(t, items[0].Detail, "repo-a")
+	assert.Contains(t, items[0].Detail, "tools")
+	assert.Contains(t, items[0].Detail, "1.2.3")
+}
+
+func TestSkillSelectItemsKeepLabelAndDetailSeparate(t *testing.T) {
+	items := skillSelectItems([]skill.Skill{{
+		ID:                  "go-pro",
+		Name:                "Go Pro",
+		Version:             "1.2.3",
+		SourceID:            "repo-a",
+		Collection:          "tools",
+		QualifiedName:       "tools/go-pro",
+		SourceQualifiedName: "repo-a/tools/go-pro",
+	}})
+
+	assert.Len(t, items, 1)
+	assert.Eq(t, "Go Pro (go-pro)", items[0].Label)
+	assert.Eq(t, "source=repo-a collection=tools version=1.2.3", items[0].Detail)
+}
+
+func TestSkillTargetFallsBackToQualifiedNameWhenSourceQualifiedNameIsMissing(t *testing.T) {
+	target := skillTarget(skill.Skill{
+		ID:            "go-pro",
+		SourceID:      "repo-a",
+		QualifiedName: "tools/go-pro",
+	})
+
+	assert.Eq(t, "tools/go-pro", target)
+}
+
+func TestSelectedSkillsMapsSelectedTargetsBackToSkills(t *testing.T) {
+	skills := []skill.Skill{
+		{ID: "go-pro", SourceQualifiedName: "repo-a/tools/go-pro"},
+		{ID: "review", SourceQualifiedName: "repo-a/ops/review"},
+	}
+
+	selected := selectedSkills(skills, []termselect.Item{{Value: "repo-a/ops/review"}})
+
+	assert.Len(t, selected, 1)
+	assert.Eq(t, "review", selected[0].ID)
+}
+
+func TestUpdateSelectItemsOnlyIncludesUpdateableStatuses(t *testing.T) {
+	items := updateSelectItems([]statusapp.Item{
+		{SkillID: "installed", Status: statusapp.StatusInstalled},
+		{SkillID: "missing", Status: statusapp.StatusMissing},
+		{SkillID: "outdated", Status: statusapp.StatusOutdated, CurrentVersion: "1.0.0", LatestVersion: "2.0.0"},
+		{SkillID: "orphan", Status: statusapp.StatusOrphan},
+		{SkillID: "unmanaged", Status: statusapp.StatusUnmanaged},
+		{SkillID: "source-error", Status: statusapp.StatusSourceError},
+	})
+
+	assert.Len(t, items, 2)
+	assert.Eq(t, "missing", items[0].Value)
+	assert.Eq(t, "outdated", items[1].Value)
+	assert.Contains(t, items[1].Label, "outdated")
+	assert.Contains(t, items[1].Detail, "1.0.0")
+	assert.Contains(t, items[1].Detail, "2.0.0")
+}
+
+func TestStatusTargetFallsBackToQualifiedNameWhenSourceQualifiedNameIsMissing(t *testing.T) {
+	target := statusTarget(statusapp.Item{
+		SkillID:       "go-pro",
+		SourceID:      "repo-a",
+		QualifiedName: "tools/go-pro",
+	})
+
+	assert.Eq(t, "tools/go-pro", target)
+}
+
+func TestStatusTargetFallsBackToSkillIDWhenQualifiedNamesAreMissing(t *testing.T) {
+	target := statusTarget(statusapp.Item{
+		SkillID:  "go-pro",
+		SourceID: "repo-a",
+	})
+
+	assert.Eq(t, "go-pro", target)
+}
+
+func TestUpdateTargetPrefersSourceQualifiedName(t *testing.T) {
+	item := statusapp.Item{
+		SkillID:             "go-pro",
+		QualifiedName:       "tools/go-pro",
+		SourceID:            "repo-a",
+		SourceQualifiedName: "repo-a/tools/go-pro",
+	}
+
+	assert.Eq(t, "repo-a/tools/go-pro", statusTarget(item))
+
+	selected := selectedUpdateTargets([]statusapp.Item{item}, []termselect.Item{{Value: "repo-a/tools/go-pro"}})
+	assert.Eq(t, []string{"repo-a/tools/go-pro"}, selected)
 }
 
 func TestUpdateCommand_AcceptsSkillArgumentAsTarget(t *testing.T) {

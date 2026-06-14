@@ -45,17 +45,18 @@ type Result struct {
 }
 
 type Item struct {
-	SkillID        string
-	QualifiedName  string
-	SourceID       string
-	Agent          string
-	Scope          string
-	Profile        string
-	Status         string
-	CurrentVersion string
-	LatestVersion  string
-	InstalledPath  string
-	Reason         string
+	SkillID             string
+	QualifiedName       string
+	SourceQualifiedName string
+	SourceID            string
+	Agent               string
+	Scope               string
+	Profile             string
+	Status              string
+	CurrentVersion      string
+	LatestVersion       string
+	InstalledPath       string
+	Reason              string
 }
 
 type Summary struct {
@@ -181,14 +182,15 @@ func (s *Service) syncSources(sources []sourcepkg.Source) []SourceSyncError {
 
 func classifyListItem(current listapp.Item, indexItems []skill.Skill, syncFailed map[string]string, sourceIDs map[string]string) Item {
 	item := Item{
-		SkillID:        current.SkillID,
-		QualifiedName:  current.QualifiedName,
-		SourceID:       current.SourceID,
-		Agent:          current.Agent,
-		Scope:          current.Scope,
-		Profile:        current.Profile,
-		CurrentVersion: current.Version,
-		InstalledPath:  current.InstalledPath,
+		SkillID:             current.SkillID,
+		QualifiedName:       current.QualifiedName,
+		SourceQualifiedName: current.SourceQualifiedName,
+		SourceID:            current.SourceID,
+		Agent:               current.Agent,
+		Scope:               current.Scope,
+		Profile:             current.Profile,
+		CurrentVersion:      current.Version,
+		InstalledPath:       current.InstalledPath,
 	}
 	if reason, ok := syncFailed[current.SourceID]; ok {
 		item.Status = StatusSourceError
@@ -201,13 +203,13 @@ func classifyListItem(current listapp.Item, indexItems []skill.Skill, syncFailed
 		item.Reason = reason
 		return item
 	}
-	if current.Status == StatusMissing {
-		item.Status = StatusMissing
-		item.Reason = "installed path is missing"
-		return item
-	}
 	latest, ok := findLatest(indexItems, current)
 	if !ok {
+		if current.Status == StatusMissing {
+			item.Status = StatusMissing
+			item.Reason = "installed path is missing"
+			return item
+		}
 		item.Status = StatusOrphan
 		item.Reason = "skill not found in source index"
 		return item
@@ -218,7 +220,15 @@ func classifyListItem(current listapp.Item, indexItems []skill.Skill, syncFailed
 	if item.QualifiedName == "" {
 		item.QualifiedName = latest.QualifiedName
 	}
+	if item.SourceQualifiedName == "" {
+		item.SourceQualifiedName = latest.SourceQualifiedName
+	}
 	item.LatestVersion = latest.Version
+	if current.Status == StatusMissing {
+		item.Status = StatusMissing
+		item.Reason = "installed path is missing"
+		return item
+	}
 	if current.Version != "" && latest.Version != "" && current.Version != latest.Version {
 		item.Status = StatusOutdated
 		item.Reason = fmt.Sprintf("version %s -> %s", current.Version, latest.Version)

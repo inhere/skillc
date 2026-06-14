@@ -70,6 +70,75 @@ func TestService_RunClassifiesInstalledMissingOutdatedAndOrphan(t *testing.T) {
 	assert.Eq(t, 1, result.Summary.Orphan)
 }
 
+func TestService_RunCarriesSourceQualifiedName(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	lockFile := filepath.Join(baseDir, "skillc.lock.json")
+	indexFile := filepath.Join(baseDir, "index.json")
+	assert.NoErr(t, os.MkdirAll(filepath.Join(baseDir, ".agents", "skills", "go-pro"), 0o755))
+
+	config := cfg.DefaultConfig()
+	config.LockFile = lockFile
+	config.IndexFile = indexFile
+	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, ".agents")}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config, baseDir))
+	assert.NoErr(t, lockstore.NewStore().Save(lockFile, lockpkg.File{
+		filepath.Clean(baseDir): {{
+			SkillID:             "go-pro",
+			SourceID:            "gstack",
+			SourceQualifiedName: "gstack/tools/go-pro",
+			Version:             "1.0.0",
+			Agents:              []string{"universal"},
+		}},
+	}))
+	assert.NoErr(t, repoindex.NewStore().Save(indexFile, []skill.Skill{
+		{ID: "go-pro", SourceID: "gstack", SourceQualifiedName: "gstack/tools/go-pro", Version: "1.0.0"},
+	}))
+
+	result, err := NewService(configFile, baseDir).Run(Req{Agent: "universal", Scope: "project", WorkDir: baseDir})
+
+	assert.NoErr(t, err)
+	assert.Len(t, result.Items, 1)
+	assert.Eq(t, "gstack/tools/go-pro", result.Items[0].SourceQualifiedName)
+}
+
+func TestService_RunFillsIndexIdentityForMissingSkill(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	lockFile := filepath.Join(baseDir, "skillc.lock.json")
+	indexFile := filepath.Join(baseDir, "index.json")
+
+	config := cfg.DefaultConfig()
+	config.LockFile = lockFile
+	config.IndexFile = indexFile
+	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, ".agents")}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config, baseDir))
+	assert.NoErr(t, lockstore.NewStore().Save(lockFile, lockpkg.File{
+		filepath.Clean(baseDir): {{
+			SkillID:  "go-pro",
+			SourceID: "gstack",
+			Version:  "1.0.0",
+			Agents:   []string{"universal"},
+		}},
+	}))
+	assert.NoErr(t, repoindex.NewStore().Save(indexFile, []skill.Skill{{
+		ID:                  "go-pro",
+		SourceID:            "gstack",
+		QualifiedName:       "tools/go-pro",
+		SourceQualifiedName: "gstack/tools/go-pro",
+		Version:             "2.0.0",
+	}}))
+
+	result, err := NewService(configFile, baseDir).Run(Req{Agent: "universal", Scope: "project", WorkDir: baseDir})
+
+	assert.NoErr(t, err)
+	assert.Len(t, result.Items, 1)
+	assert.Eq(t, StatusMissing, result.Items[0].Status)
+	assert.Eq(t, "tools/go-pro", result.Items[0].QualifiedName)
+	assert.Eq(t, "gstack/tools/go-pro", result.Items[0].SourceQualifiedName)
+	assert.Eq(t, "2.0.0", result.Items[0].LatestVersion)
+}
+
 func TestService_RunIncludesUnmanagedInstalledDirectories(t *testing.T) {
 	baseDir := t.TempDir()
 	configFile := filepath.Join(baseDir, "skillc.yaml")

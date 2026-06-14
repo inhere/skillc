@@ -470,8 +470,9 @@ git commit -m "feat(search): match skill identity fields"
 **Files:**
 - Create: `internal/cli/interactive_cmd.go`
 - Modify: `internal/cli/app_test.go`
+- Modify: `internal/app/statusapp/service.go`
 
-- [ ] **Step 1: Write failing helper tests**
+- [x] **Step 1: Write failing helper tests**
 
 Add tests near other CLI helper tests in `internal/cli/app_test.go`:
 
@@ -501,7 +502,7 @@ Also add:
 - `TestUpdateSelectItemsOnlyIncludesUpdateableStatuses`
 - `TestUpdateTargetPrefersSourceQualifiedName`
 
-- [ ] **Step 2: Run CLI tests to verify failure**
+- [x] **Step 2: Run CLI tests to verify failure**
 
 Run:
 
@@ -511,7 +512,7 @@ go test ./internal/cli -run 'TestSkillSelectItems|TestSelectedSkills|TestUpdateS
 
 Expected: FAIL because helpers do not exist.
 
-- [ ] **Step 3: Implement helper boundary**
+- [x] **Step 3: Implement helper boundary**
 
 Create `internal/cli/interactive_cmd.go`:
 
@@ -553,8 +554,9 @@ Rules:
 - Value is the stable target.
 - Label includes user-facing name/id, source, collection, version/status.
 - Only `outdated` and `missing` status become update candidates.
+- `statusapp.Item` carries `SourceQualifiedName` through from `listapp.Item`, so update selection can prefer source-qualified targets.
 
-- [ ] **Step 4: Run helper tests**
+- [x] **Step 4: Run helper tests**
 
 Run:
 
@@ -564,12 +566,16 @@ go test ./internal/cli -run 'TestSkillSelectItems|TestSelectedSkills|TestUpdateS
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add internal/cli/interactive_cmd.go internal/cli/app_test.go
 git commit -m "feat(cli): add interactive selection helpers"
 ```
+
+**Verification note (2026-06-15):** Added RED coverage for skill select item targets, selected skill mapping, update candidate filtering, and update target precedence. Initial targeted CLI test failed on missing helpers and missing `statusapp.Item.SourceQualifiedName`; after implementation, `go test ./internal/cli -run 'TestSkillSelectItems|TestSelectedSkills|TestUpdateSelectItems|TestUpdateTarget' -count=1`, `go test ./internal/app/statusapp ./internal/cli -count=1`, and `go test ./...` pass.
+
+**Spec review fix note (2026-06-15):** Fixed Task 3 helper boundary issues without implementing install/update/profile interactive commands: select labels keep title text separate from detail metadata to avoid duplicate rendered text; skill/status targets preserve the documented precedence `SourceQualifiedName -> QualifiedName -> SkillID` without synthesizing source-qualified names from `SourceID`; and missing status items now fill `QualifiedName`, `SourceQualifiedName`, and `LatestVersion` from the index before returning `missing`. `go test ./internal/cli -run 'TestSkillSelectItems|TestSkillTarget|TestSelectedSkills|TestUpdateSelectItems|TestStatusTarget|TestUpdateTarget' -count=1`, `go test ./internal/app/statusapp ./internal/cli -count=1`, and `go test ./...` pass.
 
 ## Task 4: Add `install --interactive`
 

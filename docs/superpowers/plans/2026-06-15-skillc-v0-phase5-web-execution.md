@@ -442,7 +442,7 @@ git commit -m "feat(web): add execution manager actions"
 - Modify: `internal/app/webapp/manager_server.go`
 - Modify: `internal/app/webapp/manager_server_test.go`
 
-- [ ] **Step 1: Write failing HTTP execute tests**
+- [x] **Step 1: Write failing HTTP execute tests**
 
 Add tests:
 
@@ -488,7 +488,7 @@ Confirmed update:
 req := httptest.NewRequest(http.MethodPost, "/api/update/run?agent=universal&scope=project", strings.NewReader(`{"confirm":true,"target":"go-pro"}`))
 ```
 
-- [ ] **Step 2: Run HTTP execute tests to verify failure**
+- [x] **Step 2: Run HTTP execute tests to verify failure**
 
 Run:
 
@@ -498,7 +498,7 @@ go test ./internal/app/webapp -run 'TestManagerServer(ProfileApply|UpdateRun|Rej
 
 Expected: FAIL because execute endpoints and confirm parsing do not exist.
 
-- [ ] **Step 3: Implement execute route parsing and confirm guard**
+- [x] **Step 3: Implement execute route parsing and confirm guard**
 
 In `manager_server.go`:
 
@@ -604,7 +604,7 @@ func (s *ManagerServer) handleUpdateRun(w http.ResponseWriter, r *http.Request) 
 }
 ```
 
-- [ ] **Step 4: Run HTTP execute tests**
+- [x] **Step 4: Run HTTP execute tests**
 
 Run:
 
@@ -614,7 +614,7 @@ go test ./internal/app/webapp -run 'TestManagerServer(ProfileApply|UpdateRun|Rej
 
 Expected: PASS.
 
-- [ ] **Step 5: Run full webapp tests**
+- [x] **Step 5: Run full webapp tests**
 
 Run:
 
@@ -624,7 +624,7 @@ go test ./internal/app/webapp -count=1
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit Task 2**
+- [x] **Step 6: Commit Task 2**
 
 ```bash
 git add internal/app/webapp/manager_server.go internal/app/webapp/manager_server_test.go

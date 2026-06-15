@@ -157,6 +157,16 @@ skillc status --profile go-dev          # 按 Profile 过滤
 skillc status --agent claude-code       # 按 Agent 过滤
 ```
 
+### `web` — 本地管理界面
+
+```bash
+skillc web
+skillc web --port 8090
+skillc web --host 127.0.0.1 --port 8090
+```
+
+Web 管理界面默认监听 `127.0.0.1`，用于查看 sources、profiles、当前项目状态、项目安装分布和版本差异。第一轮 Web 写操作只展示计划，不直接执行安装或更新。
+
 ### `uninstall` — 卸载 Skills
 
 ```bash

@@ -846,7 +846,7 @@ git commit -m "feat(cli): add web manager command"
 - Modify: `docs/design/skillc-v0-enhance-design.md`
 - Modify: `docs/superpowers/plans/2026-06-15-skillc-v0-phase4-web-management.md`
 
-- [ ] **Step 1: Update README command reference**
+- [x] **Step 1: Update README command reference**
 
 Add:
 
@@ -861,7 +861,7 @@ skillc web --port 8090
 The web manager runs on `127.0.0.1` by default and shows sources, profiles, current status, project install map, and version drift. The first v0 slice is plan-first: profile apply and update actions show plans before later execution support is added.
 ````
 
-- [ ] **Step 2: Update Chinese README command reference**
+- [x] **Step 2: Update Chinese README command reference**
 
 Add equivalent Chinese section:
 
@@ -876,7 +876,7 @@ skillc web --port 8090
 Web 管理界面默认监听 `127.0.0.1`，用于查看 sources、profiles、当前项目状态、项目安装分布和版本差异。第一轮 Web 写操作只展示计划，不直接执行安装或更新。
 ````
 
-- [ ] **Step 3: Update TODO and design docs**
+- [x] **Step 3: Update TODO and design docs**
 
 Update:
 
@@ -890,12 +890,14 @@ Update:
   - Add "四期开发计划" near previous phase links.
   - Replace outdated "下一步建议" with Phase 4 Web management MVP.
 
-- [ ] **Step 4: Commit docs**
+- [x] **Step 4: Commit docs**
 
 ```bash
 git add README.md README.zh-CN.md docs/TODO.md docs/design/skillc-v0-enhance-design.md docs/superpowers/plans/2026-06-15-skillc-v0-phase4-web-management.md
 git commit -m "docs: add skillc phase 4 web plan"
 ```
+
+**Verification note (2026-06-15):** README, README.zh-CN, TODO and design docs now reference `skillc web`, Phase 4 Web management, install map, version drift and plan-first boundaries. Docs describe Web execution support as future work rather than current behavior.
 
 ## Task 7: Full Verification and Review
 

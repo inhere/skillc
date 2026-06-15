@@ -153,6 +153,16 @@ skillc status --profile go-dev       # filter by profile
 skillc status --agent claude-code    # filter by agent
 ```
 
+### `web` — Local management UI
+
+```bash
+skillc web
+skillc web --port 8090
+skillc web --host 127.0.0.1 --port 8090
+```
+
+The web manager runs on `127.0.0.1` by default and shows sources, profiles, current status, project install map, and version drift. This v0 slice is plan-first: profile apply and update actions show plans before later execution support is added.
+
 ### `uninstall` — Remove Skills
 
 ```bash

@@ -12,6 +12,7 @@
 | 2026-06-14 | v0.8 | Codex | 增加 Phase 3 interactive selection 实施计划链接，并明确交互式 TUI 基于 `gookit/cliui` |
 | 2026-06-15 | v0.9 | Codex | 记录 Phase 3 已落地 install/update/profile create 交互式选择入口 |
 | 2026-06-15 | v0.10 | Codex | 增加 Phase 4 Web 管理实施计划链接，并将下一步建议更新为 Web 管理 MVP |
+| 2026-06-15 | v0.11 | Codex | 记录 Phase 4 第一轮 `skillc web` 管理入口已落地，后续继续补 Web 执行能力 |
 
 状态：Draft
 
@@ -40,6 +41,8 @@
 四期开发计划：`docs/superpowers/plans/2026-06-15-skillc-v0-phase4-web-management.md`
 
 四期目标：新增 `skillc web` 本地管理入口，第一轮重点是 source/profile/status/install-map/version-drift 的关系查看和 plan-first 预览；Web 直接执行安装、更新、删除等写操作留到后续小阶段。
+
+四期第一轮状态：已新增 Web 管理查询层、HTTP JSON API、自包含本地管理页面和 `skillc web` CLI 入口。当前 Web 写入口仍保持 plan-first，只返回 profile apply / update plan 预览，不直接修改安装目录或 lock。
 
 ## 1. 设计结论
 

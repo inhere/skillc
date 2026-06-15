@@ -213,4 +213,118 @@ func TestBuildVersionDriftDoesNotMergeUnrelatedSourcesWithSameSkillID(t *testing
 
 		assert.Len(t, groups, 0)
 	})
+
+	t.Run("same source id and skill id merge without source-qualified name", func(t *testing.T) {
+		items := []ProjectInstall{
+			{
+				ProjectPath: projectA,
+				Scope:       "project",
+				Agent:       "universal",
+				SkillID:     "shared-skill",
+				SourceID:    "repo-a",
+				Version:     "1.0.0",
+			},
+			{
+				ProjectPath: projectB,
+				Scope:       "project",
+				Agent:       "codex",
+				SkillID:     "shared-skill",
+				SourceID:    "repo-a",
+				Version:     "2.0.0",
+			},
+		}
+
+		groups := BuildVersionDrift(items, nil)
+
+		assert.Len(t, groups, 1)
+		if len(groups) == 0 {
+			return
+		}
+		assert.Eq(t, "repo-a", groups[0].SourceID)
+		assert.Eq(t, "", groups[0].SourceQualifiedName)
+		assert.Len(t, groups[0].Versions, 2)
+	})
+
+	t.Run("different source id does not merge when source-qualified name missing", func(t *testing.T) {
+		items := []ProjectInstall{
+			{
+				ProjectPath: projectA,
+				Scope:       "project",
+				Agent:       "universal",
+				SkillID:     "shared-skill",
+				SourceID:    "repo-a",
+				Version:     "1.0.0",
+			},
+			{
+				ProjectPath: projectB,
+				Scope:       "project",
+				Agent:       "codex",
+				SkillID:     "shared-skill",
+				SourceID:    "repo-b",
+				Version:     "2.0.0",
+			},
+		}
+
+		groups := BuildVersionDrift(items, nil)
+
+		assert.Len(t, groups, 0)
+	})
+
+	t.Run("qualified name merges when source-qualified name and source id missing", func(t *testing.T) {
+		items := []ProjectInstall{
+			{
+				ProjectPath:   projectA,
+				Scope:         "project",
+				Agent:         "universal",
+				SkillID:       "shared-skill",
+				QualifiedName: "alpha/shared-skill",
+				Version:       "1.0.0",
+			},
+			{
+				ProjectPath:   projectB,
+				Scope:         "project",
+				Agent:         "codex",
+				SkillID:       "shared-skill",
+				QualifiedName: "alpha/shared-skill",
+				Version:       "2.0.0",
+			},
+		}
+
+		groups := BuildVersionDrift(items, nil)
+
+		assert.Len(t, groups, 1)
+		if len(groups) == 0 {
+			return
+		}
+		assert.Eq(t, "alpha/shared-skill", groups[0].Versions[0].Projects[0].QualifiedName)
+		assert.Len(t, groups[0].Versions, 2)
+	})
+
+	t.Run("skill id merges when all other identity fields missing", func(t *testing.T) {
+		items := []ProjectInstall{
+			{
+				ProjectPath: projectA,
+				Scope:       "project",
+				Agent:       "universal",
+				SkillID:     "shared-skill",
+				Version:     "1.0.0",
+			},
+			{
+				ProjectPath: projectB,
+				Scope:       "project",
+				Agent:       "codex",
+				SkillID:     "shared-skill",
+				Version:     "2.0.0",
+			},
+		}
+
+		groups := BuildVersionDrift(items, nil)
+
+		assert.Len(t, groups, 1)
+		if len(groups) == 0 {
+			return
+		}
+		assert.Eq(t, "shared-skill", groups[0].SkillID)
+		assert.Len(t, groups[0].Versions, 2)
+	})
 }

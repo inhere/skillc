@@ -823,7 +823,7 @@ git commit -m "feat(web): add execution controls"
 - Modify: `docs/design/skillc-v0-enhance-design.md`
 - Modify: `docs/superpowers/plans/2026-06-15-skillc-v0-phase5-web-execution.md`
 
-- [ ] **Step 1: Update English README**
+- [x] **Step 1: Update English README**
 
 Update the `web` section to say:
 
@@ -831,7 +831,7 @@ Update the `web` section to say:
 The web manager runs on `127.0.0.1` by default and shows sources, profiles, current status, project install map, and version drift. Web writes are still guarded: profile apply and update require a plan-first flow and an explicit confirmation, and only operate on the current project/agent/scope.
 ```
 
-- [ ] **Step 2: Update Chinese README**
+- [x] **Step 2: Update Chinese README**
 
 Update the `web` section to say:
 
@@ -839,7 +839,7 @@ Update the `web` section to say:
 Web 管理界面默认监听 `127.0.0.1`，用于查看 sources、profiles、当前项目状态、项目安装分布和版本差异。Web 写操作仍有保护：profile apply 和 update 必须先生成计划，再显式确认执行，并且第一轮只操作当前项目、agent 和 scope。
 ```
 
-- [ ] **Step 3: Update TODO and design docs**
+- [x] **Step 3: Update TODO and design docs**
 
 In `docs/TODO.md`:
 
@@ -859,7 +859,7 @@ In `docs/design/skillc-v0-enhance-design.md`:
 - Add Phase 5 plan link near earlier phase links.
 - Replace "下一步建议" with Phase 5 Web execution MVP.
 
-- [ ] **Step 4: Commit docs**
+- [x] **Step 4: Commit docs**
 
 ```bash
 git add README.md README.zh-CN.md docs/TODO.md docs/design/skillc-v0-enhance-design.md docs/superpowers/plans/2026-06-15-skillc-v0-phase5-web-execution.md

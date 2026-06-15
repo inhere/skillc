@@ -227,6 +227,59 @@ func TestService_CreateFromCollection(t *testing.T) {
 	assert.Eq(t, "review", got.Targets[1].Skill)
 }
 
+func TestService_BuildFromCollectionReturnsUnsavedProfile(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	indexFile := filepath.Join(baseDir, "index.json")
+	config := cfg.DefaultConfig()
+	config.IndexFile = indexFile
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config, baseDir))
+	assert.NoErr(t, repoindex.NewStore().Save(indexFile, []skill.Skill{
+		{ID: "go-pro", SourceID: "gstack", Collection: "go"},
+		{ID: "review", SourceID: "gstack", Collection: "ops"},
+	}))
+
+	got, err := NewService(configFile, baseDir).BuildFromCollection("gstack/go")
+
+	assert.NoErr(t, err)
+	assert.Len(t, got.Targets, 1)
+	assert.Eq(t, "gstack", got.Targets[0].Source)
+	assert.Eq(t, "go-pro", got.Targets[0].Skill)
+	list, err := NewService(configFile, baseDir).List()
+	assert.NoErr(t, err)
+	assert.Len(t, list, 0)
+}
+
+func TestService_PlanSaveReportsAddedRemovedKeptTargets(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	config := cfg.DefaultConfig()
+	config.Profiles = map[string]profile.Profile{
+		"go-dev": {
+			Targets: []profile.Target{
+				{Source: "gstack", Skill: "go-pro"},
+				{Source: "gstack", Skill: "old"},
+			},
+		},
+	}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config, baseDir))
+
+	plan, err := NewService(configFile, baseDir).PlanSave("go-dev", profile.Profile{
+		Targets: []profile.Target{
+			{Source: "gstack", Skill: "go-pro"},
+			{Source: "gstack", Skill: "review"},
+		},
+	})
+
+	assert.NoErr(t, err)
+	assert.Eq(t, "edit", plan.Mode)
+	assert.Len(t, plan.Added, 1)
+	assert.Eq(t, "review", plan.Added[0].Skill)
+	assert.Len(t, plan.Removed, 1)
+	assert.Eq(t, "old", plan.Removed[0].Skill)
+	assert.Len(t, plan.Kept, 1)
+}
+
 func TestService_CreateFromCollectionRejectsInvalidSelector(t *testing.T) {
 	baseDir := t.TempDir()
 	configFile := filepath.Join(baseDir, "skillc.yaml")

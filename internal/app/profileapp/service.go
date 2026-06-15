@@ -42,6 +42,15 @@ type ApplyResult struct {
 	InstallFailed []installapp.InstallItemError
 }
 
+type SavePlan struct {
+	Name    string
+	Mode    string
+	Profile profile.Profile
+	Added   []profile.Target
+	Removed []profile.Target
+	Kept    []profile.Target
+}
+
 func NewService(configFile string, baseDir string) *Service {
 	return &Service{
 		configFile: configFile,
@@ -110,6 +119,14 @@ func (s *Service) CreateFromInstalled(name string, req CreateFromInstalledReq) (
 		return profile.Profile{}, err
 	}
 
+	item, err := s.BuildFromInstalled(req)
+	if err != nil {
+		return profile.Profile{}, err
+	}
+	return s.Create(name, item)
+}
+
+func (s *Service) BuildFromInstalled(req CreateFromInstalledReq) (profile.Profile, error) {
 	config, err := s.store.Load(s.configFile, s.baseDir)
 	if err != nil {
 		return profile.Profile{}, err
@@ -139,11 +156,15 @@ func (s *Service) CreateFromInstalled(name string, req CreateFromInstalledReq) (
 			Skill:  item.SkillID,
 		})
 	}
-	return s.Create(name, profile.Profile{
+	targets, err = profile.NormalizeTargets(targets)
+	if err != nil {
+		return profile.Profile{}, err
+	}
+	return profile.Profile{
 		DefaultAgent: canonicalAgent,
 		DefaultScope: string(scope),
 		Targets:      targets,
-	})
+	}, nil
 }
 
 func (s *Service) CreateFromCollection(name string, selector string) (profile.Profile, error) {
@@ -151,6 +172,14 @@ func (s *Service) CreateFromCollection(name string, selector string) (profile.Pr
 		return profile.Profile{}, err
 	}
 
+	item, err := s.BuildFromCollection(selector)
+	if err != nil {
+		return profile.Profile{}, err
+	}
+	return s.Create(name, item)
+}
+
+func (s *Service) BuildFromCollection(selector string) (profile.Profile, error) {
 	sourceID, collection, ok := strings.Cut(selector, "/")
 	if !ok || strings.TrimSpace(sourceID) == "" || strings.TrimSpace(collection) == "" || strings.Contains(collection, "/") {
 		return profile.Profile{}, fmt.Errorf("collection selector must be <source>/<collection>: %s", selector)
@@ -172,7 +201,11 @@ func (s *Service) CreateFromCollection(name string, selector string) (profile.Pr
 			Skill:  item.ID,
 		})
 	}
-	return s.Create(name, profile.Profile{Targets: targets})
+	targets, err = profile.NormalizeTargets(targets)
+	if err != nil {
+		return profile.Profile{}, err
+	}
+	return profile.Profile{Targets: targets}, nil
 }
 
 func (s *Service) PlanApply(name string, req ApplyReq) (profile.ApplyPlan, error) {
@@ -307,6 +340,37 @@ func (s *Service) Save(name string, item profile.Profile) error {
 	return s.saveLoaded(config, name, item)
 }
 
+func (s *Service) PlanSave(name string, item profile.Profile) (SavePlan, error) {
+	if err := profile.ValidateName(name); err != nil {
+		return SavePlan{}, err
+	}
+	targets, err := profile.NormalizeTargets(item.Targets)
+	if err != nil {
+		return SavePlan{}, err
+	}
+	item.Targets = targets
+
+	config, err := s.store.Load(s.configFile, s.baseDir)
+	if err != nil {
+		return SavePlan{}, err
+	}
+	mode := "create"
+	var current profile.Profile
+	if existing, ok := config.Profiles[name]; ok {
+		mode = "edit"
+		current = existing
+	}
+	added, removed, kept := diffTargets(current.Targets, item.Targets)
+	return SavePlan{
+		Name:    name,
+		Mode:    mode,
+		Profile: item,
+		Added:   added,
+		Removed: removed,
+		Kept:    kept,
+	}, nil
+}
+
 func (s *Service) saveLoaded(config cfg.Config, name string, item profile.Profile) error {
 	targets, err := profile.NormalizeTargets(item.Targets)
 	if err != nil {
@@ -319,6 +383,35 @@ func (s *Service) saveLoaded(config cfg.Config, name string, item profile.Profil
 	}
 	config.Profiles[name] = item
 	return s.store.Save(s.configFile, config, s.baseDir)
+}
+
+func diffTargets(before []profile.Target, after []profile.Target) ([]profile.Target, []profile.Target, []profile.Target) {
+	beforeSet := targetKeyMap(before)
+	afterSet := targetKeyMap(after)
+	added := make([]profile.Target, 0)
+	removed := make([]profile.Target, 0)
+	kept := make([]profile.Target, 0)
+	for _, target := range after {
+		if _, ok := beforeSet[target.Source+"\x00"+target.Skill]; ok {
+			kept = append(kept, target)
+			continue
+		}
+		added = append(added, target)
+	}
+	for _, target := range before {
+		if _, ok := afterSet[target.Source+"\x00"+target.Skill]; !ok {
+			removed = append(removed, target)
+		}
+	}
+	return added, removed, kept
+}
+
+func targetKeyMap(targets []profile.Target) map[string]struct{} {
+	out := make(map[string]struct{}, len(targets))
+	for _, target := range targets {
+		out[target.Source+"\x00"+target.Skill] = struct{}{}
+	}
+	return out
 }
 
 func firstNonEmpty(values ...string) string {

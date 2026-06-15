@@ -1177,7 +1177,7 @@ git commit -m "feat(skillc): add web source management endpoints"
 - Modify: `internal/app/profileapp/service.go`
 - Modify: `internal/app/profileapp/service_test.go`
 
-- [ ] **Step 1: Write failing profileapp tests**
+- [x] **Step 1: Write failing profileapp tests**
 
 Append to `internal/app/profileapp/service_test.go`:
 
@@ -1220,7 +1220,7 @@ func TestService_PlanSaveReportsAddedRemovedKeptTargets(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run:
 
@@ -1230,7 +1230,7 @@ go test ./internal/app/profileapp -run 'TestService_(BuildFromCollectionReturnsU
 
 Expected: FAIL because `BuildFromCollection` and `PlanSave` are not defined.
 
-- [ ] **Step 3: Add profile save plan types and builders**
+- [x] **Step 3: Add profile save plan types and builders**
 
 Add to `profileapp/service.go`:
 
@@ -1380,7 +1380,7 @@ func (s *Service) CreateFromCollection(name string, selector string) (profile.Pr
 }
 ```
 
-- [ ] **Step 4: Run profileapp tests**
+- [x] **Step 4: Run profileapp tests**
 
 Run:
 
@@ -1390,7 +1390,7 @@ go test ./internal/app/profileapp -run 'TestService_(BuildFromCollectionReturnsU
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit profile planning support**
+- [x] **Step 5: Commit profile planning support**
 
 Run:
 

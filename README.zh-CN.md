@@ -165,7 +165,7 @@ skillc web --port 8090
 skillc web --host 127.0.0.1 --port 8090
 ```
 
-Web 管理界面默认监听 `127.0.0.1`，用于查看 sources、profiles、当前项目状态、项目安装分布和版本差异。第一轮 Web 写操作只展示计划，不直接执行安装或更新。
+Web 管理界面默认监听 `127.0.0.1`，用于查看 sources、profiles、当前项目状态、项目安装分布和版本差异。Web 写操作仍有保护：profile apply 和 update 必须先生成计划，再显式确认执行，并且第一轮只操作当前项目、agent 和 scope。
 
 ### `uninstall` — 卸载 Skills
 

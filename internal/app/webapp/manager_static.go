@@ -48,6 +48,9 @@ button {
 button:hover { border-color: var(--accent); color: var(--accent); }
 button.primary { background: var(--accent); border-color: var(--accent); color: white; }
 button.primary:hover { color: white; background: #0b5b51; }
+button:disabled { cursor: not-allowed; opacity: .45; }
+button.danger { border-color: #c77b72; color: var(--bad); }
+button.danger:hover { background: var(--bad-soft); }
 input, select {
   min-height: 32px;
   border: 1px solid var(--line-strong);
@@ -94,6 +97,7 @@ input, select {
 .path { margin-top: 5px; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
 .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
 .controls label { display: grid; gap: 4px; color: var(--muted); font-size: 11px; }
+.actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .content { padding: 18px 22px 28px; overflow: auto; }
 .view { display: none; }
 .view.active { display: block; }
@@ -177,7 +181,7 @@ td.wrap { overflow-wrap: anywhere; }
       <button data-view="projects">Projects</button>
       <button data-view="drift">Version Drift</button>
     </nav>
-    <div class="sidebar-foot">Plan-first management. No install or update execution in this v0 slice.</div>
+    <div class="sidebar-foot">Plan-first management with guarded current-project execution.</div>
   </aside>
   <main class="workspace">
     <header class="topbar">
@@ -218,7 +222,7 @@ td.wrap { overflow-wrap: anywhere; }
       </section>
 
       <section id="view-profiles" class="view">
-        <div class="section-head"><h3>Profiles</h3><span class="hint">Apply is plan-only here</span></div>
+        <div class="section-head"><h3>Profiles</h3><span class="hint">Plan first, then confirm apply</span></div>
         <div id="profiles-table"></div>
       </section>
 
@@ -241,7 +245,13 @@ td.wrap { overflow-wrap: anywhere; }
       </section>
 
       <section class="section">
-        <div class="section-head"><h3>Plan Output</h3><span class="hint">Profile and update previews</span></div>
+        <div class="section-head">
+          <h3>Plan Output</h3>
+          <div class="actions" id="action-bar">
+            <button class="danger" id="apply-profile-btn" disabled>Apply profile</button>
+            <button class="danger" id="run-update-btn" disabled>Run update</button>
+          </div>
+        </div>
         <pre id="plan-output" class="plan">No plan requested.</pre>
       </section>
     </div>
@@ -256,7 +266,8 @@ td.wrap { overflow-wrap: anywhere; }
     status: { items: [], summary: {} },
     installs: [],
     drift: [],
-    skills: []
+    skills: [],
+    pendingAction: null
   };
 
   function byId(id) { return document.getElementById(id); }
@@ -285,6 +296,18 @@ td.wrap { overflow-wrap: anywhere; }
         return data;
       });
     });
+  }
+  function postJSON(path, payload) {
+    return api(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload || {})
+    });
+  }
+  function setPendingAction(action) {
+    state.pendingAction = action;
+    byId('apply-profile-btn').disabled = !(action && action.type === 'profile');
+    byId('run-update-btn').disabled = !(action && action.type === 'update');
   }
   function showError(err) {
     byId('errors').innerHTML = '<div class="error">' + esc(err.message || err) + '</div>';
@@ -431,14 +454,42 @@ td.wrap { overflow-wrap: anywhere; }
   }
   function planProfile(name) {
     clearError();
-    api('/api/profiles/' + encodeURIComponent(name) + '/plan', { method: 'POST' })
-      .then(function (plan) { byId('plan-output').textContent = JSON.stringify(plan, null, 2); })
+    postJSON('/api/profiles/' + encodeURIComponent(name) + '/plan', {})
+      .then(function (plan) {
+        setPendingAction({ type: 'profile', name: name });
+        byId('plan-output').textContent = JSON.stringify(plan, null, 2);
+      })
       .catch(showError);
   }
   function planUpdate() {
     clearError();
-    api('/api/update/plan', { method: 'POST' })
-      .then(function (plan) { byId('plan-output').textContent = JSON.stringify(plan, null, 2); })
+    postJSON('/api/update/plan', {})
+      .then(function (plan) {
+        setPendingAction({ type: 'update' });
+        byId('plan-output').textContent = JSON.stringify(plan, null, 2);
+      })
+      .catch(showError);
+  }
+  function applyProfile() {
+    if (!state.pendingAction || state.pendingAction.type !== 'profile') return;
+    if (!window.confirm('Apply this profile to the current project?')) return;
+    postJSON('/api/profiles/' + encodeURIComponent(state.pendingAction.name) + '/apply', { confirm: true })
+      .then(function (result) {
+        byId('plan-output').textContent = JSON.stringify(result, null, 2);
+        setPendingAction(null);
+        loadAll();
+      })
+      .catch(showError);
+  }
+  function runUpdate() {
+    if (!state.pendingAction || state.pendingAction.type !== 'update') return;
+    if (!window.confirm('Run update for the current project?')) return;
+    postJSON('/api/update/run', { confirm: true })
+      .then(function (result) {
+        byId('plan-output').textContent = JSON.stringify(result, null, 2);
+        setPendingAction(null);
+        loadAll();
+      })
       .catch(showError);
   }
   document.querySelectorAll('.nav button').forEach(function (btn) {
@@ -456,6 +507,9 @@ td.wrap { overflow-wrap: anywhere; }
     if (event.key === 'Enter') searchSkills();
   });
   byId('plan-update-btn').addEventListener('click', planUpdate);
+  byId('apply-profile-btn').addEventListener('click', applyProfile);
+  byId('run-update-btn').addEventListener('click', runUpdate);
+  setPendingAction(null);
   loadAll();
 })();
 </script>

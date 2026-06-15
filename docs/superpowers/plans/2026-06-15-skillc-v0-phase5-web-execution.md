@@ -220,7 +220,7 @@ type updateRunActionResult struct {
 - Create: `internal/app/webapp/manager_actions.go`
 - Create: `internal/app/webapp/manager_actions_test.go`
 
-- [ ] **Step 1: Write failing manager action tests**
+- [x] **Step 1: Write failing manager action tests**
 
 Create `internal/app/webapp/manager_actions_test.go` with tests:
 
@@ -311,7 +311,7 @@ assert.Eq(t, "go-pro", result.Updated[0].SkillID)
 assert.Eq(t, "2.0.0", result.Updated[0].Version)
 ```
 
-- [ ] **Step 2: Run manager action tests to verify failure**
+- [x] **Step 2: Run manager action tests to verify failure**
 
 Run:
 
@@ -321,7 +321,7 @@ go test ./internal/app/webapp -run 'TestManager_(ApplyProfile|RunUpdate)|TestAct
 
 Expected: FAIL because manager action methods and result models do not exist.
 
-- [ ] **Step 3: Implement manager action service**
+- [x] **Step 3: Implement manager action service**
 
 Create `internal/app/webapp/manager_actions.go`.
 
@@ -419,7 +419,7 @@ func (m *Manager) RunUpdate(req WebUpdateReq) (updateRunActionResult, error) {
 
 Add small converter helpers for `installapp.RuntimeRecord`, `installapp.InstallItemError`, `updateapp.SkippedItem`, `updateapp.FailedItem`, and `updateapp.SourceSyncError`. `SourceSyncError` must convert to `actionSourceErrorItem` with `source_id`, not to a skill-level `skill_id` error.
 
-- [ ] **Step 4: Run manager action tests**
+- [x] **Step 4: Run manager action tests**
 
 Run:
 
@@ -429,7 +429,7 @@ go test ./internal/app/webapp -run 'TestManager_(ApplyProfile|RunUpdate)|TestAct
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit Task 1**
+- [x] **Step 5: Commit Task 1**
 
 ```bash
 git add internal/app/webapp/manager_actions.go internal/app/webapp/manager_actions_test.go
@@ -442,7 +442,7 @@ git commit -m "feat(web): add execution manager actions"
 - Modify: `internal/app/webapp/manager_server.go`
 - Modify: `internal/app/webapp/manager_server_test.go`
 
-- [ ] **Step 1: Write failing HTTP execute tests**
+- [x] **Step 1: Write failing HTTP execute tests**
 
 Add tests:
 
@@ -488,7 +488,7 @@ Confirmed update:
 req := httptest.NewRequest(http.MethodPost, "/api/update/run?agent=universal&scope=project", strings.NewReader(`{"confirm":true,"target":"go-pro"}`))
 ```
 
-- [ ] **Step 2: Run HTTP execute tests to verify failure**
+- [x] **Step 2: Run HTTP execute tests to verify failure**
 
 Run:
 
@@ -498,7 +498,7 @@ go test ./internal/app/webapp -run 'TestManagerServer(ProfileApply|UpdateRun|Rej
 
 Expected: FAIL because execute endpoints and confirm parsing do not exist.
 
-- [ ] **Step 3: Implement execute route parsing and confirm guard**
+- [x] **Step 3: Implement execute route parsing and confirm guard**
 
 In `manager_server.go`:
 
@@ -604,7 +604,7 @@ func (s *ManagerServer) handleUpdateRun(w http.ResponseWriter, r *http.Request) 
 }
 ```
 
-- [ ] **Step 4: Run HTTP execute tests**
+- [x] **Step 4: Run HTTP execute tests**
 
 Run:
 
@@ -614,7 +614,7 @@ go test ./internal/app/webapp -run 'TestManagerServer(ProfileApply|UpdateRun|Rej
 
 Expected: PASS.
 
-- [ ] **Step 5: Run full webapp tests**
+- [x] **Step 5: Run full webapp tests**
 
 Run:
 
@@ -624,7 +624,7 @@ go test ./internal/app/webapp -count=1
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit Task 2**
+- [x] **Step 6: Commit Task 2**
 
 ```bash
 git add internal/app/webapp/manager_server.go internal/app/webapp/manager_server_test.go
@@ -637,7 +637,7 @@ git commit -m "feat(web): add execution API endpoints"
 - Modify: `internal/app/webapp/manager_static.go`
 - Modify: `internal/app/webapp/manager_server_test.go`
 
-- [ ] **Step 1: Add failing static UI tests**
+- [x] **Step 1: Add failing static UI tests**
 
 Add tests:
 
@@ -662,7 +662,7 @@ assert.NotContains(t, body, "https://")
 assert.NotContains(t, body, "http://")
 ```
 
-- [ ] **Step 2: Run static UI execute tests to verify failure**
+- [x] **Step 2: Run static UI execute tests to verify failure**
 
 Run:
 
@@ -672,7 +672,7 @@ go test ./internal/app/webapp -run 'TestManagerServerIndexPageContainsExecutionC
 
 Expected: FAIL because execution controls do not exist.
 
-- [ ] **Step 3: Add action bar markup**
+- [x] **Step 3: Add action bar markup**
 
 In `manager_static.go`, replace the Plan Output section with:
 
@@ -698,7 +698,7 @@ button.danger { border-color: #c77b72; color: #a93535; }
 button.danger:hover { background: var(--bad-soft); }
 ```
 
-- [ ] **Step 4: Add pending action state and execute JS**
+- [x] **Step 4: Add pending action state and execute JS**
 
 In the existing JS state:
 
@@ -797,7 +797,7 @@ byId('run-update-btn').addEventListener('click', runUpdate);
 setPendingAction(null);
 ```
 
-- [ ] **Step 5: Run static UI execute tests**
+- [x] **Step 5: Run static UI execute tests**
 
 Run:
 
@@ -807,7 +807,7 @@ go test ./internal/app/webapp -run 'TestManagerServerIndexPageContainsExecutionC
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit Task 3**
+- [x] **Step 6: Commit Task 3**
 
 ```bash
 git add internal/app/webapp/manager_static.go internal/app/webapp/manager_server_test.go
@@ -823,7 +823,7 @@ git commit -m "feat(web): add execution controls"
 - Modify: `docs/design/skillc-v0-enhance-design.md`
 - Modify: `docs/superpowers/plans/2026-06-15-skillc-v0-phase5-web-execution.md`
 
-- [ ] **Step 1: Update English README**
+- [x] **Step 1: Update English README**
 
 Update the `web` section to say:
 
@@ -831,7 +831,7 @@ Update the `web` section to say:
 The web manager runs on `127.0.0.1` by default and shows sources, profiles, current status, project install map, and version drift. Web writes are still guarded: profile apply and update require a plan-first flow and an explicit confirmation, and only operate on the current project/agent/scope.
 ```
 
-- [ ] **Step 2: Update Chinese README**
+- [x] **Step 2: Update Chinese README**
 
 Update the `web` section to say:
 
@@ -839,7 +839,7 @@ Update the `web` section to say:
 Web 管理界面默认监听 `127.0.0.1`，用于查看 sources、profiles、当前项目状态、项目安装分布和版本差异。Web 写操作仍有保护：profile apply 和 update 必须先生成计划，再显式确认执行，并且第一轮只操作当前项目、agent 和 scope。
 ```
 
-- [ ] **Step 3: Update TODO and design docs**
+- [x] **Step 3: Update TODO and design docs**
 
 In `docs/TODO.md`:
 
@@ -859,7 +859,7 @@ In `docs/design/skillc-v0-enhance-design.md`:
 - Add Phase 5 plan link near earlier phase links.
 - Replace "下一步建议" with Phase 5 Web execution MVP.
 
-- [ ] **Step 4: Commit docs**
+- [x] **Step 4: Commit docs**
 
 ```bash
 git add README.md README.zh-CN.md docs/TODO.md docs/design/skillc-v0-enhance-design.md docs/superpowers/plans/2026-06-15-skillc-v0-phase5-web-execution.md
@@ -871,7 +871,7 @@ git commit -m "docs: add skillc phase 5 web execution plan"
 **Files:**
 - Modify: `docs/superpowers/plans/2026-06-15-skillc-v0-phase5-web-execution.md`
 
-- [ ] **Step 1: Run focused tests**
+- [x] **Step 1: Run focused tests**
 
 Run:
 
@@ -881,7 +881,7 @@ go test ./internal/app/webapp -count=1
 
 Expected: PASS.
 
-- [ ] **Step 2: Run full test suite**
+- [x] **Step 2: Run full test suite**
 
 Run:
 
@@ -891,7 +891,7 @@ go test ./...
 
 Expected: PASS.
 
-- [ ] **Step 3: Run docs sanity check**
+- [x] **Step 3: Run docs sanity check**
 
 Run:
 
@@ -901,7 +901,7 @@ rg -n -- "Phase 5|五期|skillc web|Apply profile|Run update|confirmation|确认
 
 Expected: docs mention Phase 5 and do not claim uninstall/source deletion/cross-project execution support.
 
-- [ ] **Step 4: Manual smoke test**
+- [x] **Step 4: Manual smoke test**
 
 Build and start local server:
 
@@ -925,15 +925,15 @@ Expected:
 - `POST /api/update/run` without `{"confirm":true}` returns `400`.
 - Server process is stopped before final commit.
 
-- [ ] **Step 5: Update final verification note**
+- [x] **Step 5: Update final verification note**
 
 Append:
 
 ```markdown
-**Verification note (2026-06-15):** `go test ./internal/app/webapp -count=1`, `go test ./...`, docs sanity check, and local smoke test pass. Manual smoke confirms execute endpoints reject missing confirmation and the static UI exposes plan-first execution controls.
+**Verification note (2026-06-15):** `go test ./internal/app/webapp -count=1`, `go test ./...`, `git diff --check`, docs sanity check, and local smoke test pass. Manual smoke confirms `/`, `/api/summary`, `/api/status`, static execution controls, and `POST /api/update/run` without `{"confirm":true}` returning `400`. Self-review also added coverage for partial profile apply failures returning `error` plus `install_failed` details instead of hiding partial results.
 ```
 
-- [ ] **Step 6: Commit final checkbox updates**
+- [x] **Step 6: Commit final checkbox updates**
 
 ```bash
 git add docs/superpowers/plans/2026-06-15-skillc-v0-phase5-web-execution.md
@@ -942,17 +942,17 @@ git commit -m "docs: complete skillc phase 5 web execution plan review"
 
 ## Self-Review Checklist
 
-- [ ] Web execution only runs after an explicit confirmation flag reaches the server.
-- [ ] Profile apply execution delegates to `profileapp.Apply`.
-- [ ] Update execution delegates to `updateapp.Run`.
-- [ ] HTTP handlers do not duplicate install/update/profile business rules.
-- [ ] Execute result JSON uses stable lowercase field names.
-- [ ] UI remains self-contained and uses no external CDN/assets.
-- [ ] UI refreshes summary/status/install-map/version-drift after execution.
-- [ ] Web still defaults to `127.0.0.1`.
-- [ ] `show --web` skill viewer remains compatible.
-- [ ] Tests cover manager service, HTTP confirm guards, execute endpoints and static page controls.
-- [ ] `go test ./...` passes before marking complete.
+- [x] Web execution only runs after an explicit confirmation flag reaches the server.
+- [x] Profile apply execution delegates to `profileapp.Apply`.
+- [x] Update execution delegates to `updateapp.Run`.
+- [x] HTTP handlers do not duplicate install/update/profile business rules.
+- [x] Execute result JSON uses stable lowercase field names.
+- [x] UI remains self-contained and uses no external CDN/assets.
+- [x] UI refreshes summary/status/install-map/version-drift after execution.
+- [x] Web still defaults to `127.0.0.1`.
+- [x] `show --web` skill viewer remains compatible.
+- [x] Tests cover manager service, HTTP confirm guards, execute endpoints and static page controls.
+- [x] `go test ./...` passes before marking complete.
 
 ## Acceptance Criteria
 

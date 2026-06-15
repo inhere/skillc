@@ -1,11 +1,19 @@
 package webapp
 
 import (
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/gookit/goutil/testutil/assert"
+	"github.com/inhere/skillc/internal/domain/profile"
+	"github.com/inhere/skillc/internal/domain/skill"
+	sourcepkg "github.com/inhere/skillc/internal/domain/source"
+	"github.com/inhere/skillc/internal/infra/configstore"
+	"github.com/inhere/skillc/internal/infra/repoindex"
 )
 
 func TestManagerServerSummaryEndpoint(t *testing.T) {
@@ -75,6 +83,121 @@ func TestManagerServerProfilePlanEndpoint(t *testing.T) {
 	assert.Contains(t, rec.Body.String(), `"action":"skip"`)
 }
 
+func TestManagerServerProfileApplyRequiresConfirmation(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := writeWebActionFixture(t, baseDir)
+	server := NewManagerServer(configFile, baseDir)
+
+	rec := performManagerRequestWithBody(server, http.MethodPost, "/api/profiles/go-dev/apply", strings.NewReader(`{}`))
+
+	assert.Eq(t, http.StatusBadRequest, rec.Code)
+	assert.Contains(t, rec.Body.String(), `"confirmation required"`)
+}
+
+func TestManagerServerProfileApplyEndpointExecutesConfirmedApply(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := writeWebActionFixture(t, baseDir)
+	server := NewManagerServer(configFile, baseDir)
+
+	rec := performManagerRequestWithBody(server, http.MethodPost, "/api/profiles/go-dev/apply?agent=universal&scope=project", strings.NewReader(`{"confirm":true}`))
+
+	assert.Eq(t, http.StatusOK, rec.Code)
+	assert.Contains(t, rec.Body.String(), `"installed"`)
+	assert.Contains(t, rec.Body.String(), `"skill_id":"review"`)
+}
+
+func TestManagerServerProfileApplyEndpointReturnsPartialResultOnInstallFailure(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := writeWebActionFixture(t, baseDir)
+	config, err := configstore.NewYAMLStore().Load(configFile, baseDir)
+	assert.NoErr(t, err)
+	config.Profiles["go-dev"] = profile.Profile{
+		DefaultAgent: "universal",
+		DefaultScope: "project",
+		Targets:      []profile.Target{{Source: "gstack", Skill: "broken"}},
+	}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config, baseDir))
+	items, err := repoindex.NewStore().Load(config.IndexFile)
+	assert.NoErr(t, err)
+	items = append(items, skill.Skill{
+		ID:                  "broken",
+		SourceID:            "gstack",
+		Collection:          "tools",
+		QualifiedName:       "tools/broken",
+		SourceQualifiedName: "gstack/tools/broken",
+		Version:             "1.0.0",
+		SourceType:          sourcepkg.TypeLocal,
+		InstallEntry:        ".",
+		Path:                filepath.Join(baseDir, "missing-source"),
+	})
+	assert.NoErr(t, repoindex.NewStore().Save(config.IndexFile, items))
+	server := NewManagerServer(configFile, baseDir)
+
+	rec := performManagerRequestWithBody(server, http.MethodPost, "/api/profiles/go-dev/apply?agent=universal&scope=project", strings.NewReader(`{"confirm":true}`))
+
+	assert.Eq(t, http.StatusOK, rec.Code)
+	assert.Contains(t, rec.Body.String(), `"error":"profile apply failed: install failed"`)
+	assert.Contains(t, rec.Body.String(), `"install_failed"`)
+	assert.Contains(t, rec.Body.String(), `"skill_id":"broken"`)
+}
+
+func TestManagerServerUpdateRunRequiresConfirmation(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := writeWebActionFixture(t, baseDir)
+	server := NewManagerServer(configFile, baseDir)
+
+	rec := performManagerRequestWithBody(server, http.MethodPost, "/api/update/run", strings.NewReader(`{"confirm":false}`))
+
+	assert.Eq(t, http.StatusBadRequest, rec.Code)
+	assert.Contains(t, rec.Body.String(), `"confirmation required"`)
+}
+
+func TestManagerServerUpdateRunRejectsInvalidJSONBody(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := writeWebActionFixture(t, baseDir)
+	server := NewManagerServer(configFile, baseDir)
+
+	rec := performManagerRequestWithBody(server, http.MethodPost, "/api/update/run", strings.NewReader(`{`))
+
+	assert.Eq(t, http.StatusBadRequest, rec.Code)
+	assert.Contains(t, rec.Body.String(), `"invalid json body"`)
+}
+
+func TestManagerServerUpdateRunEndpointExecutesConfirmedUpdate(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := writeWebActionFixture(t, baseDir)
+	server := NewManagerServer(configFile, baseDir)
+
+	rec := performManagerRequestWithBody(server, http.MethodPost, "/api/update/run?agent=universal&scope=project", strings.NewReader(`{"confirm":true,"target":"go-pro"}`))
+
+	assert.Eq(t, http.StatusOK, rec.Code)
+	assert.Contains(t, rec.Body.String(), `"updated"`)
+	assert.Contains(t, rec.Body.String(), `"skill_id":"go-pro"`)
+	assert.Contains(t, rec.Body.String(), `"version":"2.0.0"`)
+}
+
+func TestManagerServerRejectsInvalidProfileActionPath(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := writeWebActionFixture(t, baseDir)
+	server := NewManagerServer(configFile, baseDir)
+
+	tests := []struct {
+		name string
+		path string
+	}{
+		{name: "unknown action", path: "/api/profiles/go-dev/delete"},
+		{name: "nested action", path: "/api/profiles/go-dev/extra/plan"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rec := performManagerRequestWithBody(server, http.MethodPost, tt.path, strings.NewReader(`{"confirm":true}`))
+
+			assert.Eq(t, http.StatusNotFound, rec.Code)
+		})
+	}
+}
+
 func TestManagerServerRejectsInvalidMethods(t *testing.T) {
 	baseDir := t.TempDir()
 	configFile, _ := writeWebManagerFixture(t, baseDir)
@@ -88,6 +211,8 @@ func TestManagerServerRejectsInvalidMethods(t *testing.T) {
 	}{
 		{name: "read endpoint rejects post", method: http.MethodPost, path: "/api/summary", code: http.StatusMethodNotAllowed},
 		{name: "profile plan rejects get", method: http.MethodGet, path: "/api/profiles/go-dev/plan", code: http.StatusMethodNotAllowed},
+		{name: "profile apply rejects get", method: http.MethodGet, path: "/api/profiles/go-dev/apply", code: http.StatusMethodNotAllowed},
+		{name: "update run rejects get", method: http.MethodGet, path: "/api/update/run", code: http.StatusMethodNotAllowed},
 		{name: "invalid profile plan path returns not found", method: http.MethodPost, path: "/api/profiles/go-dev/extra/plan", code: http.StatusNotFound},
 	}
 
@@ -117,6 +242,37 @@ func TestManagerServerIndexPageContainsAppShell(t *testing.T) {
 	assert.Contains(t, body, "Version Drift")
 }
 
+func TestManagerServerIndexPageContainsExecutionControls(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile, _ := writeWebManagerFixture(t, baseDir)
+	server := NewManagerServer(configFile, baseDir)
+
+	rec := performManagerRequest(server, http.MethodGet, "/")
+	body := rec.Body.String()
+
+	assert.Eq(t, http.StatusOK, rec.Code)
+	assert.Contains(t, body, "Apply profile")
+	assert.Contains(t, body, "Run update")
+	assert.Contains(t, body, `id="apply-profile-btn"`)
+	assert.Contains(t, body, `id="run-update-btn"`)
+}
+
+func TestManagerServerStaticPagePostsConfirmedActions(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile, _ := writeWebManagerFixture(t, baseDir)
+	server := NewManagerServer(configFile, baseDir)
+
+	rec := performManagerRequest(server, http.MethodGet, "/")
+	body := rec.Body.String()
+
+	assert.Eq(t, http.StatusOK, rec.Code)
+	assert.Contains(t, body, "/api/profiles/")
+	assert.Contains(t, body, "/apply")
+	assert.Contains(t, body, "/api/update/run")
+	assert.Contains(t, body, "confirm")
+	assert.Contains(t, body, "JSON.stringify(payload")
+}
+
 func TestManagerServerStaticPageDoesNotUseExternalAssets(t *testing.T) {
 	baseDir := t.TempDir()
 	configFile, _ := writeWebManagerFixture(t, baseDir)
@@ -131,7 +287,14 @@ func TestManagerServerStaticPageDoesNotUseExternalAssets(t *testing.T) {
 }
 
 func performManagerRequest(server *ManagerServer, method string, path string) *httptest.ResponseRecorder {
-	req := httptest.NewRequest(method, path, nil)
+	return performManagerRequestWithBody(server, method, path, nil)
+}
+
+func performManagerRequestWithBody(server *ManagerServer, method string, path string, body io.Reader) *httptest.ResponseRecorder {
+	req := httptest.NewRequest(method, path, body)
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
 	rec := httptest.NewRecorder()
 	server.Handler().ServeHTTP(rec, req)
 	return rec

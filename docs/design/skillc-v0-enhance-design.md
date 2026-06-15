@@ -14,6 +14,7 @@
 | 2026-06-15 | v0.10 | Codex | 增加 Phase 4 Web 管理实施计划链接，并将下一步建议更新为 Web 管理 MVP |
 | 2026-06-15 | v0.11 | Codex | 记录 Phase 4 第一轮 `skillc web` 管理入口已落地，后续继续补 Web 执行能力 |
 | 2026-06-15 | v0.12 | Codex | 增加 Phase 5 Web 执行闭环实施计划链接，并明确执行范围只覆盖当前项目 profile apply / update |
+| 2026-06-15 | v0.13 | Codex | 记录 Phase 5 已落地 Web 当前项目 profile apply / update 确认执行闭环 |
 
 状态：Draft
 
@@ -44,11 +45,11 @@
 
 四期目标：新增 `skillc web` 本地管理入口，第一轮重点是 source/profile/status/install-map/version-drift 的关系查看和 plan-first 预览；Web 直接执行安装、更新、删除等写操作留到后续小阶段。
 
-四期第一轮状态：已新增 Web 管理查询层、HTTP JSON API、自包含本地管理页面和 `skillc web` CLI 入口。当前 Web 写入口仍保持 plan-first，只返回 profile apply / update plan 预览，不直接修改安装目录或 lock。
+四期第一轮状态：已新增 Web 管理查询层、HTTP JSON API、自包含本地管理页面和 `skillc web` CLI 入口。Phase 4 完成时 Web 写入口仍保持 plan-first，只返回 profile apply / update plan 预览，不直接修改安装目录或 lock；Phase 5 已在此基础上补齐当前项目 profile apply / update 的确认执行。
 
 五期开发计划：`docs/superpowers/plans/2026-06-15-skillc-v0-phase5-web-execution.md`
 
-五期目标：在 Phase 4 的 plan-first Web 管理基础上，补齐当前项目范围内 profile apply / update 的计划、确认、执行和刷新闭环。第一轮仍不做卸载、source 删除、跨项目批量更新或远程 Web 权限模型。
+五期状态：已在 Phase 4 的 plan-first Web 管理基础上，补齐当前项目范围内 profile apply / update 的计划、确认、执行和刷新闭环。第一轮仍不做卸载、source 删除、跨项目批量更新或远程 Web 权限模型。
 
 ## 1. 设计结论
 
@@ -903,6 +904,27 @@ internal/infra/termselect/
 - Web 可 dry-run apply profile。
 - Web 不绕过 CLI/app service 的业务规则；后续执行能力必须复用同一套 app service。
 
+### Phase 5：Web 执行闭环
+
+目标：在 Phase 4 的 Web 查看和 plan-first 基础上，补齐当前项目范围内 profile apply / update 的确认执行闭环。
+
+实施计划：`docs/superpowers/plans/2026-06-15-skillc-v0-phase5-web-execution.md`
+
+已落地：
+
+- Web Profiles 页可以先生成 profile apply plan，再由用户确认执行。
+- Web Dashboard / Version Drift 可以先生成 update plan，再由用户确认执行当前项目更新。
+- 后端执行端点要求请求体包含 `confirm:true`，不能只依赖前端确认。
+- HTTP handler 只做请求解析、确认校验和 Web JSON 结果转换，实际执行复用 `profileapp.Apply` 和 `updateapp.Run`。
+- 执行完成后静态 UI 刷新 summary/status/install-map/version-drift。
+
+仍后置：
+
+- Web 卸载 skill。
+- Web 删除 source。
+- 跨项目批量更新所有下游项目。
+- 操作历史、审计日志、远程访问和多用户权限模型。
+
 ## 11. 风险与取舍
 
 ### 11.1 Profile 与 Collection 混淆
@@ -984,19 +1006,19 @@ v0 增强重构完成后，应满足：
 
 ## 13. 下一步建议
 
-Phase 1/2/3/4 已经完成：profile 最小闭环、当前项目 status/update check、基于 `gookit/cliui` 的交互式选择，以及 `skillc web` 本地管理查看和 plan-first 预览都已落地。下一步建议进入 Phase 5：Web 执行闭环第一步。
+Phase 1/2/3/4/5 已经完成：profile 最小闭环、当前项目 status/update check、基于 `gookit/cliui` 的交互式选择、`skillc web` 本地管理查看和当前项目 profile apply / update 确认执行闭环都已落地。
 
-实施计划见：`docs/superpowers/plans/2026-06-15-skillc-v0-phase5-web-execution.md`
+Phase 5 实施计划见：`docs/superpowers/plans/2026-06-15-skillc-v0-phase5-web-execution.md`
 
-本阶段应保持“当前项目 + 显式确认 + 复用 app service”优先：
+下一步建议不要直接扩大到“所有项目一键更新”。更稳妥的顺序是先补齐 Web 管理面的剩余当前项目能力，再单独设计跨项目能力：
 
-- Web profile apply 先调用 plan，再由用户确认执行；后端必须要求 `confirm:true`，不能只依赖前端按钮。
-- Web update 先展示 missing/outdated 候选，再由用户确认执行；第一轮只操作当前 `skillc web` 启动目录的 workdir/agent/scope。
-- HTTP handler 继续保持薄层，只做请求解析、确认校验、结果转换，不复制 profile/update/install 业务规则。
-- 执行结果使用稳定 Web JSON 字段名，便于静态 UI 渲染和测试。
-- 卸载、source 删除、跨项目批量更新、操作日志和远程权限模型继续后置，避免一次把 Web 写能力扩到不可控。
+- Web source 管理：source sync/status 视图、source add/remove 的 plan-first 边界，以及 source 删除前的影响预览。
+- Web profile 管理：profile create/edit/save-from-installed/save-from-collection，继续复用 profile app service。
+- Web uninstall：先生成 uninstall plan，明确即将删除的 agent/scope/path，再要求 `confirm:true`。
+- 跨项目批量更新：先设计项目 registry / project selection / per-project confirmation，再接入 update 执行，避免误更新未知项目。
+- 操作历史和审计：Web 写操作已经存在，后续应记录执行时间、输入 plan、结果和失败原因。
 
-这一步能验证 Web 从“看得清”到“可谨慎操作”的核心价值，并为后续跨项目一键更新、操作历史、审计和更完整的 source/profile 管理打基础。
+Phase 5 已经验证 Web 从“看得清”到“可谨慎操作”的核心价值。后续重点应是把写操作覆盖面补完整，同时继续坚持当前的安全边界：先 plan、后确认、handler 保持薄层、执行复用 app service。
 
 ## 14. 参考项目复审补充
 

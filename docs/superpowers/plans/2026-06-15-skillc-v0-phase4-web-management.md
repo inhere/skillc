@@ -540,7 +540,7 @@ git commit -m "feat(web): add management query service"
 - Create: `internal/app/webapp/manager_server.go`
 - Create: `internal/app/webapp/manager_server_test.go`
 
-- [ ] **Step 1: Write failing HTTP API tests**
+- [x] **Step 1: Write failing HTTP API tests**
 
 Create tests using `httptest.NewServer` or `httptest.NewRecorder`:
 
@@ -568,7 +568,7 @@ func TestManagerServerSummaryEndpoint(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run HTTP tests to verify failure**
+- [x] **Step 2: Run HTTP tests to verify failure**
 
 Run:
 
@@ -578,7 +578,7 @@ go test ./internal/app/webapp -run 'TestManagerServer' -count=1
 
 Expected: FAIL because manager server does not exist.
 
-- [ ] **Step 3: Implement API server**
+- [x] **Step 3: Implement API server**
 
 Create `internal/app/webapp/manager_server.go` with:
 
@@ -612,7 +612,7 @@ Rules:
   - `agent`, `scope`, `keyword`, `source`.
 - `POST /api/update/plan` first round returns `statusapp` update candidates (`outdated` and `missing`) as a plan-like JSON object; it does not call `updateapp.Run`.
 
-- [ ] **Step 4: Run HTTP API tests**
+- [x] **Step 4: Run HTTP API tests**
 
 Run:
 
@@ -622,12 +622,14 @@ go test ./internal/app/webapp -run 'TestManagerServer' -count=1
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add internal/app/webapp/manager_server.go internal/app/webapp/manager_server_test.go
 git commit -m "feat(web): add management API server"
 ```
+
+**Verification note (2026-06-15):** `go test ./internal/app/webapp -run 'TestManagerServer' -count=1` passes. API routes expose summary, sources, collections, skills, profiles, status, install map, version drift, profile apply plan and update plan endpoints with method validation; update plan only returns missing/outdated status items and does not mutate files.
 
 ## Task 4: Add Static Web Management UI
 

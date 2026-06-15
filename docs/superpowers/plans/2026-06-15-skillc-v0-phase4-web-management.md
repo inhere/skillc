@@ -231,6 +231,7 @@ Identity rules：
 - version drift 只在同一个 grouping key 下比较。
 - latest version 来自 repo index；lookup 对旧 lock metadata 使用 alias lookup，同一个 index skill 至少支持 `SourceID + "\x00" + ID`、`SourceQualifiedName`、`QualifiedName`、`ID`。
 - alias 若映射到多个不同 source identity，则视为 ambiguous，不输出该 alias 的 latest。
+- drift group 的 `SkillID` / `SourceID` / `SourceQualifiedName` 优先使用 latest index 的 canonical metadata；只有拿不到 latest 时才 fallback 到 installed record。
 - 如果 index 没有对应项，latest 为空，drift group 仍展示 current versions。
 - global scope 记录使用 project path `__global__` 展示，不伪装成当前项目。
 
@@ -384,7 +385,7 @@ git add internal/app/webapp/project_index.go internal/app/webapp/project_index_t
 git commit -m "feat(web): add project install index"
 ```
 
-**Verification note (2026-06-15):** `go test ./internal/app/webapp -run 'TestBuildProjectInstallIndex|TestBuildVersionDrift' -count=1` and `go test ./internal/app/webapp -count=1` pass. Added drift coverage to verify numeric dotted version selection chooses `1.10.0` over `1.9.0`, version buckets sort numerically so `1.9.0` appears before `1.10.0`, stable identity prefers `SourceID + "\x00" + SkillID` across rename scenarios, and latest lookup supports old lock metadata aliases while keeping ambiguous aliases unresolved.
+**Verification note (2026-06-15):** `go test ./internal/app/webapp -run 'TestBuildProjectInstallIndex|TestBuildVersionDrift' -count=1` and `go test ./internal/app/webapp -count=1` pass. Added drift coverage to verify numeric dotted version selection chooses `1.10.0` over `1.9.0`, version buckets sort numerically so `1.9.0` appears before `1.10.0`, stable identity prefers `SourceID + "\x00" + SkillID` across rename scenarios, latest lookup supports old lock metadata aliases while keeping ambiguous aliases unresolved, and drift group identity metadata prefers latest index canonical fields over stale installed record names.
 
 ## Task 2: Add Web Manager Query Service
 

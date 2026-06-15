@@ -74,7 +74,7 @@ func BuildProjectInstallIndex(records lockpkg.File) []ProjectInstall {
 }
 
 func BuildVersionDrift(items []ProjectInstall, index []skill.Skill) []VersionDriftGroup {
-	latestByKey := latestVersionByInstallKey(index)
+	latestSkillByKey := latestSkillByInstallKey(index)
 	grouped := make(map[string][]ProjectInstall)
 
 	for _, item := range items {
@@ -100,7 +100,8 @@ func BuildVersionDrift(items []ProjectInstall, index []skill.Skill) []VersionDri
 			currentVersions[item.Version] = struct{}{}
 		}
 
-		latestVersion := latestByKey[key]
+		latestSkill, hasLatestSkill := latestSkillByKey[key]
+		latestVersion := latestSkill.Version
 		hasDriftFromLatest := false
 		if latestVersion != "" {
 			for version := range currentVersions {
@@ -133,10 +134,25 @@ func BuildVersionDrift(items []ProjectInstall, index []skill.Skill) []VersionDri
 		}
 
 		head := projects[0]
+		groupSkillID := head.SkillID
+		groupSourceID := head.SourceID
+		groupSourceQualifiedName := head.SourceQualifiedName
+		if hasLatestSkill {
+			if latestSkill.ID != "" {
+				groupSkillID = latestSkill.ID
+			}
+			if latestSkill.SourceID != "" {
+				groupSourceID = latestSkill.SourceID
+			}
+			if latestSkill.SourceQualifiedName != "" {
+				groupSourceQualifiedName = latestSkill.SourceQualifiedName
+			}
+		}
+
 		groups = append(groups, VersionDriftGroup{
-			SkillID:             head.SkillID,
-			SourceQualifiedName: head.SourceQualifiedName,
-			SourceID:            head.SourceID,
+			SkillID:             groupSkillID,
+			SourceQualifiedName: groupSourceQualifiedName,
+			SourceID:            groupSourceID,
 			LatestVersion:       latestVersion,
 			Versions:            buckets,
 		})
@@ -159,7 +175,18 @@ func projectInstallKey(item ProjectInstall) string {
 }
 
 func latestVersionByInstallKey(index []skill.Skill) map[string]string {
-	primaryLatest := make(map[string]string, len(index))
+	latestSkills := latestSkillByInstallKey(index)
+	result := make(map[string]string, len(latestSkills))
+	for alias, item := range latestSkills {
+		if item.Version != "" {
+			result[alias] = item.Version
+		}
+	}
+	return result
+}
+
+func latestSkillByInstallKey(index []skill.Skill) map[string]skill.Skill {
+	primaryLatest := make(map[string]skill.Skill, len(index))
 	aliasToPrimary := make(map[string]string)
 	ambiguousAliases := make(map[string]struct{})
 
@@ -169,8 +196,9 @@ func latestVersionByInstallKey(index []skill.Skill) map[string]string {
 			continue
 		}
 
-		if primaryLatest[primaryKey] == "" || compareVersionParts(primaryLatest[primaryKey], item.Version) < 0 {
-			primaryLatest[primaryKey] = item.Version
+		current, ok := primaryLatest[primaryKey]
+		if !ok || compareVersionParts(current.Version, item.Version) < 0 {
+			primaryLatest[primaryKey] = item
 		}
 
 		for _, alias := range skillInstallAliases(item) {
@@ -186,9 +214,9 @@ func latestVersionByInstallKey(index []skill.Skill) map[string]string {
 		}
 	}
 
-	result := make(map[string]string, len(aliasToPrimary))
+	result := make(map[string]skill.Skill, len(aliasToPrimary))
 	for alias, primaryKey := range aliasToPrimary {
-		if latest := primaryLatest[primaryKey]; latest != "" {
+		if latest, ok := primaryLatest[primaryKey]; ok {
 			result[alias] = latest
 		}
 	}

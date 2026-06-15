@@ -369,6 +369,7 @@ func TestBuildVersionDriftMergesRenamedSourceQualifiedNameByStableSourceIdentity
 		return
 	}
 	assert.Eq(t, "repo-a", groups[0].SourceID)
+	assert.Eq(t, "repo-a/renamed/shared-skill", groups[0].SourceQualifiedName)
 	assert.Eq(t, "3.0.0", groups[0].LatestVersion)
 	assert.Len(t, groups[0].Versions, 2)
 }
@@ -401,6 +402,8 @@ func TestBuildVersionDriftMatchesLatestByQualifiedNameAlias(t *testing.T) {
 	if len(groups) == 0 {
 		return
 	}
+	assert.Eq(t, "repo-a", groups[0].SourceID)
+	assert.Eq(t, "repo-a/alpha/shared-skill", groups[0].SourceQualifiedName)
 	assert.Eq(t, "2.0.0", groups[0].LatestVersion)
 }
 
@@ -431,6 +434,8 @@ func TestBuildVersionDriftMatchesLatestByUniqueSkillIDAlias(t *testing.T) {
 	if len(groups) == 0 {
 		return
 	}
+	assert.Eq(t, "repo-a", groups[0].SourceID)
+	assert.Eq(t, "repo-a/alpha/shared-skill", groups[0].SourceQualifiedName)
 	assert.Eq(t, "2.0.0", groups[0].LatestVersion)
 }
 

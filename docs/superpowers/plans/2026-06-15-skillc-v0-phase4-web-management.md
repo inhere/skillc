@@ -395,7 +395,7 @@ git commit -m "feat(web): add project install index"
 - Create: `internal/app/webapp/manager.go`
 - Create: `internal/app/webapp/manager_test.go`
 
-- [ ] **Step 1: Write failing manager tests**
+- [x] **Step 1: Write failing manager tests**
 
 Create tests for:
 
@@ -430,7 +430,7 @@ func TestManager_SummaryCountsSourcesProfilesSkillsAndStatus(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run manager tests to verify failure**
+- [x] **Step 2: Run manager tests to verify failure**
 
 Run:
 
@@ -440,7 +440,7 @@ go test ./internal/app/webapp -run 'TestManager_' -count=1
 
 Expected: FAIL because `Manager` does not exist.
 
-- [ ] **Step 3: Implement manager service**
+- [x] **Step 3: Implement manager service**
 
 Create `internal/app/webapp/manager.go`:
 
@@ -515,7 +515,7 @@ Use existing services:
 
 Handle missing lock/index files as empty results where appropriate.
 
-- [ ] **Step 4: Run manager tests**
+- [x] **Step 4: Run manager tests**
 
 Run:
 
@@ -525,12 +525,14 @@ go test ./internal/app/webapp -run 'TestManager_' -count=1
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add internal/app/webapp/manager.go internal/app/webapp/manager_test.go
 git commit -m "feat(web): add management query service"
 ```
+
+**Verification note (2026-06-15):** `go test ./internal/app/webapp -run 'TestManager_' -count=1` passes. Manager service delegates to existing config/source/search/profile/status services, treats missing lock/index as empty for derived views, and exposes summary, source/profile lists, install map, version drift, skill search, collections and profile apply plan queries.
 
 ## Task 3: Add Web Manager HTTP API
 

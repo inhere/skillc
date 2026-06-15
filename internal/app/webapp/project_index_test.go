@@ -55,6 +55,28 @@ func TestBuildProjectInstallIndexKeepsGlobalScopeSeparate(t *testing.T) {
 	assert.Eq(t, "global", items[0].Scope)
 }
 
+func TestBuildProjectInstallIndexSkipsRecordsWithoutAgents(t *testing.T) {
+	projectA := filepath.Clean("/work/project-a")
+
+	t.Run("records without agents do not produce install items", func(t *testing.T) {
+		records := lockpkg.File{
+			projectA: {
+				{
+					SkillID:             "go-pro",
+					QualifiedName:       "tools/go-pro",
+					SourceQualifiedName: "gstack/tools/go-pro",
+					SourceID:            "gstack",
+					Version:             "1.0.0",
+				},
+			},
+		}
+
+		items := BuildProjectInstallIndex(records)
+
+		assert.Len(t, items, 0)
+	})
+}
+
 func TestBuildVersionDriftGroupsBySourceQualifiedIdentity(t *testing.T) {
 	projectA := filepath.Clean("/work/project-a")
 	projectB := filepath.Clean("/work/project-b")

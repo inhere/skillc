@@ -746,7 +746,7 @@ git commit -m "feat(web): add management UI shell"
 - Modify: `internal/cli/app.go`
 - Modify: `internal/cli/app_test.go`
 
-- [ ] **Step 1: Write failing CLI tests**
+- [x] **Step 1: Write failing CLI tests**
 
 Add tests:
 
@@ -768,7 +768,7 @@ func (s *webServerStub) Serve(host string, port int) error {
 }
 ```
 
-- [ ] **Step 2: Run CLI tests to verify failure**
+- [x] **Step 2: Run CLI tests to verify failure**
 
 Run:
 
@@ -778,7 +778,7 @@ go test ./internal/cli -run 'TestNewApp_RegistersWebCommand|TestWebCommand' -cou
 
 Expected: FAIL because `web` command is not registered.
 
-- [ ] **Step 3: Implement CLI command**
+- [x] **Step 3: Implement CLI command**
 
 Create `internal/cli/web_cmd.go`:
 
@@ -818,7 +818,7 @@ func buildWebCommand() *gcli.Command {
 
 Register it in `NewApp()` after `show` or before `install`.
 
-- [ ] **Step 4: Run CLI web tests**
+- [x] **Step 4: Run CLI web tests**
 
 Run:
 
@@ -828,12 +828,14 @@ go test ./internal/cli -run 'TestNewApp_RegistersWebCommand|TestWebCommand' -cou
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add internal/cli/web_cmd.go internal/cli/app.go internal/cli/app_test.go
 git commit -m "feat(cli): add web manager command"
 ```
+
+**Verification note (2026-06-15):** `go test ./internal/cli -run 'TestNewApp_RegistersWebCommand|TestWebCommand' -count=1` and `go test ./internal/cli -count=1` pass. The `web` command is registered, defaults to host `127.0.0.1` and port `8080`, accepts `--host` and `--port`, and delegates serving through an injectable web manager server factory.
 
 ## Task 6: Documentation and Plan Links
 

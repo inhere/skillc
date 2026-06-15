@@ -39,6 +39,17 @@ func (s updateRunnerStub) Run(req updateapp.Req) (updateapp.Result, error) {
 	return s.runFn(req)
 }
 
+type webServerStub struct {
+	host string
+	port int
+}
+
+func (s *webServerStub) Serve(host string, port int) error {
+	s.host = host
+	s.port = port
+	return nil
+}
+
 type selectorStub struct {
 	items  []termselect.Item
 	got    termselect.Options
@@ -98,6 +109,42 @@ func TestNewApp_RegistersProfileCommand(t *testing.T) {
 		return
 	}
 	assert.Eq(t, "Manage Skillc profiles", profileCmd.Desc)
+}
+
+func TestNewApp_RegistersWebCommand(t *testing.T) {
+	app := newTestApp()
+
+	web := findCommandByName(app, "web")
+	assert.NotNil(t, web)
+	if web == nil {
+		return
+	}
+	assert.Eq(t, "Start local web manager", web.Desc)
+}
+
+func TestWebCommandPassesHostAndPort(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, cfg.DefaultConfig(), baseDir))
+	stub := &webServerStub{}
+	var gotConfigFile string
+	var gotBaseDir string
+	prevFactory := newWebManagerServer
+	newWebManagerServer = func(configFile string, baseDir string) webManagerServer {
+		gotConfigFile = configFile
+		gotBaseDir = baseDir
+		return stub
+	}
+	defer func() {
+		newWebManagerServer = prevFactory
+	}()
+
+	runAppInDirWithStdout(t, baseDir, []string{"web", "--host", "127.0.0.2", "--port", "18080"})
+
+	assert.Eq(t, "127.0.0.2", stub.host)
+	assert.Eq(t, 18080, stub.port)
+	assert.Eq(t, baseDir, gotBaseDir)
+	assert.Eq(t, configFile, gotConfigFile)
 }
 
 func TestSkillSelectItemsUseStableSourceQualifiedTargets(t *testing.T) {

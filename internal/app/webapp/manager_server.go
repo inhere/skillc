@@ -66,6 +66,7 @@ func (s *ManagerServer) Handler() http.Handler {
 	mux.HandleFunc("/api/version-drift", s.handleVersionDrift)
 	mux.HandleFunc("/api/profiles/", s.handleProfileAction)
 	mux.HandleFunc("/api/update/plan", s.handleUpdatePlan)
+	mux.HandleFunc("/api/update/run", s.handleUpdateRun)
 	return mux
 }
 
@@ -159,16 +160,31 @@ func (s *ManagerServer) handleVersionDrift(w http.ResponseWriter, r *http.Reques
 }
 
 func (s *ManagerServer) handleProfileAction(w http.ResponseWriter, r *http.Request) {
-	name, ok := profilePlanName(r.URL.Path)
+	action, ok := parseProfileAction(r.URL.Path)
 	if !ok {
 		http.NotFound(w, r)
 		return
 	}
-	if !allowMethod(w, r, http.MethodPost) {
-		return
+
+	switch action.Action {
+	case "plan":
+		if !allowMethod(w, r, http.MethodPost) {
+			return
+		}
+		result, err := s.manager.PlanProfileApply(action.Name, managerReqFromQuery(r))
+		writeResult(w, result, err)
+	case "apply":
+		if !allowMethod(w, r, http.MethodPost) {
+			return
+		}
+		if _, ok := requireConfirm(w, r); !ok {
+			return
+		}
+		result, err := s.manager.ApplyProfile(action.Name, managerReqFromQuery(r))
+		writeResult(w, result, err)
+	default:
+		http.NotFound(w, r)
 	}
-	result, err := s.manager.PlanProfileApply(name, managerReqFromQuery(r))
-	writeResult(w, result, err)
 }
 
 func (s *ManagerServer) handleUpdatePlan(w http.ResponseWriter, r *http.Request) {
@@ -189,6 +205,19 @@ func (s *ManagerServer) handleUpdatePlan(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, http.StatusOK, updatePlan{Items: items})
 }
 
+func (s *ManagerServer) handleUpdateRun(w http.ResponseWriter, r *http.Request) {
+	if !allowMethod(w, r, http.MethodPost) {
+		return
+	}
+	body, ok := requireConfirm(w, r)
+	if !ok {
+		return
+	}
+	req := managerReqFromQuery(r)
+	result, err := s.manager.RunUpdate(WebUpdateReq{ManagerReq: req, Target: body.Target})
+	writeResult(w, result, err)
+}
+
 func managerReqFromQuery(r *http.Request) ManagerReq {
 	q := r.URL.Query()
 	return ManagerReq{
@@ -198,16 +227,57 @@ func managerReqFromQuery(r *http.Request) ManagerReq {
 	}
 }
 
-func profilePlanName(path string) (string, bool) {
+type profileAction struct {
+	Name   string
+	Action string
+}
+
+func parseProfileAction(path string) (profileAction, bool) {
 	rest := strings.TrimPrefix(path, "/api/profiles/")
 	if rest == path || rest == "" {
-		return "", false
+		return profileAction{}, false
 	}
 	name, tail, ok := strings.Cut(rest, "/")
-	if !ok || tail != "plan" || name == "" || strings.Contains(name, "/") {
-		return "", false
+	if !ok || name == "" || strings.Contains(name, "/") {
+		return profileAction{}, false
 	}
-	return name, true
+	switch tail {
+	case "plan", "apply":
+		return profileAction{Name: name, Action: tail}, true
+	default:
+		return profileAction{}, false
+	}
+}
+
+type actionConfirmReq struct {
+	Confirm bool   `json:"confirm"`
+	Target  string `json:"target,omitempty"`
+}
+
+func readActionConfirmReq(r *http.Request) (actionConfirmReq, error) {
+	if r.Body == nil || r.Body == http.NoBody {
+		return actionConfirmReq{}, nil
+	}
+	defer r.Body.Close()
+
+	var req actionConfirmReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		return actionConfirmReq{}, fmt.Errorf("invalid json body")
+	}
+	return req, nil
+}
+
+func requireConfirm(w http.ResponseWriter, r *http.Request) (actionConfirmReq, bool) {
+	req, err := readActionConfirmReq(r)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return actionConfirmReq{}, false
+	}
+	if !req.Confirm {
+		writeJSON(w, http.StatusBadRequest, errorResp{Error: "confirmation required"})
+		return actionConfirmReq{}, false
+	}
+	return req, true
 }
 
 func allowMethod(w http.ResponseWriter, r *http.Request, method string) bool {

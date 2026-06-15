@@ -871,7 +871,7 @@ git commit -m "docs: add skillc phase 5 web execution plan"
 **Files:**
 - Modify: `docs/superpowers/plans/2026-06-15-skillc-v0-phase5-web-execution.md`
 
-- [ ] **Step 1: Run focused tests**
+- [x] **Step 1: Run focused tests**
 
 Run:
 
@@ -881,7 +881,7 @@ go test ./internal/app/webapp -count=1
 
 Expected: PASS.
 
-- [ ] **Step 2: Run full test suite**
+- [x] **Step 2: Run full test suite**
 
 Run:
 
@@ -891,7 +891,7 @@ go test ./...
 
 Expected: PASS.
 
-- [ ] **Step 3: Run docs sanity check**
+- [x] **Step 3: Run docs sanity check**
 
 Run:
 
@@ -901,7 +901,7 @@ rg -n -- "Phase 5|五期|skillc web|Apply profile|Run update|confirmation|确认
 
 Expected: docs mention Phase 5 and do not claim uninstall/source deletion/cross-project execution support.
 
-- [ ] **Step 4: Manual smoke test**
+- [x] **Step 4: Manual smoke test**
 
 Build and start local server:
 
@@ -925,15 +925,15 @@ Expected:
 - `POST /api/update/run` without `{"confirm":true}` returns `400`.
 - Server process is stopped before final commit.
 
-- [ ] **Step 5: Update final verification note**
+- [x] **Step 5: Update final verification note**
 
 Append:
 
 ```markdown
-**Verification note (2026-06-15):** `go test ./internal/app/webapp -count=1`, `go test ./...`, docs sanity check, and local smoke test pass. Manual smoke confirms execute endpoints reject missing confirmation and the static UI exposes plan-first execution controls.
+**Verification note (2026-06-15):** `go test ./internal/app/webapp -count=1`, `go test ./...`, `git diff --check`, docs sanity check, and local smoke test pass. Manual smoke confirms `/`, `/api/summary`, `/api/status`, static execution controls, and `POST /api/update/run` without `{"confirm":true}` returning `400`.
 ```
 
-- [ ] **Step 6: Commit final checkbox updates**
+- [x] **Step 6: Commit final checkbox updates**
 
 ```bash
 git add docs/superpowers/plans/2026-06-15-skillc-v0-phase5-web-execution.md
@@ -942,17 +942,17 @@ git commit -m "docs: complete skillc phase 5 web execution plan review"
 
 ## Self-Review Checklist
 
-- [ ] Web execution only runs after an explicit confirmation flag reaches the server.
-- [ ] Profile apply execution delegates to `profileapp.Apply`.
-- [ ] Update execution delegates to `updateapp.Run`.
-- [ ] HTTP handlers do not duplicate install/update/profile business rules.
-- [ ] Execute result JSON uses stable lowercase field names.
-- [ ] UI remains self-contained and uses no external CDN/assets.
-- [ ] UI refreshes summary/status/install-map/version-drift after execution.
-- [ ] Web still defaults to `127.0.0.1`.
-- [ ] `show --web` skill viewer remains compatible.
-- [ ] Tests cover manager service, HTTP confirm guards, execute endpoints and static page controls.
-- [ ] `go test ./...` passes before marking complete.
+- [x] Web execution only runs after an explicit confirmation flag reaches the server.
+- [x] Profile apply execution delegates to `profileapp.Apply`.
+- [x] Update execution delegates to `updateapp.Run`.
+- [x] HTTP handlers do not duplicate install/update/profile business rules.
+- [x] Execute result JSON uses stable lowercase field names.
+- [x] UI remains self-contained and uses no external CDN/assets.
+- [x] UI refreshes summary/status/install-map/version-drift after execution.
+- [x] Web still defaults to `127.0.0.1`.
+- [x] `show --web` skill viewer remains compatible.
+- [x] Tests cover manager service, HTTP confirm guards, execute endpoints and static page controls.
+- [x] `go test ./...` passes before marking complete.
 
 ## Acceptance Criteria
 

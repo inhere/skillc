@@ -381,7 +381,7 @@ git add internal/app/webapp/project_index.go internal/app/webapp/project_index_t
 git commit -m "feat(web): add project install index"
 ```
 
-**Verification note (2026-06-15):** `go test ./internal/app/webapp -run 'TestBuildProjectInstallIndex|TestBuildVersionDrift' -count=1` and `go test ./internal/app/webapp -count=1` pass.
+**Verification note (2026-06-15):** `go test ./internal/app/webapp -run 'TestBuildProjectInstallIndex|TestBuildVersionDrift' -count=1` and `go test ./internal/app/webapp -count=1` pass. Added drift coverage to verify numeric dotted version selection chooses `1.10.0` over `1.9.0`.
 
 ## Task 2: Add Web Manager Query Service
 

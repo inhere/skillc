@@ -2,6 +2,8 @@ package webapp
 
 import (
 	"sort"
+	"strconv"
+	"strings"
 
 	"github.com/inhere/skillc/internal/app/apputil"
 	lockpkg "github.com/inhere/skillc/internal/domain/lock"
@@ -161,11 +163,81 @@ func latestVersionByInstallKey(index []skill.Skill) map[string]string {
 		if key == "" {
 			continue
 		}
-		if result[key] == "" || result[key] < item.Version {
+		if result[key] == "" || compareVersionParts(result[key], item.Version) < 0 {
 			result[key] = item.Version
 		}
 	}
 	return result
+}
+
+func compareVersionParts(current string, next string) int {
+	if current == next {
+		return 0
+	}
+
+	currentParts := strings.Split(current, ".")
+	nextParts := strings.Split(next, ".")
+	maxLen := len(currentParts)
+	if len(nextParts) > maxLen {
+		maxLen = len(nextParts)
+	}
+
+	for i := 0; i < maxLen; i++ {
+		currentPart, currentOK := versionPartAt(currentParts, i)
+		nextPart, nextOK := versionPartAt(nextParts, i)
+
+		switch {
+		case currentOK && nextOK:
+			if currentPart < nextPart {
+				return -1
+			}
+			if currentPart > nextPart {
+				return 1
+			}
+		case currentOK != nextOK:
+			// Numeric dotted versions sort ahead of non-numeric forms to avoid
+			// treating lexical artifacts as a higher semantic version.
+			if currentOK {
+				return 1
+			}
+			return -1
+		default:
+			currentRaw := rawVersionPart(currentParts, i)
+			nextRaw := rawVersionPart(nextParts, i)
+			if currentRaw < nextRaw {
+				return -1
+			}
+			if currentRaw > nextRaw {
+				return 1
+			}
+		}
+	}
+
+	if current < next {
+		return -1
+	}
+	return 1
+}
+
+func versionPartAt(parts []string, idx int) (int, bool) {
+	if idx >= len(parts) {
+		return 0, true
+	}
+	if parts[idx] == "" {
+		return 0, false
+	}
+	n, err := strconv.Atoi(parts[idx])
+	if err != nil {
+		return 0, false
+	}
+	return n, true
+}
+
+func rawVersionPart(parts []string, idx int) string {
+	if idx >= len(parts) {
+		return "0"
+	}
+	return parts[idx]
 }
 
 func skillInstallKey(item skill.Skill) string {

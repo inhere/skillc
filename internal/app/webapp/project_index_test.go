@@ -101,6 +101,46 @@ func TestBuildVersionDriftGroupsBySourceQualifiedIdentity(t *testing.T) {
 	assert.Eq(t, "2.0.0", groups[0].Versions[1].Version)
 }
 
+func TestBuildVersionDriftChoosesLatestVersionNumerically(t *testing.T) {
+	projectA := filepath.Clean("/work/project-a")
+	items := []ProjectInstall{
+		{
+			ProjectPath:         projectA,
+			Scope:               "project",
+			Agent:               "universal",
+			SkillID:             "go-pro",
+			QualifiedName:       "tools/go-pro",
+			SourceQualifiedName: "gstack/tools/go-pro",
+			SourceID:            "gstack",
+			Version:             "1.9.0",
+		},
+	}
+	index := []skill.Skill{
+		{
+			ID:                  "go-pro",
+			QualifiedName:       "tools/go-pro",
+			SourceQualifiedName: "gstack/tools/go-pro",
+			SourceID:            "gstack",
+			Version:             "1.9.0",
+		},
+		{
+			ID:                  "go-pro",
+			QualifiedName:       "tools/go-pro",
+			SourceQualifiedName: "gstack/tools/go-pro",
+			SourceID:            "gstack",
+			Version:             "1.10.0",
+		},
+	}
+
+	groups := BuildVersionDrift(items, index)
+
+	assert.Len(t, groups, 1)
+	if len(groups) == 0 {
+		return
+	}
+	assert.Eq(t, "1.10.0", groups[0].LatestVersion)
+}
+
 func TestBuildVersionDriftDoesNotMergeUnrelatedSourcesWithSameSkillID(t *testing.T) {
 	projectA := filepath.Clean("/work/project-a")
 	projectB := filepath.Clean("/work/project-b")

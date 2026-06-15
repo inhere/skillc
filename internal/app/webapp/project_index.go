@@ -118,7 +118,9 @@ func BuildVersionDrift(items []ProjectInstall, index []skill.Skill) []VersionDri
 		for version := range versionBuckets {
 			versions = append(versions, version)
 		}
-		sort.Strings(versions)
+		sort.Slice(versions, func(i, j int) bool {
+			return compareVersionParts(versions[i], versions[j]) < 0
+		})
 
 		buckets := make([]VersionBucket, 0, len(versions))
 		for _, version := range versions {

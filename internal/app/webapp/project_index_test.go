@@ -471,3 +471,50 @@ func TestBuildVersionDriftLeavesAmbiguousBareSkillIDWithoutLatest(t *testing.T) 
 
 	assert.Len(t, groups, 0)
 }
+
+func TestBuildVersionDriftDoesNotMergeAmbiguousSourceIDSkillIDAcrossCollections(t *testing.T) {
+	projectA := filepath.Clean("/work/project-a")
+	projectB := filepath.Clean("/work/project-b")
+	items := []ProjectInstall{
+		{
+			ProjectPath:         projectA,
+			Scope:               "project",
+			Agent:               "universal",
+			SkillID:             "ship",
+			QualifiedName:       "alpha/ship",
+			SourceQualifiedName: "repo-a/alpha/ship",
+			SourceID:            "repo-a",
+			Version:             "1.0.0",
+		},
+		{
+			ProjectPath:         projectB,
+			Scope:               "project",
+			Agent:               "codex",
+			SkillID:             "ship",
+			QualifiedName:       "beta/ship",
+			SourceQualifiedName: "repo-a/beta/ship",
+			SourceID:            "repo-a",
+			Version:             "2.0.0",
+		},
+	}
+	index := []skill.Skill{
+		{
+			ID:                  "ship",
+			QualifiedName:       "alpha/ship",
+			SourceQualifiedName: "repo-a/alpha/ship",
+			SourceID:            "repo-a",
+			Version:             "1.0.0",
+		},
+		{
+			ID:                  "ship",
+			QualifiedName:       "beta/ship",
+			SourceQualifiedName: "repo-a/beta/ship",
+			SourceID:            "repo-a",
+			Version:             "2.0.0",
+		},
+	}
+
+	groups := BuildVersionDrift(items, index)
+
+	assert.Len(t, groups, 0)
+}

@@ -35,6 +35,11 @@ type VersionBucket struct {
 	Projects []ProjectInstall `json:"projects"`
 }
 
+type installIdentityResolver struct {
+	canonicalByAlias map[string]string
+	latestByPrimary  map[string]skill.Skill
+}
+
 func BuildProjectInstallIndex(records lockpkg.File) []ProjectInstall {
 	items := make([]ProjectInstall, 0)
 	for scopeKey, recordList := range records {
@@ -74,11 +79,14 @@ func BuildProjectInstallIndex(records lockpkg.File) []ProjectInstall {
 }
 
 func BuildVersionDrift(items []ProjectInstall, index []skill.Skill) []VersionDriftGroup {
-	latestSkillByKey := latestSkillByInstallKey(index)
+	resolver := newInstallIdentityResolver(index)
 	grouped := make(map[string][]ProjectInstall)
 
 	for _, item := range items {
-		key := projectInstallKey(item)
+		key := resolver.ResolveProjectInstall(item)
+		if key == "" {
+			key = projectInstallKey(item)
+		}
 		grouped[key] = append(grouped[key], item)
 	}
 
@@ -100,7 +108,7 @@ func BuildVersionDrift(items []ProjectInstall, index []skill.Skill) []VersionDri
 			currentVersions[item.Version] = struct{}{}
 		}
 
-		latestSkill, hasLatestSkill := latestSkillByKey[key]
+		latestSkill, hasLatestSkill := resolver.LatestSkill(key)
 		latestVersion := latestSkill.Version
 		hasDriftFromLatest := false
 		if latestVersion != "" {
@@ -162,14 +170,14 @@ func BuildVersionDrift(items []ProjectInstall, index []skill.Skill) []VersionDri
 }
 
 func projectInstallKey(item ProjectInstall) string {
-	if item.SourceID != "" {
-		return item.SourceID + "\x00" + item.SkillID
-	}
 	if item.SourceQualifiedName != "" {
 		return item.SourceQualifiedName
 	}
 	if item.QualifiedName != "" {
 		return item.QualifiedName
+	}
+	if item.SourceID != "" {
+		return item.SourceID + "\x00" + item.SkillID
 	}
 	return item.SkillID
 }
@@ -186,37 +194,10 @@ func latestVersionByInstallKey(index []skill.Skill) map[string]string {
 }
 
 func latestSkillByInstallKey(index []skill.Skill) map[string]skill.Skill {
-	primaryLatest := make(map[string]skill.Skill, len(index))
-	aliasToPrimary := make(map[string]string)
-	ambiguousAliases := make(map[string]struct{})
-
-	for _, item := range index {
-		primaryKey := skillInstallKey(item)
-		if primaryKey == "" {
-			continue
-		}
-
-		current, ok := primaryLatest[primaryKey]
-		if !ok || compareVersionParts(current.Version, item.Version) < 0 {
-			primaryLatest[primaryKey] = item
-		}
-
-		for _, alias := range skillInstallAliases(item) {
-			if _, ok := ambiguousAliases[alias]; ok {
-				continue
-			}
-			if existing, ok := aliasToPrimary[alias]; ok && existing != primaryKey {
-				delete(aliasToPrimary, alias)
-				ambiguousAliases[alias] = struct{}{}
-				continue
-			}
-			aliasToPrimary[alias] = primaryKey
-		}
-	}
-
-	result := make(map[string]skill.Skill, len(aliasToPrimary))
-	for alias, primaryKey := range aliasToPrimary {
-		if latest, ok := primaryLatest[primaryKey]; ok {
+	resolver := newInstallIdentityResolver(index)
+	result := make(map[string]skill.Skill, len(resolver.canonicalByAlias))
+	for alias, primaryKey := range resolver.canonicalByAlias {
+		if latest, ok := resolver.latestByPrimary[primaryKey]; ok {
 			result[alias] = latest
 		}
 	}
@@ -294,14 +275,14 @@ func rawVersionPart(parts []string, idx int) string {
 }
 
 func skillInstallKey(item skill.Skill) string {
-	if item.SourceID != "" {
-		return item.SourceID + "\x00" + item.ID
-	}
 	if item.SourceQualifiedName != "" {
 		return item.SourceQualifiedName
 	}
 	if item.QualifiedName != "" {
 		return item.QualifiedName
+	}
+	if item.SourceID != "" {
+		return item.SourceID + "\x00" + item.ID
 	}
 	return item.ID
 }
@@ -326,6 +307,84 @@ func skillInstallAliases(item skill.Skill) []string {
 	addAlias(item.SourceQualifiedName)
 	addAlias(item.QualifiedName)
 	addAlias(item.ID)
+	return aliases
+}
+
+func newInstallIdentityResolver(index []skill.Skill) installIdentityResolver {
+	latestByPrimary := make(map[string]skill.Skill, len(index))
+	aliasToPrimary := make(map[string]string)
+	ambiguousAliases := make(map[string]struct{})
+
+	for _, item := range index {
+		primaryKey := skillInstallKey(item)
+		if primaryKey == "" {
+			continue
+		}
+
+		current, ok := latestByPrimary[primaryKey]
+		if !ok || compareVersionParts(current.Version, item.Version) < 0 {
+			latestByPrimary[primaryKey] = item
+		}
+
+		for _, alias := range skillInstallAliases(item) {
+			if _, ok := ambiguousAliases[alias]; ok {
+				continue
+			}
+			if existing, ok := aliasToPrimary[alias]; ok && existing != primaryKey {
+				delete(aliasToPrimary, alias)
+				ambiguousAliases[alias] = struct{}{}
+				continue
+			}
+			aliasToPrimary[alias] = primaryKey
+		}
+	}
+
+	return installIdentityResolver{
+		canonicalByAlias: aliasToPrimary,
+		latestByPrimary:  latestByPrimary,
+	}
+}
+
+func (r installIdentityResolver) ResolveProjectInstall(item ProjectInstall) string {
+	for _, alias := range projectInstallAliases(item) {
+		if primaryKey, ok := r.canonicalByAlias[alias]; ok {
+			return primaryKey
+		}
+	}
+	return ""
+}
+
+func (r installIdentityResolver) LatestSkill(key string) (skill.Skill, bool) {
+	if latest, ok := r.latestByPrimary[key]; ok {
+		return latest, true
+	}
+	if primaryKey, ok := r.canonicalByAlias[key]; ok {
+		latest, ok := r.latestByPrimary[primaryKey]
+		return latest, ok
+	}
+	return skill.Skill{}, false
+}
+
+func projectInstallAliases(item ProjectInstall) []string {
+	aliases := make([]string, 0, 4)
+	addAlias := func(value string) {
+		if value == "" {
+			return
+		}
+		for _, existing := range aliases {
+			if existing == value {
+				return
+			}
+		}
+		aliases = append(aliases, value)
+	}
+
+	addAlias(item.SourceQualifiedName)
+	addAlias(item.QualifiedName)
+	if item.SourceID != "" && item.SkillID != "" {
+		addAlias(item.SourceID + "\x00" + item.SkillID)
+	}
+	addAlias(item.SkillID)
 	return aliases
 }
 

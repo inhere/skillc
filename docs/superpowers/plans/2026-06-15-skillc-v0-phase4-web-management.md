@@ -973,7 +973,7 @@ git add docs/superpowers/plans/2026-06-15-skillc-v0-phase4-web-management.md
 git commit -m "docs: complete skillc phase 4 web plan review"
 ```
 
-**Verification note (2026-06-15):** `go test ./internal/app/webapp ./internal/cli -count=1`, `go test ./...`, `rg -n -- "Phase 4|四期|skillc web|web manager|install map|version drift|Web 管理" README.md README.zh-CN.md docs/TODO.md docs/design/skillc-v0-enhance-design.md docs/superpowers/plans/2026-06-15-skillc-v0-phase4-web-management.md`, and `git diff --check` pass. Manual smoke test on `skillc web --port 18080` using a temporary built binary confirms `/`, `/api/summary`, `/api/install-map`, and `/api/version-drift` load; the server process was stopped after verification.
+**Verification note (2026-06-15):** `go test ./internal/app/webapp ./internal/cli -count=1`, `go test ./...`, `rg -n -- "Phase 4|四期|skillc web|web manager|install map|version drift|Web 管理" README.md README.zh-CN.md docs/TODO.md docs/design/skillc-v0-enhance-design.md docs/superpowers/plans/2026-06-15-skillc-v0-phase4-web-management.md`, and `git diff --check` pass. Manual smoke test on `skillc web --port 18080` using a temporary built binary confirms `/`, `/api/summary`, `/api/status`, `/api/install-map`, and `/api/version-drift` load; `/api/status` returns stable lowercase Web JSON keys (`items`, `summary`) for the static UI; the server process was stopped after verification.
 
 ## Self-Review Checklist
 

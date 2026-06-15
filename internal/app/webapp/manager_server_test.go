@@ -48,6 +48,21 @@ func TestManagerServerInstallMapEndpoint(t *testing.T) {
 	assert.Contains(t, rec.Body.String(), `"profile":"go-dev"`)
 }
 
+func TestManagerServerStatusEndpointUsesWebJSONModel(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile, _ := writeWebManagerFixture(t, baseDir)
+	server := NewManagerServer(configFile, baseDir)
+
+	rec := performManagerRequest(server, http.MethodGet, "/api/status?agent=universal&scope=project")
+
+	assert.Eq(t, http.StatusOK, rec.Code)
+	assert.Contains(t, rec.Body.String(), `"items"`)
+	assert.Contains(t, rec.Body.String(), `"summary"`)
+	assert.Contains(t, rec.Body.String(), `"outdated":1`)
+	assert.NotContains(t, rec.Body.String(), `"Items"`)
+	assert.NotContains(t, rec.Body.String(), `"Summary"`)
+}
+
 func TestManagerServerProfilePlanEndpoint(t *testing.T) {
 	baseDir := t.TempDir()
 	configFile, _ := writeWebManagerFixture(t, baseDir)

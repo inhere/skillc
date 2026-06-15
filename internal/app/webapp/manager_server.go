@@ -17,7 +17,28 @@ type ManagerServer struct {
 }
 
 type updatePlan struct {
-	Items []statusapp.Item `json:"items"`
+	Items []managerStatusItem `json:"items"`
+}
+
+type managerStatusResp struct {
+	Items      []managerStatusItem         `json:"items"`
+	SyncFailed []statusapp.SourceSyncError `json:"sync_failed,omitempty"`
+	Summary    StatusSummary               `json:"summary"`
+}
+
+type managerStatusItem struct {
+	SkillID             string `json:"skill_id"`
+	QualifiedName       string `json:"qualified_name,omitempty"`
+	SourceQualifiedName string `json:"source_qualified_name,omitempty"`
+	SourceID            string `json:"source_id,omitempty"`
+	Agent               string `json:"agent"`
+	Scope               string `json:"scope"`
+	Profile             string `json:"profile,omitempty"`
+	Status              string `json:"status"`
+	CurrentVersion      string `json:"current_version,omitempty"`
+	LatestVersion       string `json:"latest_version,omitempty"`
+	InstalledPath       string `json:"installed_path,omitempty"`
+	Reason              string `json:"reason,omitempty"`
 }
 
 type errorResp struct {
@@ -114,7 +135,11 @@ func (s *ManagerServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	result, err := s.manager.Status(managerReqFromQuery(r))
-	writeResult(w, result, err)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, toManagerStatusResp(result))
 }
 
 func (s *ManagerServer) handleInstallMap(w http.ResponseWriter, r *http.Request) {
@@ -155,10 +180,10 @@ func (s *ManagerServer) handleUpdatePlan(w http.ResponseWriter, r *http.Request)
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
-	items := make([]statusapp.Item, 0)
+	items := make([]managerStatusItem, 0)
 	for _, item := range statusResult.Items {
 		if item.Status == statusapp.StatusOutdated || item.Status == statusapp.StatusMissing {
-			items = append(items, item)
+			items = append(items, toManagerStatusItem(item))
 		}
 	}
 	writeJSON(w, http.StatusOK, updatePlan{Items: items})
@@ -210,4 +235,33 @@ func writeJSON(w http.ResponseWriter, status int, data any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(data)
+}
+
+func toManagerStatusResp(result statusapp.Result) managerStatusResp {
+	items := make([]managerStatusItem, 0, len(result.Items))
+	for _, item := range result.Items {
+		items = append(items, toManagerStatusItem(item))
+	}
+	return managerStatusResp{
+		Items:      items,
+		SyncFailed: result.SyncFailed,
+		Summary:    toStatusSummary(result.Summary),
+	}
+}
+
+func toManagerStatusItem(item statusapp.Item) managerStatusItem {
+	return managerStatusItem{
+		SkillID:             item.SkillID,
+		QualifiedName:       item.QualifiedName,
+		SourceQualifiedName: item.SourceQualifiedName,
+		SourceID:            item.SourceID,
+		Agent:               item.Agent,
+		Scope:               item.Scope,
+		Profile:             item.Profile,
+		Status:              item.Status,
+		CurrentVersion:      item.CurrentVersion,
+		LatestVersion:       item.LatestVersion,
+		InstalledPath:       item.InstalledPath,
+		Reason:              item.Reason,
+	}
 }

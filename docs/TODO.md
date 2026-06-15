@@ -12,6 +12,8 @@
   - 参考 https://github.com/xingkongliang/skills-manager
   - 四期计划：`docs/superpowers/plans/2026-06-15-skillc-v0-phase4-web-management.md`
   - 第一轮已新增 `skillc web` 本地查看入口和 plan-first 预览；Web 直接执行安装、更新、删除仍留到后续小阶段。
+  - 五期计划：`docs/superpowers/plans/2026-06-15-skillc-v0-phase5-web-execution.md`
+  - 五期目标：在 Web 中补齐当前项目 profile apply / update 的计划、确认、执行闭环；卸载、source 删除和跨项目批量更新继续后置。
 - [ ] 希望支持类似 skills-manager 场景的功能，在项目里可以快速切换使用不同组合的 skills
   - 可以在项目里配置不同的 skill 组合，每个组合可以包含多个 skill
   - 可以在项目里快速切换使用不同的 skill 组合，方便测试和观察效果
@@ -28,6 +30,8 @@
 三期状态：`install --interactive`、`update --interactive`、`profile create --interactive` 已实现，基于 `gookit/cliui` 支持输入过滤和多选；最终验证记录见三期计划 Task 7。
 四期计划：`docs/superpowers/plans/2026-06-15-skillc-v0-phase4-web-management.md`
 四期状态：第一轮新增 `skillc web` 本地管理入口，已覆盖 source/profile/status/install-map/version-drift 的查看和 plan-first 预览；Web 直接执行安装/更新/删除放到后续小阶段。
+五期计划：`docs/superpowers/plans/2026-06-15-skillc-v0-phase5-web-execution.md`
+五期目标：Web 执行闭环第一步，只允许当前项目范围内 profile apply / update 在显式确认后执行；跨项目批量更新、卸载和 source 删除继续后置。
 
 cli 优先，这样可以方便的进入任何目录进行操作
 skillc 技能场景 - 自由选择多个技能配置为一个场景(eg: go-dev, flutter-dev)

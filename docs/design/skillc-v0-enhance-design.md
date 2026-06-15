@@ -13,6 +13,7 @@
 | 2026-06-15 | v0.9 | Codex | 记录 Phase 3 已落地 install/update/profile create 交互式选择入口 |
 | 2026-06-15 | v0.10 | Codex | 增加 Phase 4 Web 管理实施计划链接，并将下一步建议更新为 Web 管理 MVP |
 | 2026-06-15 | v0.11 | Codex | 记录 Phase 4 第一轮 `skillc web` 管理入口已落地，后续继续补 Web 执行能力 |
+| 2026-06-15 | v0.12 | Codex | 增加 Phase 5 Web 执行闭环实施计划链接，并明确执行范围只覆盖当前项目 profile apply / update |
 
 状态：Draft
 
@@ -24,6 +25,7 @@
 - `docs/superpowers/plans/2026-06-14-skillc-v0-phase2-status-update-check.md`
 - `docs/superpowers/plans/2026-06-14-skillc-v0-phase3-interactive-selection.md`
 - `docs/superpowers/plans/2026-06-15-skillc-v0-phase4-web-management.md`
+- `docs/superpowers/plans/2026-06-15-skillc-v0-phase5-web-execution.md`
 - `docs/prd.md`
 - `docs/arch.md`
 - `docs/plan.md`
@@ -43,6 +45,10 @@
 四期目标：新增 `skillc web` 本地管理入口，第一轮重点是 source/profile/status/install-map/version-drift 的关系查看和 plan-first 预览；Web 直接执行安装、更新、删除等写操作留到后续小阶段。
 
 四期第一轮状态：已新增 Web 管理查询层、HTTP JSON API、自包含本地管理页面和 `skillc web` CLI 入口。当前 Web 写入口仍保持 plan-first，只返回 profile apply / update plan 预览，不直接修改安装目录或 lock。
+
+五期开发计划：`docs/superpowers/plans/2026-06-15-skillc-v0-phase5-web-execution.md`
+
+五期目标：在 Phase 4 的 plan-first Web 管理基础上，补齐当前项目范围内 profile apply / update 的计划、确认、执行和刷新闭环。第一轮仍不做卸载、source 删除、跨项目批量更新或远程 Web 权限模型。
 
 ## 1. 设计结论
 
@@ -978,19 +984,19 @@ v0 增强重构完成后，应满足：
 
 ## 13. 下一步建议
 
-Phase 1/2/3 已经完成：profile 最小闭环、当前项目 status/update check、以及基于 `gookit/cliui` 的交互式选择都已落地。下一步建议进入 Phase 4 第一轮实现：Web 管理 MVP。
+Phase 1/2/3/4 已经完成：profile 最小闭环、当前项目 status/update check、基于 `gookit/cliui` 的交互式选择，以及 `skillc web` 本地管理查看和 plan-first 预览都已落地。下一步建议进入 Phase 5：Web 执行闭环第一步。
 
-实施计划见：`docs/superpowers/plans/2026-06-15-skillc-v0-phase4-web-management.md`
+实施计划见：`docs/superpowers/plans/2026-06-15-skillc-v0-phase5-web-execution.md`
 
-本阶段应保持“关系查看 + plan-first”优先：
+本阶段应保持“当前项目 + 显式确认 + 复用 app service”优先：
 
-- 先新增 Web 管理查询层，复用现有 source/profile/search/status/update 服务，不在 HTTP handler 中复制业务规则。
-- 从 lock 记录构建轻量 install map，先回答“skill/profile 安装到了哪些项目、哪些 agent/scope”。
-- 基于 lock/index 生成 version drift 视图，先展示差异和更新计划，不直接执行跨项目更新。
-- 新增 `skillc web` 本地入口，默认监听 `127.0.0.1`。
-- Web 写操作第一轮只返回 plan；安装、更新、卸载、source 删除等执行能力放到后续小阶段，并继续复用 app service。
+- Web profile apply 先调用 plan，再由用户确认执行；后端必须要求 `confirm:true`，不能只依赖前端按钮。
+- Web update 先展示 missing/outdated 候选，再由用户确认执行；第一轮只操作当前 `skillc web` 启动目录的 workdir/agent/scope。
+- HTTP handler 继续保持薄层，只做请求解析、确认校验、结果转换，不复制 profile/update/install 业务规则。
+- 执行结果使用稳定 Web JSON 字段名，便于静态 UI 渲染和测试。
+- 卸载、source 删除、跨项目批量更新、操作日志和远程权限模型继续后置，避免一次把 Web 写能力扩到不可控。
 
-这一步能验证 Web 的核心价值：把 CLI 不方便查看的 source/profile/project/version 关系展示清楚，并为后续 Web 执行、跨项目一键更新、操作日志和 drift/audit 打基础。
+这一步能验证 Web 从“看得清”到“可谨慎操作”的核心价值，并为后续跨项目一键更新、操作历史、审计和更完整的 source/profile 管理打基础。
 
 ## 14. 参考项目复审补充
 

@@ -4,6 +4,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -176,6 +177,44 @@ func TestManagerServerUpdateRunEndpointExecutesConfirmedUpdate(t *testing.T) {
 	assert.Contains(t, rec.Body.String(), `"version":"2.0.0"`)
 }
 
+func TestManagerServerSourceAddPlanEndpoint(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile, _ := writeWebManagerFixture(t, baseDir)
+	sourceDir := filepath.Join(baseDir, "team-skills")
+	assert.NoErr(t, os.MkdirAll(filepath.Join(sourceDir, "hello"), 0o755))
+	assert.NoErr(t, os.WriteFile(filepath.Join(sourceDir, "hello", "SKILL.md"), []byte("# Hello\n"), 0o644))
+	server := NewManagerServer(configFile, baseDir)
+
+	rec := performManagerRequestWithBody(server, http.MethodPost, "/api/sources/add/plan", strings.NewReader(`{"value":"`+strings.ReplaceAll(sourceDir, `\`, `\\`)+`","sync":true}`))
+
+	assert.Eq(t, http.StatusOK, rec.Code)
+	assert.Contains(t, rec.Body.String(), `"action":"add_local"`)
+	assert.Contains(t, rec.Body.String(), `"action":"sync"`)
+}
+
+func TestManagerServerSourceAddRunRequiresConfirmation(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile, _ := writeWebManagerFixture(t, baseDir)
+	server := NewManagerServer(configFile, baseDir)
+
+	rec := performManagerRequestWithBody(server, http.MethodPost, "/api/sources/add/run", strings.NewReader(`{"value":"./skills"}`))
+
+	assert.Eq(t, http.StatusBadRequest, rec.Code)
+	assert.Contains(t, rec.Body.String(), `"confirmation required"`)
+}
+
+func TestManagerServerSourceRemoveRunEndpoint(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile, _ := writeWebManagerFixture(t, baseDir)
+	server := NewManagerServer(configFile, baseDir)
+
+	rec := performManagerRequestWithBody(server, http.MethodPost, "/api/sources/remove/run", strings.NewReader(`{"confirm":true,"id":"gstack"}`))
+
+	assert.Eq(t, http.StatusOK, rec.Code)
+	assert.Contains(t, rec.Body.String(), `"removed":true`)
+	assert.Contains(t, rec.Body.String(), `"source_id":"gstack"`)
+}
+
 func TestManagerServerRejectsInvalidProfileActionPath(t *testing.T) {
 	baseDir := t.TempDir()
 	configFile := writeWebActionFixture(t, baseDir)
@@ -271,6 +310,21 @@ func TestManagerServerStaticPagePostsConfirmedActions(t *testing.T) {
 	assert.Contains(t, body, "/api/update/run")
 	assert.Contains(t, body, "confirm")
 	assert.Contains(t, body, "JSON.stringify(payload")
+}
+
+func TestManagerServerStaticPageContainsSourceManagementControls(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile, _ := writeWebManagerFixture(t, baseDir)
+	server := NewManagerServer(configFile, baseDir)
+
+	rec := performManagerRequest(server, http.MethodGet, "/")
+	body := rec.Body.String()
+
+	assert.Eq(t, http.StatusOK, rec.Code)
+	assert.Contains(t, body, `id="source-value-input"`)
+	assert.Contains(t, body, "/api/sources/add/plan")
+	assert.Contains(t, body, "/api/sources/remove/run")
+	assert.Contains(t, body, `id="run-source-action-btn"`)
 }
 
 func TestManagerServerStaticPageDoesNotUseExternalAssets(t *testing.T) {

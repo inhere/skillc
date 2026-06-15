@@ -67,6 +67,12 @@ func (s *ManagerServer) Handler() http.Handler {
 	mux.HandleFunc("/api/profiles/", s.handleProfileAction)
 	mux.HandleFunc("/api/update/plan", s.handleUpdatePlan)
 	mux.HandleFunc("/api/update/run", s.handleUpdateRun)
+	mux.HandleFunc("/api/sources/add/plan", s.handleSourceAddPlan)
+	mux.HandleFunc("/api/sources/add/run", s.handleSourceAddRun)
+	mux.HandleFunc("/api/sources/sync/plan", s.handleSourceSyncPlan)
+	mux.HandleFunc("/api/sources/sync/run", s.handleSourceSyncRun)
+	mux.HandleFunc("/api/sources/remove/plan", s.handleSourceRemovePlan)
+	mux.HandleFunc("/api/sources/remove/run", s.handleSourceRemoveRun)
 	return mux
 }
 
@@ -218,6 +224,78 @@ func (s *ManagerServer) handleUpdateRun(w http.ResponseWriter, r *http.Request) 
 	writeResult(w, result, err)
 }
 
+func (s *ManagerServer) handleSourceAddPlan(w http.ResponseWriter, r *http.Request) {
+	if !allowMethod(w, r, http.MethodPost) {
+		return
+	}
+	req, ok := readJSONReq[sourceActionReq](w, r)
+	if !ok {
+		return
+	}
+	result, err := s.manager.PlanSourceAdd(req)
+	writeResult(w, result, err)
+}
+
+func (s *ManagerServer) handleSourceAddRun(w http.ResponseWriter, r *http.Request) {
+	if !allowMethod(w, r, http.MethodPost) {
+		return
+	}
+	req, ok := requireConfirmedSourceReq(w, r)
+	if !ok {
+		return
+	}
+	result, err := s.manager.RunSourceAdd(req)
+	writeResult(w, result, err)
+}
+
+func (s *ManagerServer) handleSourceSyncPlan(w http.ResponseWriter, r *http.Request) {
+	if !allowMethod(w, r, http.MethodPost) {
+		return
+	}
+	req, ok := readJSONReq[sourceActionReq](w, r)
+	if !ok {
+		return
+	}
+	result, err := s.manager.PlanSourceSync(req)
+	writeResult(w, result, err)
+}
+
+func (s *ManagerServer) handleSourceSyncRun(w http.ResponseWriter, r *http.Request) {
+	if !allowMethod(w, r, http.MethodPost) {
+		return
+	}
+	req, ok := requireConfirmedSourceReq(w, r)
+	if !ok {
+		return
+	}
+	result, err := s.manager.RunSourceSync(req)
+	writeResult(w, result, err)
+}
+
+func (s *ManagerServer) handleSourceRemovePlan(w http.ResponseWriter, r *http.Request) {
+	if !allowMethod(w, r, http.MethodPost) {
+		return
+	}
+	req, ok := readJSONReq[sourceActionReq](w, r)
+	if !ok {
+		return
+	}
+	result, err := s.manager.PlanSourceRemove(req)
+	writeResult(w, result, err)
+}
+
+func (s *ManagerServer) handleSourceRemoveRun(w http.ResponseWriter, r *http.Request) {
+	if !allowMethod(w, r, http.MethodPost) {
+		return
+	}
+	req, ok := requireConfirmedSourceReq(w, r)
+	if !ok {
+		return
+	}
+	result, err := s.manager.RunSourceRemove(req)
+	writeResult(w, result, err)
+}
+
 func managerReqFromQuery(r *http.Request) ManagerReq {
 	q := r.URL.Query()
 	return ManagerReq{
@@ -276,6 +354,31 @@ func requireConfirm(w http.ResponseWriter, r *http.Request) (actionConfirmReq, b
 	if !req.Confirm {
 		writeJSON(w, http.StatusBadRequest, errorResp{Error: "confirmation required"})
 		return actionConfirmReq{}, false
+	}
+	return req, true
+}
+
+func readJSONReq[T any](w http.ResponseWriter, r *http.Request) (T, bool) {
+	var req T
+	if r.Body == nil || r.Body == http.NoBody {
+		return req, true
+	}
+	defer r.Body.Close()
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, fmt.Errorf("invalid json body"))
+		return req, false
+	}
+	return req, true
+}
+
+func requireConfirmedSourceReq(w http.ResponseWriter, r *http.Request) (sourceActionReq, bool) {
+	req, ok := readJSONReq[sourceActionReq](w, r)
+	if !ok {
+		return sourceActionReq{}, false
+	}
+	if !req.Confirm {
+		writeJSON(w, http.StatusBadRequest, errorResp{Error: "confirmation required"})
+		return sourceActionReq{}, false
 	}
 	return req, true
 }

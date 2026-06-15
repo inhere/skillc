@@ -135,6 +135,8 @@ td.wrap { overflow-wrap: anywhere; }
 .status.orphan, .status.unmanaged, .status.source-error { background: var(--bad-soft); color: var(--bad); border-color: #edb9b2; }
 .toolbar-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
 .toolbar-row input { width: min(340px, 100%); }
+.inline-check { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
+.inline-check input { min-height: auto; width: auto; }
 .empty { padding: 18px; color: var(--muted); border: 1px dashed var(--line-strong); border-radius: 8px; background: rgba(255,255,255,.5); }
 .error { padding: 10px 12px; background: var(--bad-soft); color: var(--bad); border: 1px solid #edb9b2; border-radius: 8px; margin-bottom: 12px; }
 .plan {
@@ -218,6 +220,14 @@ td.wrap { overflow-wrap: anywhere; }
 
       <section id="view-sources" class="view">
         <div class="section-head"><h3>Sources</h3><span class="hint" id="sources-count"></span></div>
+        <div class="panel section">
+          <div class="toolbar-row">
+            <input id="source-value-input" placeholder="Local path or git URL" autocomplete="off">
+            <input id="source-ref-input" placeholder="Git ref" autocomplete="off">
+            <label class="inline-check"><input id="source-sync-input" type="checkbox"> sync</label>
+            <button id="plan-source-add-btn">Plan add</button>
+          </div>
+        </div>
         <div id="sources-table"></div>
       </section>
 
@@ -250,6 +260,7 @@ td.wrap { overflow-wrap: anywhere; }
           <div class="actions" id="action-bar">
             <button class="danger" id="apply-profile-btn" disabled>Apply profile</button>
             <button class="danger" id="run-update-btn" disabled>Run update</button>
+            <button class="danger" id="run-source-action-btn" disabled>Run source action</button>
           </div>
         </div>
         <pre id="plan-output" class="plan">No plan requested.</pre>
@@ -308,6 +319,7 @@ td.wrap { overflow-wrap: anywhere; }
     state.pendingAction = action;
     byId('apply-profile-btn').disabled = !(action && action.type === 'profile');
     byId('run-update-btn').disabled = !(action && action.type === 'update');
+    byId('run-source-action-btn').disabled = !(action && action.type.indexOf('source-') === 0);
   }
   function showError(err) {
     byId('errors').innerHTML = '<div class="error">' + esc(err.message || err) + '</div>';
@@ -360,12 +372,21 @@ td.wrap { overflow-wrap: anywhere; }
   function renderSources() {
     byId('sources-count').textContent = state.sources.length + ' source(s)';
     var rows = state.sources.map(function (s) {
+      var id = s.ID || s.id;
       return '<tr><td>' + esc(s.ID || s.id) + '</td><td>' + esc(s.Name || s.name) +
         '</td><td>' + esc(s.Type || s.type) + '</td><td>' + statusPill(s.Status || s.status || 'configured') +
         '</td><td class="wrap mono">' + esc(s.Path || s.path || s.URL || s.url) +
-        '</td><td>' + esc(s.Ref || s.ref || '') + '</td><td class="wrap">' + esc(s.ErrorMessage || s.error_message || '') + '</td></tr>';
+        '</td><td>' + esc(s.Ref || s.ref || '') + '</td><td class="wrap">' + esc(s.ErrorMessage || s.error_message || '') +
+        '</td><td><button data-source-sync="' + esc(id) + '">Plan sync</button> ' +
+        '<button class="danger" data-source-remove="' + esc(id) + '">Plan remove</button></td></tr>';
     });
-    byId('sources-table').innerHTML = table(['ID', 'Name', 'Type', 'Status', 'Path / URL', 'Ref', 'Error'], rows, 'No sources configured.');
+    byId('sources-table').innerHTML = table(['ID', 'Name', 'Type', 'Status', 'Path / URL', 'Ref', 'Error', ''], rows, 'No sources configured.');
+    byId('sources-table').querySelectorAll('button[data-source-sync]').forEach(function (btn) {
+      btn.addEventListener('click', function () { planSourceSync(btn.getAttribute('data-source-sync')); });
+    });
+    byId('sources-table').querySelectorAll('button[data-source-remove]').forEach(function (btn) {
+      btn.addEventListener('click', function () { planSourceRemove(btn.getAttribute('data-source-remove')); });
+    });
   }
   function renderProfiles() {
     var rows = state.profiles.map(function (p) {
@@ -470,6 +491,40 @@ td.wrap { overflow-wrap: anywhere; }
       })
       .catch(showError);
   }
+  function planSourceAdd() {
+    clearError();
+    var payload = {
+      value: byId('source-value-input').value.trim(),
+      ref: byId('source-ref-input').value.trim(),
+      sync: byId('source-sync-input').checked
+    };
+    postJSON('/api/sources/add/plan', payload)
+      .then(function (plan) {
+        setPendingAction({ type: 'source-add', payload: payload });
+        byId('plan-output').textContent = JSON.stringify(plan, null, 2);
+      })
+      .catch(showError);
+  }
+  function planSourceSync(id) {
+    clearError();
+    var payload = { id: id };
+    postJSON('/api/sources/sync/plan', payload)
+      .then(function (plan) {
+        setPendingAction({ type: 'source-sync', payload: payload });
+        byId('plan-output').textContent = JSON.stringify(plan, null, 2);
+      })
+      .catch(showError);
+  }
+  function planSourceRemove(id) {
+    clearError();
+    var payload = { id: id };
+    postJSON('/api/sources/remove/plan', payload)
+      .then(function (plan) {
+        setPendingAction({ type: 'source-remove', payload: payload });
+        byId('plan-output').textContent = JSON.stringify(plan, null, 2);
+      })
+      .catch(showError);
+  }
   function applyProfile() {
     if (!state.pendingAction || state.pendingAction.type !== 'profile') return;
     if (!window.confirm('Apply this profile to the current project?')) return;
@@ -492,6 +547,24 @@ td.wrap { overflow-wrap: anywhere; }
       })
       .catch(showError);
   }
+  function runSourceAction() {
+    var action = state.pendingAction;
+    if (!action || action.type.indexOf('source-') !== 0) return;
+    if (!window.confirm('Run this source action for the current project?')) return;
+    var route = {
+      'source-add': '/api/sources/add/run',
+      'source-sync': '/api/sources/sync/run',
+      'source-remove': '/api/sources/remove/run'
+    }[action.type];
+    var payload = Object.assign({ confirm: true }, action.payload || {});
+    postJSON(route, payload)
+      .then(function (result) {
+        byId('plan-output').textContent = JSON.stringify(result, null, 2);
+        setPendingAction(null);
+        loadAll();
+      })
+      .catch(showError);
+  }
   document.querySelectorAll('.nav button').forEach(function (btn) {
     btn.addEventListener('click', function () {
       document.querySelectorAll('.nav button').forEach(function (b) { b.classList.remove('active'); });
@@ -507,8 +580,10 @@ td.wrap { overflow-wrap: anywhere; }
     if (event.key === 'Enter') searchSkills();
   });
   byId('plan-update-btn').addEventListener('click', planUpdate);
+  byId('plan-source-add-btn').addEventListener('click', planSourceAdd);
   byId('apply-profile-btn').addEventListener('click', applyProfile);
   byId('run-update-btn').addEventListener('click', runUpdate);
+  byId('run-source-action-btn').addEventListener('click', runSourceAction);
   setPendingAction(null);
   loadAll();
 })();

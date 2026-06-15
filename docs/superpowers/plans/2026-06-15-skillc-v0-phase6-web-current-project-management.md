@@ -847,7 +847,7 @@ git commit -m "feat(skillc): add web source action planning"
 - Modify: `internal/app/webapp/manager_server_test.go`
 - Modify: `internal/app/webapp/manager_static.go`
 
-- [ ] **Step 1: Write failing HTTP tests for source routes**
+- [x] **Step 1: Write failing HTTP tests for source routes**
 
 Append to `manager_server_test.go`:
 
@@ -899,7 +899,7 @@ import (
 )
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run:
 
@@ -909,7 +909,7 @@ go test ./internal/app/webapp -run 'TestManagerServerSource(Add|Remove)' -v
 
 Expected: FAIL with 404 because source action routes are not registered.
 
-- [ ] **Step 3: Register source routes and handlers**
+- [x] **Step 3: Register source routes and handlers**
 
 Modify `ManagerServer.Handler()`:
 
@@ -1027,7 +1027,7 @@ func (s *ManagerServer) handleSourceRemoveRun(w http.ResponseWriter, r *http.Req
 }
 ```
 
-- [ ] **Step 4: Run source HTTP tests**
+- [x] **Step 4: Run source HTTP tests**
 
 Run:
 
@@ -1037,7 +1037,7 @@ go test ./internal/app/webapp -run 'TestManagerServerSource(Add|Remove)' -v
 
 Expected: PASS.
 
-- [ ] **Step 5: Add source controls to static page**
+- [x] **Step 5: Add source controls to static page**
 
 In `manager_static.go`, update Sources section:
 
@@ -1133,7 +1133,7 @@ Update `setPendingAction()`:
 byId('run-source-action-btn').disabled = !(action && action.type.indexOf('source-') === 0);
 ```
 
-- [ ] **Step 6: Add static page smoke tests**
+- [x] **Step 6: Add static page smoke tests**
 
 Append to `manager_server_test.go`:
 
@@ -1162,7 +1162,7 @@ go test ./internal/app/webapp -run 'TestManagerServerStaticPageContainsSourceMan
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit source Web routes and UI**
+- [x] **Step 7: Commit source Web routes and UI**
 
 Run:
 

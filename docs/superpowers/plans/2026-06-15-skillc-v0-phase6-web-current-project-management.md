@@ -2603,7 +2603,7 @@ git commit -m "feat(skillc): add web action history"
 - Modify: `docs/design/skillc-v0-enhance-design.md`
 - Modify: `docs/superpowers/plans/2026-06-15-skillc-v0-phase6-web-current-project-management.md`
 
-- [ ] **Step 1: Update README files**
+- [x] **Step 1: Update README files**
 
 Add to `README.zh-CN.md` Web section:
 
@@ -2617,7 +2617,7 @@ Add this paragraph to `README.md`:
 `skillc web` supports current-project management: source/profile/status/install-map/version-drift views, guarded profile apply and update, source add/sync/remove, profile save/from-installed/from-collection, and uninstall. Every Web write action is plan-first, requires `confirm:true` on the run request, and appends a local `skillc-web-history.jsonl` record.
 ```
 
-- [ ] **Step 2: Update design and task docs**
+- [x] **Step 2: Update design and task docs**
 
 Update `docs/design/skillc-v0-enhance-design.md`:
 
@@ -2630,7 +2630,7 @@ Update `docs/TODO.md`:
 - Mark the Web management sub-bullet for current-project source/profile/uninstall/history as completed.
 - Keep top-level Web management unchecked because cross-project batch update and full install/search detail workflows remain.
 
-- [ ] **Step 3: Run focused tests**
+- [x] **Step 3: Run focused tests**
 
 Run:
 
@@ -2640,7 +2640,7 @@ go test ./internal/app/profileapp ./internal/app/installapp ./internal/app/webap
 
 Expected: PASS.
 
-- [ ] **Step 4: Run full verification**
+- [x] **Step 4: Run full verification**
 
 Run:
 
@@ -2650,7 +2650,7 @@ go test ./...
 
 Expected: PASS.
 
-- [ ] **Step 5: Update this plan checkbox statuses and verification record**
+- [x] **Step 5: Update this plan checkbox statuses and verification record**
 
 Add a verification section at the end of this file:
 
@@ -2663,7 +2663,7 @@ Add a verification section at the end of this file:
 
 Check off all completed steps in this plan.
 
-- [ ] **Step 6: Commit documentation and verification**
+- [x] **Step 6: Commit documentation and verification**
 
 Run:
 
@@ -2674,15 +2674,15 @@ git commit -m "docs(skillc): document phase 6 web management"
 
 ## Self-Review Checklist
 
-- [ ] Source add/sync/remove has plan and confirm run endpoints.
-- [ ] Source remove plan exposes installed/profile/index/collection impact.
-- [ ] Profile save/from-installed/from-collection has plan and confirm run endpoints.
-- [ ] Uninstall has app-level plan/run and Web endpoints.
-- [ ] Every Web run endpoint requires `confirm:true`.
-- [ ] Every Web run endpoint records history.
-- [ ] Static UI exposes source, profile, uninstall, and history controls without external assets.
-- [ ] Cross-project update and Registry remain out of Phase 6 scope.
-- [ ] `go test ./...` passes before claiming implementation complete.
+- [x] Source add/sync/remove has plan and confirm run endpoints.
+- [x] Source remove plan exposes installed/profile/index/collection impact.
+- [x] Profile save/from-installed/from-collection has plan and confirm run endpoints.
+- [x] Uninstall has app-level plan/run and Web endpoints.
+- [x] Every Web run endpoint requires `confirm:true`.
+- [x] Every Web run endpoint records history.
+- [x] Static UI exposes source, profile, uninstall, and history controls without external assets.
+- [x] Cross-project update and Registry remain out of Phase 6 scope.
+- [x] `go test ./...` passes before claiming implementation complete.
 
 ## Remaining After Phase 6
 
@@ -2692,3 +2692,8 @@ git commit -m "docs(skillc): document phase 6 web management"
 - Precise drift detection using Git commit / resolved ref and local checksum.
 - Project manifest / `skillc.profile.yaml` export/import flow.
 - Remote Web access and multi-user permission model.
+
+## Verification
+
+- `go test ./internal/app/profileapp ./internal/app/installapp ./internal/app/webapp`
+- `go test ./...`

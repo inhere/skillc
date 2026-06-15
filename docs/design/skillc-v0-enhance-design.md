@@ -16,6 +16,7 @@
 | 2026-06-15 | v0.12 | Codex | 增加 Phase 5 Web 执行闭环实施计划链接，并明确执行范围只覆盖当前项目 profile apply / update |
 | 2026-06-15 | v0.13 | Codex | 记录 Phase 5 已落地 Web 当前项目 profile apply / update 确认执行闭环 |
 | 2026-06-15 | v0.14 | Codex | 增加 Phase 6 当前项目 Web 管理补齐实施计划链接和范围 |
+| 2026-06-15 | v0.15 | Codex | 记录 Phase 6 已落地当前项目 Web source/profile/uninstall/history 管理闭环 |
 
 状态：Draft
 
@@ -55,7 +56,7 @@
 
 六期开发计划：`docs/superpowers/plans/2026-06-15-skillc-v0-phase6-web-current-project-management.md`
 
-六期目标：继续限定在当前项目范围，补齐 Web source add/sync/remove、profile save/from-installed/from-collection、uninstall plan/run 和最小 JSONL 操作历史。跨项目批量更新、Registry、source ID 命名清理、精确 checksum/commit drift 仍后置。
+六期状态：已继续限定在当前项目范围，补齐 Web source add/sync/remove、profile save/from-installed/from-collection、uninstall plan/run 和最小 JSONL 操作历史。跨项目批量更新、Registry、source ID 命名清理、精确 checksum/commit drift 仍后置。
 
 ## 1. 设计结论
 
@@ -937,7 +938,7 @@ internal/infra/termselect/
 
 实施计划：`docs/superpowers/plans/2026-06-15-skillc-v0-phase6-web-current-project-management.md`
 
-计划范围：
+已落地：
 
 - Web source 管理：source add/sync/remove 均先生成 plan；remove plan 展示 installed lock record、profile target、indexed skill、collection 影响。
 - Web profile 管理：支持 profile save、from-installed、from-collection 的 plan/run；保存前展示 added/removed/kept target 差异。
@@ -1034,21 +1035,22 @@ v0 增强重构完成后，应满足：
 
 ## 13. 下一步建议
 
-Phase 1/2/3/4/5 已经完成：profile 最小闭环、当前项目 status/update check、基于 `gookit/cliui` 的交互式选择、`skillc web` 本地管理查看和当前项目 profile apply / update 确认执行闭环都已落地。
+Phase 1/2/3/4/5/6 已经完成：profile 最小闭环、当前项目 status/update check、基于 `gookit/cliui` 的交互式选择、`skillc web` 本地管理查看、当前项目 profile apply / update 确认执行闭环，以及当前项目 Web source/profile/uninstall/history 管理补齐都已落地。
 
 Phase 5 实施计划见：`docs/superpowers/plans/2026-06-15-skillc-v0-phase5-web-execution.md`
 
 Phase 6 实施计划见：`docs/superpowers/plans/2026-06-15-skillc-v0-phase6-web-current-project-management.md`
 
-下一步建议不要直接扩大到“所有项目一键更新”。更稳妥的顺序是先实施 Phase 6，补齐 Web 管理面的剩余当前项目能力，再单独设计跨项目能力：
+下一步建议单独设计跨项目能力，不要把它直接塞进当前项目 Web run endpoint。更稳妥的顺序是先定义项目 registry / project selection / per-project confirmation，再接入跨项目 update 执行：
 
-- Web source 管理：source sync/status 视图、source add/remove 的 plan-first 边界，以及 source 删除前的影响预览。
-- Web profile 管理：profile create/edit/save-from-installed/save-from-collection，继续复用 profile app service。
-- Web uninstall：先生成 uninstall plan，明确即将删除的 agent/scope/path，再要求 `confirm:true`。
 - 跨项目批量更新：先设计项目 registry / project selection / per-project confirmation，再接入 update 执行，避免误更新未知项目。
-- 操作历史和审计：Web 写操作已经存在，后续应记录执行时间、输入 plan、结果和失败原因。
+- Registry 发现能力：保持“发现归 registry，安装仍进入 source/index/install/profile/lock”的边界。
+- Source UX cleanup：支持自定义 `--id/--name`，去掉新 source ID 的 `local-` / `git-` 强前缀，并补 `source info <id>`。
+- Drift 精确化：后续使用 Git commit/resolved ref 和 local checksum 补齐版本漂移判断。
+- Project manifest：设计 `skillc.profile.yaml` 或 profile export/import，解决团队共享 profile 的落点。
+- Remote Web：远程访问、多用户权限和安全审计单独设计，不复用当前本地 JSONL history 作为安全审计系统。
 
-Phase 5 已经验证 Web 从“看得清”到“可谨慎操作”的核心价值。后续重点应是把写操作覆盖面补完整，同时继续坚持当前的安全边界：先 plan、后确认、handler 保持薄层、执行复用 app service。
+Phase 6 已经验证 Web 当前项目管理闭环的价值。后续重点应是跨项目和发现能力，同时继续坚持当前安全边界：先 plan、后确认、handler 保持薄层、执行复用 app service。
 
 ## 14. 参考项目复审补充
 

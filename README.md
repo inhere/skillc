@@ -161,7 +161,7 @@ skillc web --port 8090
 skillc web --host 127.0.0.1 --port 8090
 ```
 
-The web manager runs on `127.0.0.1` by default and shows sources, profiles, current status, project install map, and version drift. Web writes are guarded: profile apply and update require a plan-first flow and an explicit confirmation, and only operate on the current project/agent/scope.
+The web manager runs on `127.0.0.1` by default and supports current-project management: source/profile/status/install-map/version-drift views, guarded profile apply and update, source add/sync/remove, profile save/from-installed/from-collection, and uninstall. Every Web write action is plan-first, requires `confirm:true` on the run request, appends a local `skillc-web-history.jsonl` record, and only operates on the current project/agent/scope.
 
 ### `uninstall` — Remove Skills
 

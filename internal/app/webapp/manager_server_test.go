@@ -215,6 +215,44 @@ func TestManagerServerSourceRemoveRunEndpoint(t *testing.T) {
 	assert.Contains(t, rec.Body.String(), `"source_id":"gstack"`)
 }
 
+func TestManagerServerProfileSavePlanEndpoint(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile, _ := writeWebManagerFixture(t, baseDir)
+	server := NewManagerServer(configFile, baseDir)
+
+	body := `{"name":"ops","targets":[{"source":"gstack","skill":"review"}]}`
+	rec := performManagerRequestWithBody(server, http.MethodPost, "/api/profiles/save/plan", strings.NewReader(body))
+
+	assert.Eq(t, http.StatusOK, rec.Code)
+	assert.Contains(t, rec.Body.String(), `"name":"ops"`)
+	assert.Contains(t, rec.Body.String(), `"mode":"create"`)
+	assert.Contains(t, rec.Body.String(), `"added":[{"source":"gstack","skill":"review"}]`)
+}
+
+func TestManagerServerProfileSaveRunRequiresConfirmation(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile, _ := writeWebManagerFixture(t, baseDir)
+	server := NewManagerServer(configFile, baseDir)
+
+	body := `{"name":"ops","targets":[{"source":"gstack","skill":"review"}]}`
+	rec := performManagerRequestWithBody(server, http.MethodPost, "/api/profiles/save/run", strings.NewReader(body))
+
+	assert.Eq(t, http.StatusBadRequest, rec.Code)
+	assert.Contains(t, rec.Body.String(), `"confirmation required"`)
+}
+
+func TestManagerServerProfileFromCollectionRunConflictsOnExistingProfile(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile, _ := writeWebManagerFixture(t, baseDir)
+	server := NewManagerServer(configFile, baseDir)
+
+	body := `{"confirm":true,"name":"go-dev","selector":"gstack/tools"}`
+	rec := performManagerRequestWithBody(server, http.MethodPost, "/api/profiles/from-collection/run", strings.NewReader(body))
+
+	assert.Eq(t, http.StatusConflict, rec.Code)
+	assert.Contains(t, rec.Body.String(), `"profile already exists: go-dev"`)
+}
+
 func TestManagerServerRejectsInvalidProfileActionPath(t *testing.T) {
 	baseDir := t.TempDir()
 	configFile := writeWebActionFixture(t, baseDir)
@@ -325,6 +363,21 @@ func TestManagerServerStaticPageContainsSourceManagementControls(t *testing.T) {
 	assert.Contains(t, body, "/api/sources/add/plan")
 	assert.Contains(t, body, "/api/sources/remove/run")
 	assert.Contains(t, body, `id="run-source-action-btn"`)
+}
+
+func TestManagerServerStaticPageContainsProfileManagementControls(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile, _ := writeWebManagerFixture(t, baseDir)
+	server := NewManagerServer(configFile, baseDir)
+
+	rec := performManagerRequest(server, http.MethodGet, "/")
+	body := rec.Body.String()
+
+	assert.Eq(t, http.StatusOK, rec.Code)
+	assert.Contains(t, body, `id="profile-name-input"`)
+	assert.Contains(t, body, "/api/profiles/save/plan")
+	assert.Contains(t, body, "/api/profiles/from-collection/run")
+	assert.Contains(t, body, `id="run-profile-action-btn"`)
 }
 
 func TestManagerServerStaticPageDoesNotUseExternalAssets(t *testing.T) {

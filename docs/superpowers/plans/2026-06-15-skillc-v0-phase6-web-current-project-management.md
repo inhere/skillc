@@ -1408,7 +1408,7 @@ git commit -m "feat(skillc): add profile save planning"
 - Modify: `internal/app/webapp/manager_server_test.go`
 - Modify: `internal/app/webapp/manager_static.go`
 
-- [ ] **Step 1: Write failing manager tests for profile actions**
+- [x] **Step 1: Write failing manager tests for profile actions**
 
 Create `manager_profile_actions_test.go`:
 
@@ -1454,7 +1454,7 @@ func TestManager_RunProfileSavePersistsProfile(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run:
 
@@ -1464,7 +1464,7 @@ go test ./internal/app/webapp -run 'TestManager_(PlanProfileSave|RunProfileSave)
 
 Expected: FAIL because profile action methods and types are not defined.
 
-- [ ] **Step 3: Implement manager profile action service**
+- [x] **Step 3: Implement manager profile action service**
 
 Create `manager_profile_actions.go`:
 
@@ -1639,7 +1639,7 @@ func writeResult(w http.ResponseWriter, result any, err error) {
 }
 ```
 
-- [ ] **Step 4: Run manager profile action tests**
+- [x] **Step 4: Run manager profile action tests**
 
 Run:
 
@@ -1649,7 +1649,7 @@ go test ./internal/app/webapp -run 'TestManager_(PlanProfileSave|RunProfileSave)
 
 Expected: PASS.
 
-- [ ] **Step 5: Add profile HTTP route tests**
+- [x] **Step 5: Add profile HTTP route tests**
 
 Append to `manager_server_test.go`:
 
@@ -1689,7 +1689,7 @@ func TestManagerServerProfileFromCollectionRunConflictsOnExistingProfile(t *test
 }
 ```
 
-- [ ] **Step 6: Register profile action routes and handlers**
+- [x] **Step 6: Register profile action routes and handlers**
 
 Add routes:
 
@@ -1822,7 +1822,7 @@ func (s *ManagerServer) handleProfileFromCollectionRun(w http.ResponseWriter, r 
 }
 ```
 
-- [ ] **Step 7: Add profile form UI**
+- [x] **Step 7: Add profile form UI**
 
 Add profile editor panel before `profiles-table`:
 
@@ -1954,7 +1954,7 @@ byId('plan-profile-collection-btn').addEventListener('click', planProfileFromCol
 byId('run-profile-action-btn').addEventListener('click', runProfileAction);
 ```
 
-- [ ] **Step 8: Run profile route and static tests**
+- [x] **Step 8: Run profile route and static tests**
 
 Run:
 
@@ -1964,7 +1964,7 @@ go test ./internal/app/webapp -run 'TestManagerServerProfile(Save|From)|TestMana
 
 Expected: PASS.
 
-- [ ] **Step 9: Commit Web profile management**
+- [x] **Step 9: Commit Web profile management**
 
 Run:
 

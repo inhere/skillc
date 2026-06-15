@@ -35,7 +35,7 @@ body {
   font-size: 14px;
   letter-spacing: 0;
 }
-button, input, select { font: inherit; letter-spacing: 0; }
+button, input, select, textarea { font: inherit; letter-spacing: 0; }
 button {
   border: 1px solid var(--line-strong);
   background: var(--panel);
@@ -51,13 +51,19 @@ button.primary:hover { color: white; background: #0b5b51; }
 button:disabled { cursor: not-allowed; opacity: .45; }
 button.danger { border-color: #c77b72; color: var(--bad); }
 button.danger:hover { background: var(--bad-soft); }
-input, select {
+input, select, textarea {
   min-height: 32px;
   border: 1px solid var(--line-strong);
   border-radius: 6px;
   background: var(--panel);
   color: var(--text);
   padding: 0 9px;
+}
+textarea {
+  width: 100%;
+  min-height: 96px;
+  padding: 8px 9px;
+  resize: vertical;
 }
 .shell { min-height: 100%; display: grid; grid-template-columns: 236px minmax(0, 1fr); }
 .sidebar {
@@ -233,6 +239,31 @@ td.wrap { overflow-wrap: anywhere; }
 
       <section id="view-profiles" class="view">
         <div class="section-head"><h3>Profiles</h3><span class="hint">Plan first, then confirm apply</span></div>
+        <div class="panel section">
+          <div class="stack">
+            <div class="toolbar-row">
+              <input id="profile-name-input" placeholder="Name" autocomplete="off">
+              <input id="profile-description-input" placeholder="Description" autocomplete="off">
+              <input id="profile-agent-input" placeholder="Default agent" autocomplete="off">
+              <select id="profile-scope-input">
+                <option value="project">project</option>
+                <option value="user">user</option>
+              </select>
+              <select id="profile-install-mode-input">
+                <option value="">install mode</option>
+                <option value="copy">copy</option>
+                <option value="symlink">symlink</option>
+              </select>
+            </div>
+            <textarea id="profile-targets-input" placeholder="gstack go-pro"></textarea>
+            <div class="toolbar-row">
+              <button id="plan-profile-save-btn">Plan save</button>
+              <button id="plan-profile-installed-btn">From installed</button>
+              <input id="profile-collection-input" placeholder="source/collection" autocomplete="off">
+              <button id="plan-profile-collection-btn">From collection</button>
+            </div>
+          </div>
+        </div>
         <div id="profiles-table"></div>
       </section>
 
@@ -261,6 +292,7 @@ td.wrap { overflow-wrap: anywhere; }
             <button class="danger" id="apply-profile-btn" disabled>Apply profile</button>
             <button class="danger" id="run-update-btn" disabled>Run update</button>
             <button class="danger" id="run-source-action-btn" disabled>Run source action</button>
+            <button class="danger" id="run-profile-action-btn" disabled>Run profile action</button>
           </div>
         </div>
         <pre id="plan-output" class="plan">No plan requested.</pre>
@@ -320,6 +352,7 @@ td.wrap { overflow-wrap: anywhere; }
     byId('apply-profile-btn').disabled = !(action && action.type === 'profile');
     byId('run-update-btn').disabled = !(action && action.type === 'update');
     byId('run-source-action-btn').disabled = !(action && action.type.indexOf('source-') === 0);
+    byId('run-profile-action-btn').disabled = !(action && action.type.indexOf('profile-') === 0);
   }
   function showError(err) {
     byId('errors').innerHTML = '<div class="error">' + esc(err.message || err) + '</div>';
@@ -525,10 +558,84 @@ td.wrap { overflow-wrap: anywhere; }
       })
       .catch(showError);
   }
+  function profileTargetsFromText() {
+    return byId('profile-targets-input').value.split(/\r?\n/).map(function (line) {
+      return line.trim();
+    }).filter(Boolean).map(function (line) {
+      var parts = line.split(/\s+/);
+      if (parts.length === 1) return { skill: parts[0] };
+      return { source: parts[0], skill: parts.slice(1).join(' ') };
+    });
+  }
+  function profileSavePayload() {
+    return {
+      name: byId('profile-name-input').value.trim(),
+      description: byId('profile-description-input').value.trim(),
+      default_agent: byId('profile-agent-input').value.trim(),
+      default_scope: byId('profile-scope-input').value,
+      install_mode: byId('profile-install-mode-input').value,
+      targets: profileTargetsFromText()
+    };
+  }
+  function planProfileSave() {
+    clearError();
+    var payload = profileSavePayload();
+    postJSON('/api/profiles/save/plan', payload)
+      .then(function (plan) {
+        setPendingAction({ type: 'profile-save', payload: payload });
+        byId('plan-output').textContent = JSON.stringify(plan, null, 2);
+      })
+      .catch(showError);
+  }
+  function planProfileFromInstalled() {
+    clearError();
+    var payload = {
+      name: byId('profile-name-input').value.trim(),
+      agent: byId('agent-input').value.trim(),
+      scope: byId('scope-input').value
+    };
+    postJSON('/api/profiles/from-installed/plan', payload)
+      .then(function (plan) {
+        setPendingAction({ type: 'profile-installed', payload: payload });
+        byId('plan-output').textContent = JSON.stringify(plan, null, 2);
+      })
+      .catch(showError);
+  }
+  function planProfileFromCollection() {
+    clearError();
+    var payload = {
+      name: byId('profile-name-input').value.trim(),
+      selector: byId('profile-collection-input').value.trim()
+    };
+    postJSON('/api/profiles/from-collection/plan', payload)
+      .then(function (plan) {
+        setPendingAction({ type: 'profile-collection', payload: payload });
+        byId('plan-output').textContent = JSON.stringify(plan, null, 2);
+      })
+      .catch(showError);
+  }
   function applyProfile() {
     if (!state.pendingAction || state.pendingAction.type !== 'profile') return;
     if (!window.confirm('Apply this profile to the current project?')) return;
     postJSON('/api/profiles/' + encodeURIComponent(state.pendingAction.name) + '/apply', { confirm: true })
+      .then(function (result) {
+        byId('plan-output').textContent = JSON.stringify(result, null, 2);
+        setPendingAction(null);
+        loadAll();
+      })
+      .catch(showError);
+  }
+  function runProfileAction() {
+    var action = state.pendingAction;
+    if (!action || action.type.indexOf('profile-') !== 0) return;
+    if (!window.confirm('Run this profile action?')) return;
+    var route = {
+      'profile-save': '/api/profiles/save/run',
+      'profile-installed': '/api/profiles/from-installed/run',
+      'profile-collection': '/api/profiles/from-collection/run'
+    }[action.type];
+    var payload = Object.assign({ confirm: true }, action.payload || {});
+    postJSON(route, payload)
       .then(function (result) {
         byId('plan-output').textContent = JSON.stringify(result, null, 2);
         setPendingAction(null);
@@ -581,9 +688,13 @@ td.wrap { overflow-wrap: anywhere; }
   });
   byId('plan-update-btn').addEventListener('click', planUpdate);
   byId('plan-source-add-btn').addEventListener('click', planSourceAdd);
+  byId('plan-profile-save-btn').addEventListener('click', planProfileSave);
+  byId('plan-profile-installed-btn').addEventListener('click', planProfileFromInstalled);
+  byId('plan-profile-collection-btn').addEventListener('click', planProfileFromCollection);
   byId('apply-profile-btn').addEventListener('click', applyProfile);
   byId('run-update-btn').addEventListener('click', runUpdate);
   byId('run-source-action-btn').addEventListener('click', runSourceAction);
+  byId('run-profile-action-btn').addEventListener('click', runProfileAction);
   setPendingAction(null);
   loadAll();
 })();

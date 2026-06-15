@@ -2,6 +2,7 @@ package webapp
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -65,6 +66,12 @@ func (s *ManagerServer) Handler() http.Handler {
 	mux.HandleFunc("/api/install-map", s.handleInstallMap)
 	mux.HandleFunc("/api/version-drift", s.handleVersionDrift)
 	mux.HandleFunc("/api/profiles/", s.handleProfileAction)
+	mux.HandleFunc("/api/profiles/save/plan", s.handleProfileSavePlan)
+	mux.HandleFunc("/api/profiles/save/run", s.handleProfileSaveRun)
+	mux.HandleFunc("/api/profiles/from-installed/plan", s.handleProfileFromInstalledPlan)
+	mux.HandleFunc("/api/profiles/from-installed/run", s.handleProfileFromInstalledRun)
+	mux.HandleFunc("/api/profiles/from-collection/plan", s.handleProfileFromCollectionPlan)
+	mux.HandleFunc("/api/profiles/from-collection/run", s.handleProfileFromCollectionRun)
 	mux.HandleFunc("/api/update/plan", s.handleUpdatePlan)
 	mux.HandleFunc("/api/update/run", s.handleUpdateRun)
 	mux.HandleFunc("/api/sources/add/plan", s.handleSourceAddPlan)
@@ -296,6 +303,78 @@ func (s *ManagerServer) handleSourceRemoveRun(w http.ResponseWriter, r *http.Req
 	writeResult(w, result, err)
 }
 
+func (s *ManagerServer) handleProfileSavePlan(w http.ResponseWriter, r *http.Request) {
+	if !allowMethod(w, r, http.MethodPost) {
+		return
+	}
+	req, ok := readJSONReq[profileSaveReq](w, r)
+	if !ok {
+		return
+	}
+	result, err := s.manager.PlanProfileSave(req)
+	writeResult(w, result, err)
+}
+
+func (s *ManagerServer) handleProfileSaveRun(w http.ResponseWriter, r *http.Request) {
+	if !allowMethod(w, r, http.MethodPost) {
+		return
+	}
+	req, ok := requireConfirmedProfileSaveReq(w, r)
+	if !ok {
+		return
+	}
+	result, err := s.manager.RunProfileSave(req)
+	writeResult(w, result, err)
+}
+
+func (s *ManagerServer) handleProfileFromInstalledPlan(w http.ResponseWriter, r *http.Request) {
+	if !allowMethod(w, r, http.MethodPost) {
+		return
+	}
+	req, ok := readJSONReq[profileFromInstalledReq](w, r)
+	if !ok {
+		return
+	}
+	result, err := s.manager.PlanProfileFromInstalled(req)
+	writeResult(w, result, err)
+}
+
+func (s *ManagerServer) handleProfileFromInstalledRun(w http.ResponseWriter, r *http.Request) {
+	if !allowMethod(w, r, http.MethodPost) {
+		return
+	}
+	req, ok := requireConfirmedProfileFromInstalledReq(w, r)
+	if !ok {
+		return
+	}
+	result, err := s.manager.RunProfileFromInstalled(req)
+	writeResult(w, result, err)
+}
+
+func (s *ManagerServer) handleProfileFromCollectionPlan(w http.ResponseWriter, r *http.Request) {
+	if !allowMethod(w, r, http.MethodPost) {
+		return
+	}
+	req, ok := readJSONReq[profileFromCollectionReq](w, r)
+	if !ok {
+		return
+	}
+	result, err := s.manager.PlanProfileFromCollection(req)
+	writeResult(w, result, err)
+}
+
+func (s *ManagerServer) handleProfileFromCollectionRun(w http.ResponseWriter, r *http.Request) {
+	if !allowMethod(w, r, http.MethodPost) {
+		return
+	}
+	req, ok := requireConfirmedProfileFromCollectionReq(w, r)
+	if !ok {
+		return
+	}
+	result, err := s.manager.RunProfileFromCollection(req)
+	writeResult(w, result, err)
+}
+
 func managerReqFromQuery(r *http.Request) ManagerReq {
 	q := r.URL.Query()
 	return ManagerReq{
@@ -383,6 +462,42 @@ func requireConfirmedSourceReq(w http.ResponseWriter, r *http.Request) (sourceAc
 	return req, true
 }
 
+func requireConfirmedProfileSaveReq(w http.ResponseWriter, r *http.Request) (profileSaveReq, bool) {
+	req, ok := readJSONReq[profileSaveReq](w, r)
+	if !ok {
+		return profileSaveReq{}, false
+	}
+	if !req.Confirm {
+		writeJSON(w, http.StatusBadRequest, errorResp{Error: "confirmation required"})
+		return profileSaveReq{}, false
+	}
+	return req, true
+}
+
+func requireConfirmedProfileFromInstalledReq(w http.ResponseWriter, r *http.Request) (profileFromInstalledReq, bool) {
+	req, ok := readJSONReq[profileFromInstalledReq](w, r)
+	if !ok {
+		return profileFromInstalledReq{}, false
+	}
+	if !req.Confirm {
+		writeJSON(w, http.StatusBadRequest, errorResp{Error: "confirmation required"})
+		return profileFromInstalledReq{}, false
+	}
+	return req, true
+}
+
+func requireConfirmedProfileFromCollectionReq(w http.ResponseWriter, r *http.Request) (profileFromCollectionReq, bool) {
+	req, ok := readJSONReq[profileFromCollectionReq](w, r)
+	if !ok {
+		return profileFromCollectionReq{}, false
+	}
+	if !req.Confirm {
+		writeJSON(w, http.StatusBadRequest, errorResp{Error: "confirmation required"})
+		return profileFromCollectionReq{}, false
+	}
+	return req, true
+}
+
 func allowMethod(w http.ResponseWriter, r *http.Request, method string) bool {
 	if r.Method == method {
 		return true
@@ -394,6 +509,11 @@ func allowMethod(w http.ResponseWriter, r *http.Request, method string) bool {
 
 func writeResult(w http.ResponseWriter, result any, err error) {
 	if err != nil {
+		var statusErr httpStatusError
+		if errors.As(err, &statusErr) {
+			writeJSON(w, statusErr.status, errorResp{Error: statusErr.msg})
+			return
+		}
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}

@@ -32,17 +32,19 @@ type actionSourceErrorItem struct {
 }
 
 type profileApplyActionResult struct {
+	Error         string                `json:"error,omitempty"`
 	Plan          profile.ApplyPlan     `json:"plan"`
 	Installed     []actionRuntimeRecord `json:"installed"`
 	InstallFailed []actionErrorItem     `json:"install_failed,omitempty"`
 }
 
 type updateRunActionResult struct {
-	Updated       []actionRuntimeRecord    `json:"updated"`
-	Skipped       []actionErrorItem        `json:"skipped,omitempty"`
-	Failed        []actionErrorItem        `json:"failed,omitempty"`
-	SyncFailed    []actionSourceErrorItem  `json:"sync_failed,omitempty"`
-	CleanupFailed []actionErrorItem        `json:"cleanup_failed,omitempty"`
+	Error         string                  `json:"error,omitempty"`
+	Updated       []actionRuntimeRecord   `json:"updated"`
+	Skipped       []actionErrorItem       `json:"skipped,omitempty"`
+	Failed        []actionErrorItem       `json:"failed,omitempty"`
+	SyncFailed    []actionSourceErrorItem `json:"sync_failed,omitempty"`
+	CleanupFailed []actionErrorItem       `json:"cleanup_failed,omitempty"`
 }
 
 func (m *Manager) ApplyProfile(name string, req ManagerReq) (profileApplyActionResult, error) {
@@ -57,6 +59,10 @@ func (m *Manager) ApplyProfile(name string, req ManagerReq) (profileApplyActionR
 		InstallFailed: installErrors(result.InstallFailed),
 	}
 	if err != nil {
+		if hasProfileApplyActionPayload(out) {
+			out.Error = err.Error()
+			return out, nil
+		}
 		return out, err
 	}
 	return out, nil
@@ -77,9 +83,25 @@ func (m *Manager) RunUpdate(req WebUpdateReq) (updateRunActionResult, error) {
 		CleanupFailed: failedErrors(result.CleanupFailed),
 	}
 	if err != nil {
+		if hasUpdateRunActionPayload(out) {
+			out.Error = err.Error()
+			return out, nil
+		}
 		return out, err
 	}
 	return out, nil
+}
+
+func hasProfileApplyActionPayload(result profileApplyActionResult) bool {
+	return result.Plan.Profile != "" || len(result.Installed) > 0 || len(result.InstallFailed) > 0
+}
+
+func hasUpdateRunActionPayload(result updateRunActionResult) bool {
+	return len(result.Updated) > 0 ||
+		len(result.Skipped) > 0 ||
+		len(result.Failed) > 0 ||
+		len(result.SyncFailed) > 0 ||
+		len(result.CleanupFailed) > 0
 }
 
 func runtimeRecords(records []installapp.RuntimeRecord) []actionRuntimeRecord {

@@ -4,10 +4,16 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/gookit/goutil/testutil/assert"
+	"github.com/inhere/skillc/internal/domain/profile"
+	"github.com/inhere/skillc/internal/domain/skill"
+	sourcepkg "github.com/inhere/skillc/internal/domain/source"
+	"github.com/inhere/skillc/internal/infra/configstore"
+	"github.com/inhere/skillc/internal/infra/repoindex"
 )
 
 func TestManagerServerSummaryEndpoint(t *testing.T) {
@@ -98,6 +104,41 @@ func TestManagerServerProfileApplyEndpointExecutesConfirmedApply(t *testing.T) {
 	assert.Eq(t, http.StatusOK, rec.Code)
 	assert.Contains(t, rec.Body.String(), `"installed"`)
 	assert.Contains(t, rec.Body.String(), `"skill_id":"review"`)
+}
+
+func TestManagerServerProfileApplyEndpointReturnsPartialResultOnInstallFailure(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := writeWebActionFixture(t, baseDir)
+	config, err := configstore.NewYAMLStore().Load(configFile, baseDir)
+	assert.NoErr(t, err)
+	config.Profiles["go-dev"] = profile.Profile{
+		DefaultAgent: "universal",
+		DefaultScope: "project",
+		Targets:      []profile.Target{{Source: "gstack", Skill: "broken"}},
+	}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config, baseDir))
+	items, err := repoindex.NewStore().Load(config.IndexFile)
+	assert.NoErr(t, err)
+	items = append(items, skill.Skill{
+		ID:                  "broken",
+		SourceID:            "gstack",
+		Collection:          "tools",
+		QualifiedName:       "tools/broken",
+		SourceQualifiedName: "gstack/tools/broken",
+		Version:             "1.0.0",
+		SourceType:          sourcepkg.TypeLocal,
+		InstallEntry:        ".",
+		Path:                filepath.Join(baseDir, "missing-source"),
+	})
+	assert.NoErr(t, repoindex.NewStore().Save(config.IndexFile, items))
+	server := NewManagerServer(configFile, baseDir)
+
+	rec := performManagerRequestWithBody(server, http.MethodPost, "/api/profiles/go-dev/apply?agent=universal&scope=project", strings.NewReader(`{"confirm":true}`))
+
+	assert.Eq(t, http.StatusOK, rec.Code)
+	assert.Contains(t, rec.Body.String(), `"error":"profile apply failed: install failed"`)
+	assert.Contains(t, rec.Body.String(), `"install_failed"`)
+	assert.Contains(t, rec.Body.String(), `"skill_id":"broken"`)
 }
 
 func TestManagerServerUpdateRunRequiresConfirmation(t *testing.T) {

@@ -930,7 +930,7 @@ Expected:
 Append:
 
 ```markdown
-**Verification note (2026-06-15):** `go test ./internal/app/webapp -count=1`, `go test ./...`, `git diff --check`, docs sanity check, and local smoke test pass. Manual smoke confirms `/`, `/api/summary`, `/api/status`, static execution controls, and `POST /api/update/run` without `{"confirm":true}` returning `400`.
+**Verification note (2026-06-15):** `go test ./internal/app/webapp -count=1`, `go test ./...`, `git diff --check`, docs sanity check, and local smoke test pass. Manual smoke confirms `/`, `/api/summary`, `/api/status`, static execution controls, and `POST /api/update/run` without `{"confirm":true}` returning `400`. Self-review also added coverage for partial profile apply failures returning `error` plus `install_failed` details instead of hiding partial results.
 ```
 
 - [x] **Step 6: Commit final checkbox updates**

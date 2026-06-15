@@ -220,7 +220,7 @@ type updateRunActionResult struct {
 - Create: `internal/app/webapp/manager_actions.go`
 - Create: `internal/app/webapp/manager_actions_test.go`
 
-- [ ] **Step 1: Write failing manager action tests**
+- [x] **Step 1: Write failing manager action tests**
 
 Create `internal/app/webapp/manager_actions_test.go` with tests:
 
@@ -311,7 +311,7 @@ assert.Eq(t, "go-pro", result.Updated[0].SkillID)
 assert.Eq(t, "2.0.0", result.Updated[0].Version)
 ```
 
-- [ ] **Step 2: Run manager action tests to verify failure**
+- [x] **Step 2: Run manager action tests to verify failure**
 
 Run:
 
@@ -321,7 +321,7 @@ go test ./internal/app/webapp -run 'TestManager_(ApplyProfile|RunUpdate)|TestAct
 
 Expected: FAIL because manager action methods and result models do not exist.
 
-- [ ] **Step 3: Implement manager action service**
+- [x] **Step 3: Implement manager action service**
 
 Create `internal/app/webapp/manager_actions.go`.
 
@@ -419,7 +419,7 @@ func (m *Manager) RunUpdate(req WebUpdateReq) (updateRunActionResult, error) {
 
 Add small converter helpers for `installapp.RuntimeRecord`, `installapp.InstallItemError`, `updateapp.SkippedItem`, `updateapp.FailedItem`, and `updateapp.SourceSyncError`. `SourceSyncError` must convert to `actionSourceErrorItem` with `source_id`, not to a skill-level `skill_id` error.
 
-- [ ] **Step 4: Run manager action tests**
+- [x] **Step 4: Run manager action tests**
 
 Run:
 
@@ -429,7 +429,7 @@ go test ./internal/app/webapp -run 'TestManager_(ApplyProfile|RunUpdate)|TestAct
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit Task 1**
+- [x] **Step 5: Commit Task 1**
 
 ```bash
 git add internal/app/webapp/manager_actions.go internal/app/webapp/manager_actions_test.go

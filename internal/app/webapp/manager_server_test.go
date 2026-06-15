@@ -201,6 +201,37 @@ func TestManagerServerIndexPageContainsAppShell(t *testing.T) {
 	assert.Contains(t, body, "Version Drift")
 }
 
+func TestManagerServerIndexPageContainsExecutionControls(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile, _ := writeWebManagerFixture(t, baseDir)
+	server := NewManagerServer(configFile, baseDir)
+
+	rec := performManagerRequest(server, http.MethodGet, "/")
+	body := rec.Body.String()
+
+	assert.Eq(t, http.StatusOK, rec.Code)
+	assert.Contains(t, body, "Apply profile")
+	assert.Contains(t, body, "Run update")
+	assert.Contains(t, body, `id="apply-profile-btn"`)
+	assert.Contains(t, body, `id="run-update-btn"`)
+}
+
+func TestManagerServerStaticPagePostsConfirmedActions(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile, _ := writeWebManagerFixture(t, baseDir)
+	server := NewManagerServer(configFile, baseDir)
+
+	rec := performManagerRequest(server, http.MethodGet, "/")
+	body := rec.Body.String()
+
+	assert.Eq(t, http.StatusOK, rec.Code)
+	assert.Contains(t, body, "/api/profiles/")
+	assert.Contains(t, body, "/apply")
+	assert.Contains(t, body, "/api/update/run")
+	assert.Contains(t, body, "confirm")
+	assert.Contains(t, body, "JSON.stringify(payload")
+}
+
 func TestManagerServerStaticPageDoesNotUseExternalAssets(t *testing.T) {
 	baseDir := t.TempDir()
 	configFile, _ := writeWebManagerFixture(t, baseDir)

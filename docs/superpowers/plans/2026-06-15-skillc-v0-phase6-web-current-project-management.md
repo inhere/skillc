@@ -397,7 +397,7 @@ type uninstallActionReq struct {
 - Create: `internal/app/webapp/manager_source_actions_test.go`
 - Modify: `internal/app/webapp/manager.go`
 
-- [ ] **Step 1: Write failing tests for source plans**
+- [x] **Step 1: Write failing tests for source plans**
 
 Add tests to `internal/app/webapp/manager_source_actions_test.go`:
 
@@ -484,7 +484,7 @@ func TestManager_PlanSourceRemoveIncludesImpact(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run:
 
@@ -494,7 +494,7 @@ go test ./internal/app/webapp -run 'TestManager_PlanSource(Add|Remove)' -v
 
 Expected: FAIL because `PlanSourceAdd`, `PlanSourceRemove`, `sourceActionReq`, and `sourceActionPlan` are not defined.
 
-- [ ] **Step 3: Implement source action planning**
+- [x] **Step 3: Implement source action planning**
 
 Create `internal/app/webapp/manager_source_actions.go`:
 
@@ -709,7 +709,7 @@ func IsGitURL(value string) bool {
 }
 ```
 
-- [ ] **Step 4: Run source plan tests**
+- [x] **Step 4: Run source plan tests**
 
 Run:
 
@@ -719,7 +719,7 @@ go test ./internal/app/webapp -run 'TestManager_PlanSource(Add|Remove)' -v
 
 Expected: PASS.
 
-- [ ] **Step 5: Add and test source run methods**
+- [x] **Step 5: Add and test source run methods**
 
 Append tests to `manager_source_actions_test.go`:
 
@@ -831,7 +831,7 @@ go test ./internal/app/webapp -run 'TestManager_RunSource' -v
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit source action manager**
+- [x] **Step 6: Commit source action manager**
 
 Run:
 

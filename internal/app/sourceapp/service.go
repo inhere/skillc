@@ -157,6 +157,10 @@ func isGitURL(s string) bool {
 		strings.HasPrefix(s, "ssh://")
 }
 
+func IsGitURL(value string) bool {
+	return isGitURL(value)
+}
+
 // EnsureSource 保证 source 存在：若不存在则新增并 sync，若已存在则直接返回已有 source。
 // urlOrPath 可以是 git URL 或本地路径；ref 仅对 git URL 有效。
 func (s *Service) EnsureSource(urlOrPath string, ref string) (domainsource.Source, bool, error) {

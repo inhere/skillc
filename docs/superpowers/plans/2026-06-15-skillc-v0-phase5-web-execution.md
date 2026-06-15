@@ -637,7 +637,7 @@ git commit -m "feat(web): add execution API endpoints"
 - Modify: `internal/app/webapp/manager_static.go`
 - Modify: `internal/app/webapp/manager_server_test.go`
 
-- [ ] **Step 1: Add failing static UI tests**
+- [x] **Step 1: Add failing static UI tests**
 
 Add tests:
 
@@ -662,7 +662,7 @@ assert.NotContains(t, body, "https://")
 assert.NotContains(t, body, "http://")
 ```
 
-- [ ] **Step 2: Run static UI execute tests to verify failure**
+- [x] **Step 2: Run static UI execute tests to verify failure**
 
 Run:
 
@@ -672,7 +672,7 @@ go test ./internal/app/webapp -run 'TestManagerServerIndexPageContainsExecutionC
 
 Expected: FAIL because execution controls do not exist.
 
-- [ ] **Step 3: Add action bar markup**
+- [x] **Step 3: Add action bar markup**
 
 In `manager_static.go`, replace the Plan Output section with:
 
@@ -698,7 +698,7 @@ button.danger { border-color: #c77b72; color: #a93535; }
 button.danger:hover { background: var(--bad-soft); }
 ```
 
-- [ ] **Step 4: Add pending action state and execute JS**
+- [x] **Step 4: Add pending action state and execute JS**
 
 In the existing JS state:
 
@@ -797,7 +797,7 @@ byId('run-update-btn').addEventListener('click', runUpdate);
 setPendingAction(null);
 ```
 
-- [ ] **Step 5: Run static UI execute tests**
+- [x] **Step 5: Run static UI execute tests**
 
 Run:
 
@@ -807,7 +807,7 @@ go test ./internal/app/webapp -run 'TestManagerServerIndexPageContainsExecutionC
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit Task 3**
+- [x] **Step 6: Commit Task 3**
 
 ```bash
 git add internal/app/webapp/manager_static.go internal/app/webapp/manager_server_test.go

@@ -238,7 +238,7 @@ Identity rules：
 - Create: `internal/app/webapp/project_index.go`
 - Create: `internal/app/webapp/project_index_test.go`
 
-- [ ] **Step 1: Write failing project index tests**
+- [x] **Step 1: Write failing project index tests**
 
 Create `internal/app/webapp/project_index_test.go`:
 
@@ -295,7 +295,7 @@ func TestBuildProjectInstallIndexKeepsGlobalScopeSeparate(t *testing.T) {
 
 Also add `TestBuildVersionDriftGroupsBySourceQualifiedIdentity`, where two projects install the same source-qualified skill with versions `1.0.0` and `2.0.0`, and assert one drift group with two version buckets.
 
-- [ ] **Step 2: Run tests to verify failure**
+- [x] **Step 2: Run tests to verify failure**
 
 Run:
 
@@ -305,7 +305,7 @@ go test ./internal/app/webapp -run 'TestBuildProjectInstallIndex|TestBuildVersio
 
 Expected: FAIL because project index helpers do not exist.
 
-- [ ] **Step 3: Implement project install index**
+- [x] **Step 3: Implement project install index**
 
 Create `internal/app/webapp/project_index.go` with:
 
@@ -364,7 +364,7 @@ Implementation rules:
   - more than one current version exists, or
   - latest version is non-empty and at least one current version differs from latest.
 
-- [ ] **Step 4: Run webapp project index tests**
+- [x] **Step 4: Run webapp project index tests**
 
 Run:
 
@@ -374,12 +374,14 @@ go test ./internal/app/webapp -run 'TestBuildProjectInstallIndex|TestBuildVersio
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add internal/app/webapp/project_index.go internal/app/webapp/project_index_test.go
 git commit -m "feat(web): add project install index"
 ```
+
+**Verification note (2026-06-15):** `go test ./internal/app/webapp -run 'TestBuildProjectInstallIndex|TestBuildVersionDrift' -count=1` and `go test ./internal/app/webapp -count=1` pass.
 
 ## Task 2: Add Web Manager Query Service
 

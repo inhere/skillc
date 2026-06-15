@@ -328,3 +328,141 @@ func TestBuildVersionDriftDoesNotMergeUnrelatedSourcesWithSameSkillID(t *testing
 		assert.Len(t, groups[0].Versions, 2)
 	})
 }
+
+func TestBuildVersionDriftMergesRenamedSourceQualifiedNameByStableSourceIdentity(t *testing.T) {
+	projectA := filepath.Clean("/work/project-a")
+	projectB := filepath.Clean("/work/project-b")
+	items := []ProjectInstall{
+		{
+			ProjectPath:         projectA,
+			Scope:               "project",
+			Agent:               "universal",
+			SkillID:             "shared-skill",
+			SourceQualifiedName: "repo-a/alpha/shared-skill",
+			SourceID:            "repo-a",
+			Version:             "1.0.0",
+		},
+		{
+			ProjectPath:         projectB,
+			Scope:               "project",
+			Agent:               "codex",
+			SkillID:             "shared-skill",
+			SourceQualifiedName: "repo-a/renamed/shared-skill",
+			SourceID:            "repo-a",
+			Version:             "2.0.0",
+		},
+	}
+	index := []skill.Skill{
+		{
+			ID:                  "shared-skill",
+			QualifiedName:       "renamed/shared-skill",
+			SourceQualifiedName: "repo-a/renamed/shared-skill",
+			SourceID:            "repo-a",
+			Version:             "3.0.0",
+		},
+	}
+
+	groups := BuildVersionDrift(items, index)
+
+	assert.Len(t, groups, 1)
+	if len(groups) == 0 {
+		return
+	}
+	assert.Eq(t, "repo-a", groups[0].SourceID)
+	assert.Eq(t, "3.0.0", groups[0].LatestVersion)
+	assert.Len(t, groups[0].Versions, 2)
+}
+
+func TestBuildVersionDriftMatchesLatestByQualifiedNameAlias(t *testing.T) {
+	projectA := filepath.Clean("/work/project-a")
+	items := []ProjectInstall{
+		{
+			ProjectPath:   projectA,
+			Scope:         "project",
+			Agent:         "universal",
+			SkillID:       "shared-skill",
+			QualifiedName: "alpha/shared-skill",
+			Version:       "1.0.0",
+		},
+	}
+	index := []skill.Skill{
+		{
+			ID:                  "shared-skill",
+			QualifiedName:       "alpha/shared-skill",
+			SourceQualifiedName: "repo-a/alpha/shared-skill",
+			SourceID:            "repo-a",
+			Version:             "2.0.0",
+		},
+	}
+
+	groups := BuildVersionDrift(items, index)
+
+	assert.Len(t, groups, 1)
+	if len(groups) == 0 {
+		return
+	}
+	assert.Eq(t, "2.0.0", groups[0].LatestVersion)
+}
+
+func TestBuildVersionDriftMatchesLatestByUniqueSkillIDAlias(t *testing.T) {
+	projectA := filepath.Clean("/work/project-a")
+	items := []ProjectInstall{
+		{
+			ProjectPath: projectA,
+			Scope:       "project",
+			Agent:       "universal",
+			SkillID:     "shared-skill",
+			Version:     "1.0.0",
+		},
+	}
+	index := []skill.Skill{
+		{
+			ID:                  "shared-skill",
+			QualifiedName:       "alpha/shared-skill",
+			SourceQualifiedName: "repo-a/alpha/shared-skill",
+			SourceID:            "repo-a",
+			Version:             "2.0.0",
+		},
+	}
+
+	groups := BuildVersionDrift(items, index)
+
+	assert.Len(t, groups, 1)
+	if len(groups) == 0 {
+		return
+	}
+	assert.Eq(t, "2.0.0", groups[0].LatestVersion)
+}
+
+func TestBuildVersionDriftLeavesAmbiguousBareSkillIDWithoutLatest(t *testing.T) {
+	projectA := filepath.Clean("/work/project-a")
+	items := []ProjectInstall{
+		{
+			ProjectPath: projectA,
+			Scope:       "project",
+			Agent:       "universal",
+			SkillID:     "shared-skill",
+			Version:     "1.0.0",
+		},
+	}
+	index := []skill.Skill{
+		{
+			ID:                  "shared-skill",
+			QualifiedName:       "alpha/shared-skill",
+			SourceQualifiedName: "repo-a/alpha/shared-skill",
+			SourceID:            "repo-a",
+			Version:             "2.0.0",
+		},
+		{
+			ID:                  "shared-skill",
+			QualifiedName:       "beta/shared-skill",
+			SourceQualifiedName: "repo-b/beta/shared-skill",
+			SourceID:            "repo-b",
+			Version:             "3.0.0",
+		},
+	}
+
+	groups := BuildVersionDrift(items, index)
+
+	assert.Len(t, groups, 0)
+}

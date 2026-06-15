@@ -227,9 +227,11 @@ type VersionBucket struct {
 
 Identity rules：
 
-- install map grouping key 优先级：`SourceQualifiedName -> SourceID + "\x00" + SkillID -> QualifiedName -> SkillID`。
+- install map grouping key 优先级：`SourceID + "\x00" + SkillID -> SourceQualifiedName -> QualifiedName -> SkillID`。
 - version drift 只在同一个 grouping key 下比较。
-- latest version 来自 repo index；如果 index 没有对应项，latest 为空，drift group 仍展示 current versions。
+- latest version 来自 repo index；lookup 对旧 lock metadata 使用 alias lookup，同一个 index skill 至少支持 `SourceID + "\x00" + ID`、`SourceQualifiedName`、`QualifiedName`、`ID`。
+- alias 若映射到多个不同 source identity，则视为 ambiguous，不输出该 alias 的 latest。
+- 如果 index 没有对应项，latest 为空，drift group 仍展示 current versions。
 - global scope 记录使用 project path `__global__` 展示，不伪装成当前项目。
 
 ## Task 1: Add Project Install Index
@@ -382,7 +384,7 @@ git add internal/app/webapp/project_index.go internal/app/webapp/project_index_t
 git commit -m "feat(web): add project install index"
 ```
 
-**Verification note (2026-06-15):** `go test ./internal/app/webapp -run 'TestBuildProjectInstallIndex|TestBuildVersionDrift' -count=1` and `go test ./internal/app/webapp -count=1` pass. Added drift coverage to verify numeric dotted version selection chooses `1.10.0` over `1.9.0`, version buckets sort numerically so `1.9.0` appears before `1.10.0`, and identity fallback grouping covers `SourceQualifiedName -> SourceID + "\x00" + SkillID -> QualifiedName -> SkillID`.
+**Verification note (2026-06-15):** `go test ./internal/app/webapp -run 'TestBuildProjectInstallIndex|TestBuildVersionDrift' -count=1` and `go test ./internal/app/webapp -count=1` pass. Added drift coverage to verify numeric dotted version selection chooses `1.10.0` over `1.9.0`, version buckets sort numerically so `1.9.0` appears before `1.10.0`, stable identity prefers `SourceID + "\x00" + SkillID` across rename scenarios, and latest lookup supports old lock metadata aliases while keeping ambiguous aliases unresolved.
 
 ## Task 2: Add Web Manager Query Service
 

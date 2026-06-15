@@ -146,11 +146,11 @@ func BuildVersionDrift(items []ProjectInstall, index []skill.Skill) []VersionDri
 }
 
 func projectInstallKey(item ProjectInstall) string {
-	if item.SourceQualifiedName != "" {
-		return item.SourceQualifiedName
-	}
 	if item.SourceID != "" {
 		return item.SourceID + "\x00" + item.SkillID
+	}
+	if item.SourceQualifiedName != "" {
+		return item.SourceQualifiedName
 	}
 	if item.QualifiedName != "" {
 		return item.QualifiedName
@@ -159,14 +159,37 @@ func projectInstallKey(item ProjectInstall) string {
 }
 
 func latestVersionByInstallKey(index []skill.Skill) map[string]string {
-	result := make(map[string]string, len(index))
+	primaryLatest := make(map[string]string, len(index))
+	aliasToPrimary := make(map[string]string)
+	ambiguousAliases := make(map[string]struct{})
+
 	for _, item := range index {
-		key := skillInstallKey(item)
-		if key == "" {
+		primaryKey := skillInstallKey(item)
+		if primaryKey == "" {
 			continue
 		}
-		if result[key] == "" || compareVersionParts(result[key], item.Version) < 0 {
-			result[key] = item.Version
+
+		if primaryLatest[primaryKey] == "" || compareVersionParts(primaryLatest[primaryKey], item.Version) < 0 {
+			primaryLatest[primaryKey] = item.Version
+		}
+
+		for _, alias := range skillInstallAliases(item) {
+			if _, ok := ambiguousAliases[alias]; ok {
+				continue
+			}
+			if existing, ok := aliasToPrimary[alias]; ok && existing != primaryKey {
+				delete(aliasToPrimary, alias)
+				ambiguousAliases[alias] = struct{}{}
+				continue
+			}
+			aliasToPrimary[alias] = primaryKey
+		}
+	}
+
+	result := make(map[string]string, len(aliasToPrimary))
+	for alias, primaryKey := range aliasToPrimary {
+		if latest := primaryLatest[primaryKey]; latest != "" {
+			result[alias] = latest
 		}
 	}
 	return result
@@ -243,16 +266,39 @@ func rawVersionPart(parts []string, idx int) string {
 }
 
 func skillInstallKey(item skill.Skill) string {
-	if item.SourceQualifiedName != "" {
-		return item.SourceQualifiedName
-	}
 	if item.SourceID != "" {
 		return item.SourceID + "\x00" + item.ID
+	}
+	if item.SourceQualifiedName != "" {
+		return item.SourceQualifiedName
 	}
 	if item.QualifiedName != "" {
 		return item.QualifiedName
 	}
 	return item.ID
+}
+
+func skillInstallAliases(item skill.Skill) []string {
+	aliases := make([]string, 0, 4)
+	addAlias := func(value string) {
+		if value == "" {
+			return
+		}
+		for _, existing := range aliases {
+			if existing == value {
+				return
+			}
+		}
+		aliases = append(aliases, value)
+	}
+
+	if item.SourceID != "" && item.ID != "" {
+		addAlias(item.SourceID + "\x00" + item.ID)
+	}
+	addAlias(item.SourceQualifiedName)
+	addAlias(item.QualifiedName)
+	addAlias(item.ID)
+	return aliases
 }
 
 func sortProjectInstalls(items []ProjectInstall) {

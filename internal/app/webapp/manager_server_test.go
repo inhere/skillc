@@ -253,6 +253,30 @@ func TestManagerServerProfileFromCollectionRunConflictsOnExistingProfile(t *test
 	assert.Contains(t, rec.Body.String(), `"profile already exists: go-dev"`)
 }
 
+func TestManagerServerUninstallPlanEndpoint(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := writeWebActionFixture(t, baseDir)
+	server := NewManagerServer(configFile, baseDir)
+
+	body := `{"skills":["go-pro"],"agent":"universal","scope":"project"}`
+	rec := performManagerRequestWithBody(server, http.MethodPost, "/api/uninstall/plan", strings.NewReader(body))
+
+	assert.Eq(t, http.StatusOK, rec.Code)
+	assert.Contains(t, rec.Body.String(), `"skill_id":"go-pro"`)
+	assert.Contains(t, rec.Body.String(), `"installed_path"`)
+}
+
+func TestManagerServerUninstallRunRequiresConfirmation(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := writeWebActionFixture(t, baseDir)
+	server := NewManagerServer(configFile, baseDir)
+
+	rec := performManagerRequestWithBody(server, http.MethodPost, "/api/uninstall/run", strings.NewReader(`{"skills":["go-pro"]}`))
+
+	assert.Eq(t, http.StatusBadRequest, rec.Code)
+	assert.Contains(t, rec.Body.String(), `"confirmation required"`)
+}
+
 func TestManagerServerRejectsInvalidProfileActionPath(t *testing.T) {
 	baseDir := t.TempDir()
 	configFile := writeWebActionFixture(t, baseDir)
@@ -378,6 +402,21 @@ func TestManagerServerStaticPageContainsProfileManagementControls(t *testing.T) 
 	assert.Contains(t, body, "/api/profiles/save/plan")
 	assert.Contains(t, body, "/api/profiles/from-collection/run")
 	assert.Contains(t, body, `id="run-profile-action-btn"`)
+}
+
+func TestManagerServerStaticPageContainsUninstallControls(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile, _ := writeWebManagerFixture(t, baseDir)
+	server := NewManagerServer(configFile, baseDir)
+
+	rec := performManagerRequest(server, http.MethodGet, "/")
+	body := rec.Body.String()
+
+	assert.Eq(t, http.StatusOK, rec.Code)
+	assert.Contains(t, body, "Plan uninstall")
+	assert.Contains(t, body, "/api/uninstall/plan")
+	assert.Contains(t, body, "/api/uninstall/run")
+	assert.Contains(t, body, `id="run-uninstall-btn"`)
 }
 
 func TestManagerServerStaticPageDoesNotUseExternalAssets(t *testing.T) {

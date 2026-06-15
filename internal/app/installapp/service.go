@@ -46,6 +46,38 @@ type BatchInstallResult struct {
 	Failed    []InstallItemError
 }
 
+type UninstallReq struct {
+	Skills  []string
+	Agent   string
+	Scope   string
+	WorkDir string
+}
+
+type UninstallPlan struct {
+	Agent string              `json:"agent"`
+	Scope string              `json:"scope"`
+	Items []UninstallPlanItem `json:"items"`
+}
+
+type UninstallPlanItem struct {
+	Action              string `json:"action"`
+	SkillID             string `json:"skill_id"`
+	QualifiedName       string `json:"qualified_name,omitempty"`
+	SourceQualifiedName string `json:"source_qualified_name,omitempty"`
+	SourceID            string `json:"source_id,omitempty"`
+	Version             string `json:"version,omitempty"`
+	Agent               string `json:"agent"`
+	Scope               string `json:"scope"`
+	InstalledPath       string `json:"installed_path,omitempty"`
+	Reason              string `json:"reason,omitempty"`
+}
+
+type UninstallResult struct {
+	Plan    UninstallPlan       `json:"plan"`
+	Removed []UninstallPlanItem `json:"removed"`
+	Failed  []InstallItemError  `json:"failed,omitempty"`
+}
+
 type Service struct {
 	lockFile          string
 	store             *lockstore.Store
@@ -285,6 +317,94 @@ func (s *Service) UninstallMulti(skillIDs []string, agentName string, scope agen
 		}
 	}
 	return nil
+}
+
+func (s *Service) PlanUninstall(req UninstallReq) (UninstallPlan, error) {
+	scope, err := parseScope(req.Scope)
+	if err != nil {
+		return UninstallPlan{}, err
+	}
+	agentName := strings.TrimSpace(req.Agent)
+	if agentName == "" {
+		agentName = agent.DefaultAgentName
+	}
+	runtimeSvc := s.WithRuntime(s.runtimeConfig(), firstNonEmpty(req.WorkDir, s.runtimeWorkDir()))
+	locks, err := runtimeSvc.loadLockFile()
+	if err != nil {
+		return UninstallPlan{}, err
+	}
+
+	plan := UninstallPlan{Agent: agentName, Scope: string(scope)}
+	for _, target := range req.Skills {
+		target = strings.TrimSpace(target)
+		if target == "" {
+			continue
+		}
+		found := false
+		for _, scopeKey := range runtimeSvc.matchScopeKeys(locks, scope) {
+			for _, record := range locks[scopeKey] {
+				if !matchesSkillTarget(record, target) || !containsAgent(record.Agents, agentName) {
+					continue
+				}
+				path, err := runtimeSvc.resolveInstalledPath(scopeKey, scope, agentName, record)
+				if err != nil {
+					return UninstallPlan{}, err
+				}
+				action := "remove_agent"
+				if len(record.Agents) == 1 {
+					action = "remove_record"
+				}
+				plan.Items = append(plan.Items, UninstallPlanItem{
+					Action:              action,
+					SkillID:             record.SkillID,
+					QualifiedName:       record.QualifiedName,
+					SourceQualifiedName: record.SourceQualifiedName,
+					SourceID:            record.SourceID,
+					Version:             record.Version,
+					Agent:               agentName,
+					Scope:               string(scope),
+					InstalledPath:       path,
+				})
+				found = true
+			}
+		}
+		if !found {
+			plan.Items = append(plan.Items, UninstallPlanItem{
+				Action:  "error",
+				SkillID: target,
+				Agent:   agentName,
+				Scope:   string(scope),
+				Reason:  "skill not found",
+			})
+		}
+	}
+	return plan, nil
+}
+
+func (s *Service) RunUninstall(req UninstallReq) (UninstallResult, error) {
+	plan, err := s.PlanUninstall(req)
+	if err != nil {
+		return UninstallResult{}, err
+	}
+	result := UninstallResult{Plan: plan}
+	for _, item := range plan.Items {
+		if item.Action == "error" {
+			result.Failed = append(result.Failed, InstallItemError{SkillID: item.SkillID, Reason: item.Reason})
+		}
+	}
+	if len(result.Failed) > 0 {
+		return result, fmt.Errorf("uninstall plan has errors")
+	}
+	scope, err := parseScope(req.Scope)
+	if err != nil {
+		return result, err
+	}
+	runtimeSvc := s.WithRuntime(s.runtimeConfig(), firstNonEmpty(req.WorkDir, s.runtimeWorkDir()))
+	if err := runtimeSvc.UninstallMulti(req.Skills, plan.Agent, scope); err != nil {
+		return result, err
+	}
+	result.Removed = append(result.Removed, plan.Items...)
+	return result, nil
 }
 
 func (s *Service) Uninstall(skillID string, agentName string, scope agent.Scope) error {
@@ -543,6 +663,16 @@ func removeAgent(agents []string, agentName string) []string {
 		next = append(next, current)
 	}
 	return next
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed != "" {
+			return trimmed
+		}
+	}
+	return ""
 }
 
 func mergeAgents(existing []string, incoming []string) []string {

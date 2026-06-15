@@ -293,6 +293,7 @@ td.wrap { overflow-wrap: anywhere; }
             <button class="danger" id="run-update-btn" disabled>Run update</button>
             <button class="danger" id="run-source-action-btn" disabled>Run source action</button>
             <button class="danger" id="run-profile-action-btn" disabled>Run profile action</button>
+            <button class="danger" id="run-uninstall-btn" disabled>Run uninstall</button>
           </div>
         </div>
         <pre id="plan-output" class="plan">No plan requested.</pre>
@@ -353,6 +354,7 @@ td.wrap { overflow-wrap: anywhere; }
     byId('run-update-btn').disabled = !(action && action.type === 'update');
     byId('run-source-action-btn').disabled = !(action && action.type.indexOf('source-') === 0);
     byId('run-profile-action-btn').disabled = !(action && action.type.indexOf('profile-') === 0);
+    byId('run-uninstall-btn').disabled = !(action && action.type === 'uninstall');
   }
   function showError(err) {
     byId('errors').innerHTML = '<div class="error">' + esc(err.message || err) + '</div>';
@@ -444,13 +446,18 @@ td.wrap { overflow-wrap: anywhere; }
     byId('skills-table').innerHTML = table(['Skill', 'Source', 'Collection', 'Version', 'Description'], rows, 'Search or refresh to load indexed skills.');
   }
   function renderInstalls() {
-    var rows = state.installs.map(function (item) {
+    var rows = state.installs.map(function (item, idx) {
+      var target = item.source_qualified_name || item.qualified_name || item.skill_id;
       return '<tr><td class="wrap mono">' + esc(item.project_path) + '</td><td>' + esc(item.scope) +
         '</td><td>' + esc(item.agent) + '</td><td>' + esc(item.profile || '') +
-        '</td><td>' + esc(item.source_qualified_name || item.qualified_name || item.skill_id) +
-        '</td><td>' + esc(item.version || '') + '</td></tr>';
+        '</td><td>' + esc(target) +
+        '</td><td>' + esc(item.version || '') +
+        '</td><td><button class="danger" data-uninstall-idx="' + idx + '">Plan uninstall</button></td></tr>';
     });
-    byId('install-map-table').innerHTML = table(['Project', 'Scope', 'Agent', 'Profile', 'Skill', 'Version'], rows, 'No agent-attributed install records found.');
+    byId('install-map-table').innerHTML = table(['Project', 'Scope', 'Agent', 'Profile', 'Skill', 'Version', ''], rows, 'No agent-attributed install records found.');
+    byId('install-map-table').querySelectorAll('button[data-uninstall-idx]').forEach(function (btn) {
+      btn.addEventListener('click', function () { planUninstall(Number(btn.getAttribute('data-uninstall-idx'))); });
+    });
   }
   function renderDrift() {
     var rows = state.drift.map(function (group, idx) {
@@ -614,10 +621,40 @@ td.wrap { overflow-wrap: anywhere; }
       })
       .catch(showError);
   }
+  function planUninstall(idx) {
+    clearError();
+    var item = state.installs[idx];
+    if (!item) return;
+    var target = item.source_qualified_name || item.qualified_name || item.skill_id;
+    var payload = {
+      skills: [target],
+      agent: item.agent || byId('agent-input').value.trim(),
+      scope: item.scope || byId('scope-input').value
+    };
+    postJSON('/api/uninstall/plan', payload)
+      .then(function (plan) {
+        setPendingAction({ type: 'uninstall', payload: payload });
+        byId('plan-output').textContent = JSON.stringify(plan, null, 2);
+      })
+      .catch(showError);
+  }
   function applyProfile() {
     if (!state.pendingAction || state.pendingAction.type !== 'profile') return;
     if (!window.confirm('Apply this profile to the current project?')) return;
     postJSON('/api/profiles/' + encodeURIComponent(state.pendingAction.name) + '/apply', { confirm: true })
+      .then(function (result) {
+        byId('plan-output').textContent = JSON.stringify(result, null, 2);
+        setPendingAction(null);
+        loadAll();
+      })
+      .catch(showError);
+  }
+  function runUninstall() {
+    var action = state.pendingAction;
+    if (!action || action.type !== 'uninstall') return;
+    if (!window.confirm('Run uninstall for the selected skill?')) return;
+    var payload = Object.assign({ confirm: true }, action.payload || {});
+    postJSON('/api/uninstall/run', payload)
       .then(function (result) {
         byId('plan-output').textContent = JSON.stringify(result, null, 2);
         setPendingAction(null);
@@ -695,6 +732,7 @@ td.wrap { overflow-wrap: anywhere; }
   byId('run-update-btn').addEventListener('click', runUpdate);
   byId('run-source-action-btn').addEventListener('click', runSourceAction);
   byId('run-profile-action-btn').addEventListener('click', runProfileAction);
+  byId('run-uninstall-btn').addEventListener('click', runUninstall);
   setPendingAction(null);
   loadAll();
 })();

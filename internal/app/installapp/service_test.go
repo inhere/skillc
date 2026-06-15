@@ -370,6 +370,68 @@ func TestService_UninstallProjectScopeDoesNotTouchOtherProjectKeys(t *testing.T)
 	assert.Eq(t, []string{"claude-code"}, locks[projectBKey][0].Agents)
 }
 
+func TestService_PlanUninstallReportsInstalledTargets(t *testing.T) {
+	baseDir := t.TempDir()
+	lockFile := filepath.Join(baseDir, "skillc-install.lock")
+	sourceDir := createSkillSource(t, baseDir, filepath.Join("source", "go-pro"), "SKILL.md", "# Go Pro")
+	service := NewService(lockFile)
+	config := testConfig(baseDir)
+	item := testSkill(sourceDir, "go-pro", "gstack/tools/go-pro", "gstack")
+	projectKey, err := resolveScopeKey(agent.ScopeProject, baseDir)
+	assert.NoErr(t, err)
+	targetRoot, err := agent.ResolveInstallPath(config, baseDir, "claude-code", agent.ScopeProject)
+	assert.NoErr(t, err)
+	_, err = service.WithRuntime(config, baseDir).Install(item, "claude-code", agent.ScopeProject, projectKey, targetRoot)
+	assert.NoErr(t, err)
+
+	plan, err := service.WithRuntime(config, baseDir).PlanUninstall(UninstallReq{
+		Skills:  []string{"gstack/tools/go-pro"},
+		Agent:   "claude-code",
+		Scope:   "project",
+		WorkDir: baseDir,
+	})
+
+	assert.NoErr(t, err)
+	assert.Eq(t, "claude-code", plan.Agent)
+	assert.Eq(t, "project", plan.Scope)
+	assert.Len(t, plan.Items, 1)
+	assert.Eq(t, "remove_record", plan.Items[0].Action)
+	assert.Eq(t, "go-pro", plan.Items[0].SkillID)
+	assert.Eq(t, "gstack", plan.Items[0].SourceID)
+	assert.Eq(t, "1.0.0", plan.Items[0].Version)
+	assert.Eq(t, filepath.Join(baseDir, ".claude", "skills", "go-pro"), plan.Items[0].InstalledPath)
+}
+
+func TestService_RunUninstallReturnsRemovedTargets(t *testing.T) {
+	baseDir := t.TempDir()
+	lockFile := filepath.Join(baseDir, "skillc-install.lock")
+	sourceDir := createSkillSource(t, baseDir, filepath.Join("source", "go-pro"), "SKILL.md", "# Go Pro")
+	service := NewService(lockFile)
+	config := testConfig(baseDir)
+	item := testSkill(sourceDir, "go-pro", "gstack/tools/go-pro", "gstack")
+	_, err := service.RunResolved(config, InstallReq{
+		Agent:   "claude-code",
+		Scope:   "project",
+		WorkDir: baseDir,
+	}, []skill.Skill{item}, nil)
+	assert.NoErr(t, err)
+
+	result, err := service.WithRuntime(config, baseDir).RunUninstall(UninstallReq{
+		Skills:  []string{"go-pro"},
+		Agent:   "claude-code",
+		Scope:   "project",
+		WorkDir: baseDir,
+	})
+
+	assert.NoErr(t, err)
+	assert.Len(t, result.Removed, 1)
+	assert.Eq(t, "go-pro", result.Removed[0].SkillID)
+	_, err = os.Stat(filepath.Join(baseDir, ".claude", "skills", "go-pro"))
+	assert.True(t, os.IsNotExist(err))
+	locks := mustLoadLockFile(t, service, lockFile)
+	assert.Len(t, locks, 0)
+}
+
 func testConfig(baseDir string) cfg.Config {
 	return cfg.Config{
 		AgentTools: map[string]cfg.AgentToolConfig{

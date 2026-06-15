@@ -72,6 +72,8 @@ func (s *ManagerServer) Handler() http.Handler {
 	mux.HandleFunc("/api/profiles/from-installed/run", s.handleProfileFromInstalledRun)
 	mux.HandleFunc("/api/profiles/from-collection/plan", s.handleProfileFromCollectionPlan)
 	mux.HandleFunc("/api/profiles/from-collection/run", s.handleProfileFromCollectionRun)
+	mux.HandleFunc("/api/uninstall/plan", s.handleUninstallPlan)
+	mux.HandleFunc("/api/uninstall/run", s.handleUninstallRun)
 	mux.HandleFunc("/api/update/plan", s.handleUpdatePlan)
 	mux.HandleFunc("/api/update/run", s.handleUpdateRun)
 	mux.HandleFunc("/api/sources/add/plan", s.handleSourceAddPlan)
@@ -375,6 +377,30 @@ func (s *ManagerServer) handleProfileFromCollectionRun(w http.ResponseWriter, r 
 	writeResult(w, result, err)
 }
 
+func (s *ManagerServer) handleUninstallPlan(w http.ResponseWriter, r *http.Request) {
+	if !allowMethod(w, r, http.MethodPost) {
+		return
+	}
+	req, ok := readJSONReq[uninstallActionReq](w, r)
+	if !ok {
+		return
+	}
+	result, err := s.manager.PlanUninstall(req)
+	writeResult(w, result, err)
+}
+
+func (s *ManagerServer) handleUninstallRun(w http.ResponseWriter, r *http.Request) {
+	if !allowMethod(w, r, http.MethodPost) {
+		return
+	}
+	req, ok := requireConfirmedUninstallReq(w, r)
+	if !ok {
+		return
+	}
+	result, err := s.manager.RunUninstall(req)
+	writeResult(w, result, err)
+}
+
 func managerReqFromQuery(r *http.Request) ManagerReq {
 	q := r.URL.Query()
 	return ManagerReq{
@@ -494,6 +520,18 @@ func requireConfirmedProfileFromCollectionReq(w http.ResponseWriter, r *http.Req
 	if !req.Confirm {
 		writeJSON(w, http.StatusBadRequest, errorResp{Error: "confirmation required"})
 		return profileFromCollectionReq{}, false
+	}
+	return req, true
+}
+
+func requireConfirmedUninstallReq(w http.ResponseWriter, r *http.Request) (uninstallActionReq, bool) {
+	req, ok := readJSONReq[uninstallActionReq](w, r)
+	if !ok {
+		return uninstallActionReq{}, false
+	}
+	if !req.Confirm {
+		writeJSON(w, http.StatusBadRequest, errorResp{Error: "confirmation required"})
+		return uninstallActionReq{}, false
 	}
 	return req, true
 }

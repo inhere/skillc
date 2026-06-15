@@ -1984,7 +1984,7 @@ git commit -m "feat(skillc): add web profile management"
 - Modify: `internal/app/webapp/manager_server_test.go`
 - Modify: `internal/app/webapp/manager_static.go`
 
-- [ ] **Step 1: Write failing installapp uninstall plan tests**
+- [x] **Step 1: Write failing installapp uninstall plan tests**
 
 Append to `internal/app/installapp/service_test.go`:
 
@@ -2030,7 +2030,7 @@ func TestService_RunUninstallReturnsRemovedItems(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run:
 
@@ -2040,7 +2040,7 @@ go test ./internal/app/installapp -run 'TestService_(PlanUninstall|RunUninstall)
 
 Expected: FAIL because `UninstallReq`, `PlanUninstall`, and `RunUninstall` are not defined.
 
-- [ ] **Step 3: Implement uninstall plan/result in installapp**
+- [x] **Step 3: Implement uninstall plan/result in installapp**
 
 Add types to `service.go`:
 
@@ -2155,7 +2155,7 @@ func (s *Service) RunUninstall(req UninstallReq) (UninstallResult, error) {
 }
 ```
 
-- [ ] **Step 4: Run installapp uninstall tests**
+- [x] **Step 4: Run installapp uninstall tests**
 
 Run:
 
@@ -2165,7 +2165,7 @@ go test ./internal/app/installapp -run 'TestService_(PlanUninstall|RunUninstall)
 
 Expected: PASS.
 
-- [ ] **Step 5: Add Web uninstall manager tests and service**
+- [x] **Step 5: Add Web uninstall manager tests and service**
 
 Create `manager_uninstall_actions_test.go`:
 
@@ -2258,7 +2258,7 @@ go test ./internal/app/webapp -run 'TestManager_PlanUninstall' -v
 
 Expected: PASS.
 
-- [ ] **Step 6: Add uninstall HTTP endpoints and UI**
+- [x] **Step 6: Add uninstall HTTP endpoints and UI**
 
 Add routes:
 
@@ -2303,7 +2303,7 @@ esc(item.source_qualified_name || item.qualified_name || item.skill_id) + '">Pla
 
 Add functions `planUninstall(skill)` and `runUninstall()` using `/api/uninstall/plan` and `/api/uninstall/run`, and extend `setPendingAction()` for action type `uninstall`.
 
-- [ ] **Step 7: Run uninstall tests**
+- [x] **Step 7: Run uninstall tests**
 
 Run:
 
@@ -2314,7 +2314,7 @@ go test ./internal/app/webapp -run 'TestManager(Server)?Uninstall' -v
 
 Expected: PASS.
 
-- [ ] **Step 8: Commit Web uninstall**
+- [x] **Step 8: Commit Web uninstall**
 
 Run:
 

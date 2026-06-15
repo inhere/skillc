@@ -11,6 +11,7 @@
 | 2026-06-14 | v0.7 | Codex | 增加 Phase 2 status/update-check 实施计划链接，并收窄本期实现边界 |
 | 2026-06-14 | v0.8 | Codex | 增加 Phase 3 interactive selection 实施计划链接，并明确交互式 TUI 基于 `gookit/cliui` |
 | 2026-06-15 | v0.9 | Codex | 记录 Phase 3 已落地 install/update/profile create 交互式选择入口 |
+| 2026-06-15 | v0.10 | Codex | 增加 Phase 4 Web 管理实施计划链接，并将下一步建议更新为 Web 管理 MVP |
 
 状态：Draft
 
@@ -21,6 +22,7 @@
 - `docs/superpowers/plans/2026-06-13-skillc-v0-phase1-profile.md`
 - `docs/superpowers/plans/2026-06-14-skillc-v0-phase2-status-update-check.md`
 - `docs/superpowers/plans/2026-06-14-skillc-v0-phase3-interactive-selection.md`
+- `docs/superpowers/plans/2026-06-15-skillc-v0-phase4-web-management.md`
 - `docs/prd.md`
 - `docs/arch.md`
 - `docs/plan.md`
@@ -34,6 +36,10 @@
 三期开发计划：`docs/superpowers/plans/2026-06-14-skillc-v0-phase3-interactive-selection.md`
 
 三期状态：`install --interactive [keyword]`、`update --interactive`、`profile create <name> --interactive` 已落地。交互入口通过 `internal/infra/termselect` 作为 `gookit/cliui` 薄 adapter，CLI 层使用 fake selector 注入完成测试，业务执行仍复用现有 app service。
+
+四期开发计划：`docs/superpowers/plans/2026-06-15-skillc-v0-phase4-web-management.md`
+
+四期目标：新增 `skillc web` 本地管理入口，第一轮重点是 source/profile/status/install-map/version-drift 的关系查看和 plan-first 预览；Web 直接执行安装、更新、删除等写操作留到后续小阶段。
 
 ## 1. 设计结论
 
@@ -870,20 +876,23 @@ internal/infra/termselect/
 
 目标：提供本地管理 UI，重点解决 CLI 不方便查看和配置的关系型信息。
 
+实施计划：`docs/superpowers/plans/2026-06-15-skillc-v0-phase4-web-management.md`
+
 任务：
 
 - 新增 `skillc web`。
-- 提供 source/collection/skill/profile/status/install-map/version-drift API。
+- 提供 source/collection/skill/profile/status/install-map/version-drift 查询 API。
+- 从现有 lock 记录构建轻量 project install map，不在 v0 第一轮引入数据库。
 - 复用 profile apply plan。
-- 写操作全部走 plan + confirm。
+- 第一轮 Web 写入口只返回 plan，不直接执行安装、更新或删除；执行能力放到后续小阶段。
 - 将现有 skill viewer 纳入 skill detail 页面。
 
 验收：
 
 - Web 可查看 source、collection、profile 和 skill 安装分布。
-- Web 可查看跨项目版本差异并触发一键更新计划。
+- Web 可查看基于 lock/index 的跨项目版本差异，并生成一键更新计划预览。
 - Web 可 dry-run apply profile。
-- Web 的安装结果与 CLI 一致。
+- Web 不绕过 CLI/app service 的业务规则；后续执行能力必须复用同一套 app service。
 
 ## 11. 风险与取舍
 
@@ -966,18 +975,19 @@ v0 增强重构完成后，应满足：
 
 ## 13. 下一步建议
 
-Phase 1 的 profile 最小闭环已经完成。下一步建议进入 Phase 2 第一轮实现：`status` + `update --check`。
+Phase 1/2/3 已经完成：profile 最小闭环、当前项目 status/update check、以及基于 `gookit/cliui` 的交互式选择都已落地。下一步建议进入 Phase 4 第一轮实现：Web 管理 MVP。
 
-实施计划见：`docs/superpowers/plans/2026-06-14-skillc-v0-phase2-status-update-check.md`
+实施计划见：`docs/superpowers/plans/2026-06-15-skillc-v0-phase4-web-management.md`
 
-本阶段应保持只读检查优先：
+本阶段应保持“关系查看 + plan-first”优先：
 
-- 先新增 `statusapp`，统一输出当前项目的 installed/missing/outdated/orphan/unmanaged/source-error。
-- 再让 `status` 和 `update --check` 复用同一套查询结果。
-- `update --check` 不修改安装目录和 lock，只允许按需同步 source/index。
-- checksum、Git commit drift、跨项目安装分布、Web 管理继续后置。
+- 先新增 Web 管理查询层，复用现有 source/profile/search/status/update 服务，不在 HTTP handler 中复制业务规则。
+- 从 lock 记录构建轻量 install map，先回答“skill/profile 安装到了哪些项目、哪些 agent/scope”。
+- 基于 lock/index 生成 version drift 视图，先展示差异和更新计划，不直接执行跨项目更新。
+- 新增 `skillc web` 本地入口，默认监听 `127.0.0.1`。
+- Web 写操作第一轮只返回 plan；安装、更新、卸载、source 删除等执行能力放到后续小阶段，并继续复用 app service。
 
-这一步能验证 profile 之后的状态查询模型，并为后续 Web、跨项目版本差异和一键更新打基础。
+这一步能验证 Web 的核心价值：把 CLI 不方便查看的 source/profile/project/version 关系展示清楚，并为后续 Web 执行、跨项目一键更新、操作日志和 drift/audit 打基础。
 
 ## 14. 参考项目复审补充
 

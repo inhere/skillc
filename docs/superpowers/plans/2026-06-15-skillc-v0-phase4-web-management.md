@@ -904,7 +904,7 @@ git commit -m "docs: add skillc phase 4 web plan"
 **Files:**
 - Modify: `docs/superpowers/plans/2026-06-15-skillc-v0-phase4-web-management.md`
 
-- [ ] **Step 1: Run focused tests**
+- [x] **Step 1: Run focused tests**
 
 Run:
 
@@ -914,7 +914,7 @@ go test ./internal/app/webapp ./internal/cli -count=1
 
 Expected: PASS.
 
-- [ ] **Step 2: Run full test suite**
+- [x] **Step 2: Run full test suite**
 
 Run:
 
@@ -924,7 +924,7 @@ go test ./...
 
 Expected: PASS.
 
-- [ ] **Step 3: Run docs sanity check**
+- [x] **Step 3: Run docs sanity check**
 
 Run:
 
@@ -934,7 +934,7 @@ rg -n -- "Phase 4|四期|skillc web|web manager|install map|version drift|Web �
 
 Expected: docs contain Phase 4 references and do not claim Web execution support before it exists.
 
-- [ ] **Step 4: Manual smoke test**
+- [x] **Step 4: Manual smoke test**
 
 Run:
 
@@ -958,7 +958,7 @@ Expected:
 
 Stop the server before committing final plan completion.
 
-- [ ] **Step 5: Update final verification note**
+- [x] **Step 5: Update final verification note**
 
 Append after replacing the date with the actual verification date:
 
@@ -966,25 +966,27 @@ Append after replacing the date with the actual verification date:
 **Verification note (2026-06-15):** `go test ./internal/app/webapp ./internal/cli -count=1` and `go test ./...` pass. Manual smoke test of `skillc web --port 18080` confirms the local page and JSON APIs load.
 ```
 
-- [ ] **Step 6: Commit final checkbox updates**
+- [x] **Step 6: Commit final checkbox updates**
 
 ```bash
 git add docs/superpowers/plans/2026-06-15-skillc-v0-phase4-web-management.md
 git commit -m "docs: complete skillc phase 4 web plan review"
 ```
 
+**Verification note (2026-06-15):** `go test ./internal/app/webapp ./internal/cli -count=1`, `go test ./...`, `rg -n -- "Phase 4|四期|skillc web|web manager|install map|version drift|Web 管理" README.md README.zh-CN.md docs/TODO.md docs/design/skillc-v0-enhance-design.md docs/superpowers/plans/2026-06-15-skillc-v0-phase4-web-management.md`, and `git diff --check` pass. Manual smoke test on `skillc web --port 18080` using a temporary built binary confirms `/`, `/api/summary`, `/api/install-map`, and `/api/version-drift` load; the server process was stopped after verification.
+
 ## Self-Review Checklist
 
-- [ ] Web management is a local operational UI, not a landing page.
-- [ ] API handlers delegate to app services and do not duplicate install/update/profile rules.
-- [ ] First Web slice is plan-first and does not execute writes directly.
-- [ ] `show --web` skill viewer remains compatible.
-- [ ] Install map is derived from lock records and does not require a DB.
-- [ ] Version drift grouping uses stable skill identity and does not merge same IDs from unrelated sources.
-- [ ] Web UI uses no external CDN/assets.
-- [ ] Web defaults to `127.0.0.1`.
-- [ ] Go tests cover service, API and CLI command registration.
-- [ ] `go test ./...` passes before marking the plan complete.
+- [x] Web management is a local operational UI, not a landing page.
+- [x] API handlers delegate to app services and do not duplicate install/update/profile rules.
+- [x] First Web slice is plan-first and does not execute writes directly.
+- [x] `show --web` skill viewer remains compatible.
+- [x] Install map is derived from lock records and does not require a DB.
+- [x] Version drift grouping uses stable skill identity and does not merge same IDs from unrelated sources.
+- [x] Web UI uses no external CDN/assets.
+- [x] Web defaults to `127.0.0.1`.
+- [x] Go tests cover service, API and CLI command registration.
+- [x] `go test ./...` passes before marking the plan complete.
 
 ## Acceptance Criteria
 

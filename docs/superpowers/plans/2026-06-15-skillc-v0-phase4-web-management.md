@@ -638,7 +638,7 @@ git commit -m "feat(web): add management API server"
 - Modify: `internal/app/webapp/manager_server.go`
 - Modify: `internal/app/webapp/manager_server_test.go`
 
-- [ ] **Step 1: Add failing static page tests**
+- [x] **Step 1: Add failing static page tests**
 
 Add tests:
 
@@ -657,7 +657,7 @@ assert.NotContains(t, body, "https://")
 assert.NotContains(t, body, "http://")
 ```
 
-- [ ] **Step 2: Run static page tests to verify failure**
+- [x] **Step 2: Run static page tests to verify failure**
 
 Run:
 
@@ -667,7 +667,7 @@ go test ./internal/app/webapp -run 'TestManagerServerIndexPage|TestManagerServer
 
 Expected: FAIL until the page exists.
 
-- [ ] **Step 3: Implement single-page UI**
+- [x] **Step 3: Implement single-page UI**
 
 Create `internal/app/webapp/manager_static.go`:
 
@@ -716,11 +716,11 @@ Client behavior:
 - Profile row has a `Plan` button that calls `/api/profiles/<name>/plan` and renders returned plan.
 - Version Drift row has a `Plan update` button that calls `/api/update/plan`.
 
-- [ ] **Step 4: Wire page handler**
+- [x] **Step 4: Wire page handler**
 
 In `ManagerServer.Handler()`, route `/` to `managerHTML` with `Content-Type: text/html; charset=utf-8`.
 
-- [ ] **Step 5: Run static page tests**
+- [x] **Step 5: Run static page tests**
 
 Run:
 
@@ -730,12 +730,14 @@ go test ./internal/app/webapp -run 'TestManagerServerIndexPage|TestManagerServer
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add internal/app/webapp/manager_static.go internal/app/webapp/manager_server.go internal/app/webapp/manager_server_test.go
 git commit -m "feat(web): add management UI shell"
 ```
+
+**Verification note (2026-06-15):** `go test ./internal/app/webapp -run 'TestManagerServerIndexPage|TestManagerServerStaticPage' -count=1` and `go test ./internal/app/webapp -count=1` pass. The management page is a self-contained operational UI with Dashboard, Sources, Profiles, Skills, Projects and Version Drift views, no external assets, and plan-only profile/update actions.
 
 ## Task 5: Add `skillc web` CLI
 

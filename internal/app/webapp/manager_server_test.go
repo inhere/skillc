@@ -85,6 +85,36 @@ func TestManagerServerRejectsInvalidMethods(t *testing.T) {
 	}
 }
 
+func TestManagerServerIndexPageContainsAppShell(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile, _ := writeWebManagerFixture(t, baseDir)
+	server := NewManagerServer(configFile, baseDir)
+
+	rec := performManagerRequest(server, http.MethodGet, "/")
+	body := rec.Body.String()
+
+	assert.Eq(t, http.StatusOK, rec.Code)
+	assert.Contains(t, rec.Header().Get("Content-Type"), "text/html")
+	assert.Contains(t, body, "Skillc")
+	assert.Contains(t, body, "Dashboard")
+	assert.Contains(t, body, "Sources")
+	assert.Contains(t, body, "Profiles")
+	assert.Contains(t, body, "Version Drift")
+}
+
+func TestManagerServerStaticPageDoesNotUseExternalAssets(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile, _ := writeWebManagerFixture(t, baseDir)
+	server := NewManagerServer(configFile, baseDir)
+
+	rec := performManagerRequest(server, http.MethodGet, "/")
+	body := rec.Body.String()
+
+	assert.Eq(t, http.StatusOK, rec.Code)
+	assert.NotContains(t, body, "https://")
+	assert.NotContains(t, body, "http://")
+}
+
 func performManagerRequest(server *ManagerServer, method string, path string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(method, path, nil)
 	rec := httptest.NewRecorder()

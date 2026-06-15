@@ -66,7 +66,7 @@ func (s *ManagerServer) handleIndex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = w.Write([]byte("Skillc Web Manager"))
+	_, _ = w.Write([]byte(managerHTML))
 }
 
 func (s *ManagerServer) handleSummary(w http.ResponseWriter, r *http.Request) {

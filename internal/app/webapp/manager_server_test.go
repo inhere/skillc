@@ -277,6 +277,35 @@ func TestManagerServerUninstallRunRequiresConfirmation(t *testing.T) {
 	assert.Contains(t, rec.Body.String(), `"confirmation required"`)
 }
 
+func TestManagerServerHistoryEndpointReturnsRecords(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := writeWebActionFixture(t, baseDir)
+	server := NewManagerServer(configFile, baseDir)
+	assert.NoErr(t, newHistoryStore(server.manager.historyFile()).Append(HistoryRecord{Action: "source.add", Status: "ok"}))
+
+	rec := performManagerRequest(server, http.MethodGet, "/api/history")
+
+	assert.Eq(t, http.StatusOK, rec.Code)
+	assert.Contains(t, rec.Body.String(), `"action":"source.add"`)
+}
+
+func TestManagerServerRunEndpointRecordsHistory(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := writeWebActionFixture(t, baseDir)
+	server := NewManagerServer(configFile, baseDir)
+
+	rec := performManagerRequestWithBody(server, http.MethodPost, "/api/update/run?agent=universal&scope=project", strings.NewReader(`{"confirm":true,"target":"go-pro"}`))
+
+	assert.Eq(t, http.StatusOK, rec.Code)
+	items, err := newHistoryStore(server.manager.historyFile()).List(10)
+	assert.NoErr(t, err)
+	assert.Len(t, items, 1)
+	assert.Eq(t, "update.run", items[0].Action)
+	assert.Eq(t, "universal", items[0].Agent)
+	assert.Eq(t, "project", items[0].Scope)
+	assert.Eq(t, "ok", items[0].Status)
+}
+
 func TestManagerServerRejectsInvalidProfileActionPath(t *testing.T) {
 	baseDir := t.TempDir()
 	configFile := writeWebActionFixture(t, baseDir)
@@ -417,6 +446,20 @@ func TestManagerServerStaticPageContainsUninstallControls(t *testing.T) {
 	assert.Contains(t, body, "/api/uninstall/plan")
 	assert.Contains(t, body, "/api/uninstall/run")
 	assert.Contains(t, body, `id="run-uninstall-btn"`)
+}
+
+func TestManagerServerStaticPageContainsHistoryView(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile, _ := writeWebManagerFixture(t, baseDir)
+	server := NewManagerServer(configFile, baseDir)
+
+	rec := performManagerRequest(server, http.MethodGet, "/")
+	body := rec.Body.String()
+
+	assert.Eq(t, http.StatusOK, rec.Code)
+	assert.Contains(t, body, `data-view="history"`)
+	assert.Contains(t, body, "/api/history")
+	assert.Contains(t, body, `id="history-table"`)
 }
 
 func TestManagerServerStaticPageDoesNotUseExternalAssets(t *testing.T) {

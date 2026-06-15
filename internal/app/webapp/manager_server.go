@@ -65,6 +65,7 @@ func (s *ManagerServer) Handler() http.Handler {
 	mux.HandleFunc("/api/status", s.handleStatus)
 	mux.HandleFunc("/api/install-map", s.handleInstallMap)
 	mux.HandleFunc("/api/version-drift", s.handleVersionDrift)
+	mux.HandleFunc("/api/history", s.handleHistory)
 	mux.HandleFunc("/api/profiles/", s.handleProfileAction)
 	mux.HandleFunc("/api/profiles/save/plan", s.handleProfileSavePlan)
 	mux.HandleFunc("/api/profiles/save/run", s.handleProfileSaveRun)
@@ -196,6 +197,7 @@ func (s *ManagerServer) handleProfileAction(w http.ResponseWriter, r *http.Reque
 			return
 		}
 		result, err := s.manager.ApplyProfile(action.Name, managerReqFromQuery(r))
+		s.recordHistory(r, "profile.apply", map[string]string{"name": action.Name}, result, err)
 		writeResult(w, result, err)
 	default:
 		http.NotFound(w, r)
@@ -230,6 +232,7 @@ func (s *ManagerServer) handleUpdateRun(w http.ResponseWriter, r *http.Request) 
 	}
 	req := managerReqFromQuery(r)
 	result, err := s.manager.RunUpdate(WebUpdateReq{ManagerReq: req, Target: body.Target})
+	s.recordHistory(r, "update.run", WebUpdateReq{ManagerReq: req, Target: body.Target}, result, err)
 	writeResult(w, result, err)
 }
 
@@ -254,6 +257,7 @@ func (s *ManagerServer) handleSourceAddRun(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	result, err := s.manager.RunSourceAdd(req)
+	s.recordHistory(r, "source.add", req, result, err)
 	writeResult(w, result, err)
 }
 
@@ -278,6 +282,7 @@ func (s *ManagerServer) handleSourceSyncRun(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	result, err := s.manager.RunSourceSync(req)
+	s.recordHistory(r, "source.sync", req, result, err)
 	writeResult(w, result, err)
 }
 
@@ -302,6 +307,15 @@ func (s *ManagerServer) handleSourceRemoveRun(w http.ResponseWriter, r *http.Req
 		return
 	}
 	result, err := s.manager.RunSourceRemove(req)
+	s.recordHistory(r, "source.remove", req, result, err)
+	writeResult(w, result, err)
+}
+
+func (s *ManagerServer) handleHistory(w http.ResponseWriter, r *http.Request) {
+	if !allowMethod(w, r, http.MethodGet) {
+		return
+	}
+	result, err := s.manager.History(100)
 	writeResult(w, result, err)
 }
 
@@ -326,6 +340,7 @@ func (s *ManagerServer) handleProfileSaveRun(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	result, err := s.manager.RunProfileSave(req)
+	s.recordHistory(r, "profile.save", req, result, err)
 	writeResult(w, result, err)
 }
 
@@ -350,6 +365,7 @@ func (s *ManagerServer) handleProfileFromInstalledRun(w http.ResponseWriter, r *
 		return
 	}
 	result, err := s.manager.RunProfileFromInstalled(req)
+	s.recordHistory(r, "profile.from_installed", req, result, err)
 	writeResult(w, result, err)
 }
 
@@ -374,6 +390,7 @@ func (s *ManagerServer) handleProfileFromCollectionRun(w http.ResponseWriter, r 
 		return
 	}
 	result, err := s.manager.RunProfileFromCollection(req)
+	s.recordHistory(r, "profile.from_collection", req, result, err)
 	writeResult(w, result, err)
 }
 
@@ -398,7 +415,47 @@ func (s *ManagerServer) handleUninstallRun(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	result, err := s.manager.RunUninstall(req)
+	s.recordHistory(r, "uninstall.run", req, result, err)
 	writeResult(w, result, err)
+}
+
+func (s *ManagerServer) recordHistory(r *http.Request, action string, req any, result any, err error) {
+	status := "ok"
+	errMsg := resultErrorMessage(result)
+	if err != nil {
+		status = "error"
+		errMsg = err.Error()
+	} else if errMsg != "" {
+		status = "error"
+	}
+	managerReq := managerReqFromQuery(r)
+	_ = newHistoryStore(s.manager.historyFile()).Append(HistoryRecord{
+		Action:  action,
+		Agent:   managerReq.Agent,
+		Scope:   managerReq.Scope,
+		WorkDir: managerReq.WorkDir,
+		Status:  status,
+		Request: req,
+		Result:  result,
+		Error:   errMsg,
+	})
+}
+
+func resultErrorMessage(result any) string {
+	switch item := result.(type) {
+	case profileApplyActionResult:
+		return item.Error
+	case updateRunActionResult:
+		return item.Error
+	case sourceActionResult:
+		return item.Error
+	case profileSaveResult:
+		return item.Error
+	case uninstallActionResult:
+		return item.Error
+	default:
+		return ""
+	}
 }
 
 func managerReqFromQuery(r *http.Request) ManagerReq {

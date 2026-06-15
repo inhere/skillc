@@ -188,6 +188,7 @@ td.wrap { overflow-wrap: anywhere; }
       <button data-view="skills">Skills</button>
       <button data-view="projects">Projects</button>
       <button data-view="drift">Version Drift</button>
+      <button data-view="history">History</button>
     </nav>
     <div class="sidebar-foot">Plan-first management with guarded current-project execution.</div>
   </aside>
@@ -285,6 +286,11 @@ td.wrap { overflow-wrap: anywhere; }
         <div id="drift-table"></div>
       </section>
 
+      <section id="view-history" class="view">
+        <div class="section-head"><h3>History</h3><span class="hint">Last 100 Web write actions</span></div>
+        <div id="history-table"></div>
+      </section>
+
       <section class="section">
         <div class="section-head">
           <h3>Plan Output</h3>
@@ -311,6 +317,7 @@ td.wrap { overflow-wrap: anywhere; }
     installs: [],
     drift: [],
     skills: [],
+    history: [],
     pendingAction: null
   };
 
@@ -473,6 +480,14 @@ td.wrap { overflow-wrap: anywhere; }
       btn.addEventListener('click', planUpdate);
     });
   }
+  function renderHistory() {
+    var rows = state.history.map(function (item) {
+      return '<tr><td>' + esc(item.time) + '</td><td>' + esc(item.action) +
+        '</td><td>' + esc(item.status) + '</td><td>' + esc(item.agent || '') +
+        '</td><td>' + esc(item.scope || '') + '</td><td class="wrap">' + esc(item.error || '') + '</td></tr>';
+    });
+    byId('history-table').innerHTML = table(['Time', 'Action', 'Status', 'Agent', 'Scope', 'Error'], rows, 'No Web write actions recorded.');
+  }
   function renderAll() {
     renderMetrics();
     renderStatus();
@@ -481,6 +496,7 @@ td.wrap { overflow-wrap: anywhere; }
     renderSkills();
     renderInstalls();
     renderDrift();
+    renderHistory();
   }
   function loadAll() {
     clearError();
@@ -491,7 +507,8 @@ td.wrap { overflow-wrap: anywhere; }
       api('/api/status'),
       api('/api/install-map'),
       api('/api/version-drift'),
-      api('/api/skills')
+      api('/api/skills'),
+      api('/api/history')
     ]).then(function (all) {
       state.summary = all[0];
       state.sources = all[1] || [];
@@ -500,6 +517,7 @@ td.wrap { overflow-wrap: anywhere; }
       state.installs = all[4] || [];
       state.drift = all[5] || [];
       state.skills = all[6] || [];
+      state.history = all[7] || [];
       renderAll();
     }).catch(showError);
   }

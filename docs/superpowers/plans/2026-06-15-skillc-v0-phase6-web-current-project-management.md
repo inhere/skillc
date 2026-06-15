@@ -2333,7 +2333,7 @@ git commit -m "feat(skillc): add web uninstall planning"
 - Modify: `internal/app/webapp/manager_server_test.go`
 - Modify: `internal/app/webapp/manager_static.go`
 
-- [ ] **Step 1: Write failing history store tests**
+- [x] **Step 1: Write failing history store tests**
 
 Create `history_test.go`:
 
@@ -2364,7 +2364,7 @@ func TestHistoryStoreAppendAndListRecent(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run:
 
@@ -2374,7 +2374,7 @@ go test ./internal/app/webapp -run TestHistoryStoreAppendAndListRecent -v
 
 Expected: FAIL because `newHistoryStore` and `HistoryRecord` are not defined.
 
-- [ ] **Step 3: Implement JSONL history store**
+- [x] **Step 3: Implement JSONL history store**
 
 Create `history.go`:
 
@@ -2465,7 +2465,7 @@ func (s *historyStore) List(limit int) ([]HistoryRecord, error) {
 }
 ```
 
-- [ ] **Step 4: Add manager history path and server integration**
+- [x] **Step 4: Add manager history path and server integration**
 
 Add to `manager.go`:
 
@@ -2519,7 +2519,7 @@ Register route:
 mux.HandleFunc("/api/history", s.handleHistory)
 ```
 
-- [ ] **Step 5: Add history endpoint tests**
+- [x] **Step 5: Add history endpoint tests**
 
 Append to `manager_server_test.go`:
 
@@ -2545,7 +2545,7 @@ go test ./internal/app/webapp -run 'TestHistoryStore|TestManagerServerHistory' -
 
 Expected: PASS.
 
-- [ ] **Step 6: Add History view to static page**
+- [x] **Step 6: Add History view to static page**
 
 Add nav button:
 
@@ -2585,7 +2585,7 @@ function renderHistory() {
 
 Call `renderHistory()` from `renderAll()`.
 
-- [ ] **Step 7: Commit history support**
+- [x] **Step 7: Commit history support**
 
 Run:
 

@@ -2,6 +2,7 @@ package webapp
 
 import (
 	"os"
+	"path/filepath"
 
 	"github.com/inhere/skillc/internal/app/configapp"
 	"github.com/inhere/skillc/internal/app/profileapp"
@@ -142,6 +143,14 @@ func (m *Manager) PlanProfileApply(name string, req ManagerReq) (profile.ApplyPl
 		Scope:   req.Scope,
 		WorkDir: req.WorkDir,
 	})
+}
+
+func (m *Manager) History(limit int) ([]HistoryRecord, error) {
+	return newHistoryStore(m.historyFile()).List(limit)
+}
+
+func (m *Manager) historyFile() string {
+	return filepath.Join(filepath.Dir(m.configFile), "skillc-web-history.jsonl")
 }
 
 func (m *Manager) config() (cfg.Config, error) {

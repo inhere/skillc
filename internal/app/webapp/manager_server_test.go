@@ -9,14 +9,17 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gookit/goutil/testutil/assert"
+	"github.com/gookit/goutil/x/assert"
+	cfg "github.com/inhere/skillc/internal/domain/config"
 	lockpkg "github.com/inhere/skillc/internal/domain/lock"
 	"github.com/inhere/skillc/internal/domain/profile"
 	"github.com/inhere/skillc/internal/domain/project"
+	"github.com/inhere/skillc/internal/domain/registry"
 	"github.com/inhere/skillc/internal/domain/skill"
 	sourcepkg "github.com/inhere/skillc/internal/domain/source"
 	"github.com/inhere/skillc/internal/infra/configstore"
 	"github.com/inhere/skillc/internal/infra/lockstore"
+	"github.com/inhere/skillc/internal/infra/registrystore"
 	"github.com/inhere/skillc/internal/infra/repoindex"
 )
 
@@ -86,6 +89,25 @@ func TestManagerServerStatusEndpointUsesWebJSONModel(t *testing.T) {
 	assert.Contains(t, rec.Body.String(), `"latest_source_resolved_ref":"newcommit"`)
 	assert.NotContains(t, rec.Body.String(), `"Items"`)
 	assert.NotContains(t, rec.Body.String(), `"Summary"`)
+}
+
+func TestManagerServerRegistryQueryRoutes(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile, config := writeWebManagerFixture(t, baseDir)
+	writeWebRegistryFixture(t, configFile, baseDir, config)
+	server := NewManagerServer(configFile, baseDir)
+
+	rec := performManagerRequest(server, http.MethodGet, "/api/registries")
+	assert.Eq(t, http.StatusOK, rec.Code)
+	assert.Contains(t, rec.Body.String(), `"id":"team"`)
+
+	rec = performManagerRequest(server, http.MethodGet, "/api/registry/skills?keyword=go")
+	assert.Eq(t, http.StatusOK, rec.Code)
+	assert.Contains(t, rec.Body.String(), `"id":"go-pro"`)
+
+	rec = performManagerRequest(server, http.MethodGet, "/api/registry/sources?keyword=gstack")
+	assert.Eq(t, http.StatusOK, rec.Code)
+	assert.Contains(t, rec.Body.String(), `"id":"gstack"`)
 }
 
 func TestManagerServerProfilePlanEndpoint(t *testing.T) {
@@ -561,4 +583,22 @@ func performManagerRequestWithBody(server *ManagerServer, method string, path st
 	rec := httptest.NewRecorder()
 	server.Handler().ServeHTTP(rec, req)
 	return rec
+}
+
+func writeWebRegistryFixture(t *testing.T, configFile string, baseDir string, config cfg.Config) {
+	t.Helper()
+	config.RegistryCacheDir = filepath.Join(baseDir, "cache", "registry")
+	config.Registries = []registry.Registry{{
+		ID: "team", Name: "Team", Type: registry.TypeLocal, Path: filepath.Join(baseDir, "registry.json"),
+	}}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config, baseDir))
+	assert.NoErr(t, registrystore.NewStore().SaveFile(filepath.Join(config.RegistryCacheDir, "registry-index.json"), registrystore.File{
+		Skills: []registry.SkillEntry{{
+			ID: "go-pro", Name: "Go Pro", Version: "1.0.0", RegistryID: "team",
+			SourceURL: "https://example.com/skills.git", InstallEntry: "skills/go-pro",
+		}},
+		Sources: []registry.Entry{{
+			ID: "gstack", Name: "GStack", Type: "git", URL: "https://example.com/gstack.git", RegistryID: "team",
+		}},
+	}))
 }

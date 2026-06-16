@@ -698,7 +698,7 @@ go test ./internal/app/registryapp -count=1
 
 Expected: PASS.
 
-- [ ] **Step 8: Commit materializer integration**
+- [x] **Step 8: Commit materializer integration**
 
 ```bash
 git add internal/app/registryapp/materializer.go internal/app/registryapp/materializer_test.go internal/app/registryapp/service.go internal/app/registryapp/service_test.go docs/superpowers/plans/2026-06-16-skillc-v0-phase10-web-registry-archive.md
@@ -712,7 +712,7 @@ git commit -m "feat(skillc): install registry skills from archives"
 - Modify: `internal/app/webapp/manager_server.go`
 - Modify: `internal/app/webapp/manager_server_test.go`
 
-- [ ] **Step 1: Write failing server tests for registry query routes**
+- [x] **Step 1: Write failing server tests for registry query routes**
 
 Add tests in `manager_server_test.go`:
 
@@ -758,7 +758,7 @@ func writeWebRegistryFixture(t *testing.T, configFile string, baseDir string, co
 
 Add imports for `cfg`, `registry`, and `registrystore` if they are not already present in `manager_server_test.go`.
 
-- [ ] **Step 2: Run focused test and verify failure**
+- [x] **Step 2: Run focused test and verify failure**
 
 Run:
 
@@ -768,7 +768,7 @@ go test ./internal/app/webapp -run TestManagerServer_RegistryQueryRoutes -count=
 
 Expected: FAIL or 404 for new routes.
 
-- [ ] **Step 3: Add Manager query methods**
+- [x] **Step 3: Add Manager query methods**
 
 In `manager.go`, import `registryapp`, `strings`, and `github.com/inhere/skillc/internal/domain/registry`, then add:
 
@@ -812,7 +812,7 @@ func filterRegistrySourcesByID(items []registry.Entry, registryID string) []regi
 }
 ```
 
-- [ ] **Step 4: Add HTTP routes and handlers**
+- [x] **Step 4: Add HTTP routes and handlers**
 
 In `Handler()` add:
 
@@ -850,7 +850,7 @@ func (s *ManagerServer) handleRegistrySources(w http.ResponseWriter, r *http.Req
 }
 ```
 
-- [ ] **Step 5: Run webapp query route tests**
+- [x] **Step 5: Run webapp query route tests**
 
 Run:
 

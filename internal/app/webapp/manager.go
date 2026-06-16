@@ -3,11 +3,13 @@ package webapp
 import (
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/inhere/skillc/internal/app/configapp"
 	"github.com/inhere/skillc/internal/app/profileapp"
 	"github.com/inhere/skillc/internal/app/projectapp"
 	"github.com/inhere/skillc/internal/app/projectupdateapp"
+	"github.com/inhere/skillc/internal/app/registryapp"
 	"github.com/inhere/skillc/internal/app/searchapp"
 	"github.com/inhere/skillc/internal/app/sourceapp"
 	"github.com/inhere/skillc/internal/app/statusapp"
@@ -15,6 +17,7 @@ import (
 	lockpkg "github.com/inhere/skillc/internal/domain/lock"
 	"github.com/inhere/skillc/internal/domain/profile"
 	projectpkg "github.com/inhere/skillc/internal/domain/project"
+	"github.com/inhere/skillc/internal/domain/registry"
 	"github.com/inhere/skillc/internal/domain/skill"
 	sourcepkg "github.com/inhere/skillc/internal/domain/source"
 	"github.com/inhere/skillc/internal/infra/lockstore"
@@ -106,6 +109,25 @@ func (m *Manager) Profiles() ([]profile.NamedProfile, error) {
 
 func (m *Manager) Projects() ([]projectpkg.Project, error) {
 	return projectapp.NewService(m.configFile, m.baseDir).List()
+}
+
+func (m *Manager) Registries() ([]registry.Registry, error) {
+	return registryapp.NewService(m.configFile, m.baseDir).List()
+}
+
+func (m *Manager) RegistrySkills(keyword string, registryID string) ([]registry.SkillEntry, error) {
+	return registryapp.NewService(m.configFile, m.baseDir).SearchSkills(registryapp.SearchReq{
+		Keyword:    keyword,
+		RegistryID: registryID,
+	})
+}
+
+func (m *Manager) RegistrySources(keyword string, registryID string) ([]registry.Entry, error) {
+	items, err := registryapp.NewService(m.configFile, m.baseDir).Search(keyword)
+	if err != nil {
+		return nil, err
+	}
+	return filterRegistrySourcesByID(items, registryID), nil
 }
 
 func (m *Manager) Status(req ManagerReq) (statusapp.Result, error) {
@@ -214,6 +236,20 @@ func loadIndex(path string) ([]skill.Skill, error) {
 		return []skill.Skill{}, nil
 	}
 	return nil, err
+}
+
+func filterRegistrySourcesByID(items []registry.Entry, registryID string) []registry.Entry {
+	registryID = strings.ToLower(strings.TrimSpace(registryID))
+	if registryID == "" {
+		return items
+	}
+	out := make([]registry.Entry, 0, len(items))
+	for _, item := range items {
+		if strings.ToLower(item.RegistryID) == registryID {
+			out = append(out, item)
+		}
+	}
+	return out
 }
 
 func toStatusSummary(summary statusapp.Summary) StatusSummary {

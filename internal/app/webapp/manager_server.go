@@ -67,6 +67,9 @@ func (s *ManagerServer) Handler() http.Handler {
 	mux.HandleFunc("/api/skills", s.handleSkills)
 	mux.HandleFunc("/api/profiles", s.handleProfiles)
 	mux.HandleFunc("/api/projects", s.handleProjects)
+	mux.HandleFunc("/api/registries", s.handleRegistries)
+	mux.HandleFunc("/api/registry/skills", s.handleRegistrySkills)
+	mux.HandleFunc("/api/registry/sources", s.handleRegistrySources)
 	mux.HandleFunc("/api/status", s.handleStatus)
 	mux.HandleFunc("/api/install-map", s.handleInstallMap)
 	mux.HandleFunc("/api/version-drift", s.handleVersionDrift)
@@ -159,6 +162,30 @@ func (s *ManagerServer) handleProjects(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	result, err := s.manager.Projects()
+	writeResult(w, result, err)
+}
+
+func (s *ManagerServer) handleRegistries(w http.ResponseWriter, r *http.Request) {
+	if !allowMethod(w, r, http.MethodGet) {
+		return
+	}
+	result, err := s.manager.Registries()
+	writeResult(w, result, err)
+}
+
+func (s *ManagerServer) handleRegistrySkills(w http.ResponseWriter, r *http.Request) {
+	if !allowMethod(w, r, http.MethodGet) {
+		return
+	}
+	result, err := s.manager.RegistrySkills(r.URL.Query().Get("keyword"), r.URL.Query().Get("registry"))
+	writeResult(w, result, err)
+}
+
+func (s *ManagerServer) handleRegistrySources(w http.ResponseWriter, r *http.Request) {
+	if !allowMethod(w, r, http.MethodGet) {
+		return
+	}
+	result, err := s.manager.RegistrySources(r.URL.Query().Get("keyword"), r.URL.Query().Get("registry"))
 	writeResult(w, result, err)
 }
 

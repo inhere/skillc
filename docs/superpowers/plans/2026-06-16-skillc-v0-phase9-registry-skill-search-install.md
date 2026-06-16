@@ -861,7 +861,7 @@ git commit -m "feat(skillc): materialize registry skills"
 - Modify: `internal/cli/registry_cmd.go`
 - Modify: `internal/cli/app_test.go`
 
-- [ ] **Step 1: Write failing CLI install test**
+- [x] **Step 1: Write failing CLI install test**
 
 Add to `internal/cli/app_test.go`:
 
@@ -885,7 +885,7 @@ func TestRegistryCommandInstallInstallsSkillWithoutAddingSource(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run CLI test to verify it fails**
+- [x] **Step 2: Run CLI test to verify it fails**
 
 Run:
 
@@ -895,7 +895,7 @@ go test ./internal/cli -run TestRegistryCommandInstallInstallsSkillWithoutAdding
 
 Expected: FAIL because `registry install` does not exist.
 
-- [ ] **Step 3: Implement `registry install` command**
+- [x] **Step 3: Implement `registry install` command**
 
 Add `buildRegistryInstallCommand()`:
 
@@ -947,7 +947,7 @@ func buildRegistryInstallCommand() *gcli.Command {
 
 Register it in `buildRegistryCommand()`.
 
-- [ ] **Step 4: Run CLI tests**
+- [x] **Step 4: Run CLI tests**
 
 Run:
 
@@ -957,7 +957,7 @@ go test ./internal/cli
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 Run:
 

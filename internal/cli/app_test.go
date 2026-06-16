@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/gookit/gcli/v3"
 	"github.com/gookit/goutil/testutil/assert"
+	xassert "github.com/gookit/goutil/x/assert"
 	"github.com/gookit/goutil/x/ccolor"
 	"github.com/inhere/skillc/internal/app/installapp"
 	"github.com/inhere/skillc/internal/app/projectupdateapp"
@@ -1772,6 +1774,25 @@ func TestRegistryCommandAddSyncSearchAndAddSource(t *testing.T) {
 
 	sourceOutput := runAppInDirWithStdout(t, baseDir, []string{"registry", "add-source", "gstack"})
 	assert.Contains(t, sourceOutput, "source added: gstack")
+}
+
+func TestRegistryCommandInstallInstallsSkillWithoutAddingSource(t *testing.T) {
+	baseDir := t.TempDir()
+	catalogPath := filepath.Join(baseDir, "registry.json")
+	sourceRoot := filepath.Join(baseDir, "repo")
+	xassert.NoErr(t, os.MkdirAll(filepath.Join(sourceRoot, "skills", "go-pro"), 0o755))
+	xassert.NoErr(t, os.WriteFile(filepath.Join(sourceRoot, "skills", "go-pro", "SKILL.md"), []byte("# Go Pro"), 0o644))
+	xassert.NoErr(t, os.WriteFile(catalogPath, []byte(fmt.Sprintf(`{"skills":[{"id":"go-pro","name":"Go Pro","version":"1.0.0","source_url":"%s","install_entry":"skills/go-pro","supported_agents":["universal"]}]}`, filepath.ToSlash(sourceRoot))), 0o644))
+
+	runAppInDirWithStdout(t, baseDir, []string{"registry", "add", "--id", "team", "--name", "Team", catalogPath})
+	runAppInDirWithStdout(t, baseDir, []string{"registry", "sync", "team"})
+	output := runAppInDirWithStdout(t, baseDir, []string{"registry", "install", "team/go-pro", "--agent", "universal", "--scope", "project", "--yes"})
+
+	xassert.Contains(t, output, "installed go-pro")
+	xassert.FileExists(t, filepath.Join(baseDir, ".agents", "skills", "go-pro", "SKILL.md"))
+	config, err := configstore.NewYAMLStore().Load(filepath.Join(baseDir, "skillc.yaml"), baseDir)
+	xassert.NoErr(t, err)
+	xassert.Len(t, config.Sources, 0)
 }
 
 func findCommandByName(app *gcli.App, name string) *gcli.Command {

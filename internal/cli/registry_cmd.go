@@ -8,8 +8,11 @@ import (
 	"github.com/gookit/cliui/show/table"
 	"github.com/gookit/gcli/v3"
 	"github.com/gookit/goutil/x/ccolor"
+	"github.com/inhere/skillc/internal/app/installapp"
 	"github.com/inhere/skillc/internal/app/registryapp"
 	"github.com/inhere/skillc/internal/domain/registry"
+	"github.com/inhere/skillc/internal/domain/skill"
+	"github.com/inhere/skillc/internal/infra/agentfs"
 )
 
 func buildRegistryCommand() *gcli.Command {
@@ -23,6 +26,7 @@ func buildRegistryCommand() *gcli.Command {
 	cmd.Add(buildRegistrySyncCommand())
 	cmd.Add(buildRegistrySearchCommand())
 	cmd.Add(buildRegistryInfoCommand())
+	cmd.Add(buildRegistryInstallCommand())
 	cmd.Add(buildRegistryAddSourceCommand())
 	return cmd
 }
@@ -189,6 +193,108 @@ func buildRegistryAddSourceCommand() *gcli.Command {
 			return nil
 		},
 	}
+}
+
+func buildRegistryInstallCommand() *gcli.Command {
+	var opts ManageOptions
+	return &gcli.Command{
+		Name: "install",
+		Desc: "Install a skill from a registry result",
+		Config: func(c *gcli.Command) {
+			opts.bindCommand(c)
+			opts.bindInstallModeFlags(c)
+			c.BoolOpt(&opts.Yes, "yes", "y", false, "skip confirmation prompt")
+			c.AddArg("skill", "registry skill target, e.g. team/go-pro", true)
+		},
+		Func: func(c *gcli.Command, args []string) error {
+			if err := applyRegistryInstallTrailingOptions(&opts, args); err != nil {
+				return err
+			}
+			config, cwd, err := loadConfig()
+			if err != nil {
+				return err
+			}
+			if opts.UseCopy && opts.InstallMode != "" {
+				return fmt.Errorf("--copy and --install-mode are mutually exclusive")
+			}
+			if opts.InstallMode != "" && !agentfs.IsValidMode(opts.InstallMode) {
+				return fmt.Errorf("invalid --install-mode %q, allowed: symlink, junction, copy", opts.InstallMode)
+			}
+
+			item, err := newRegistryService().MaterializeSkill(c.Arg("skill").String())
+			if err != nil {
+				return err
+			}
+			ok, err := printInstallPlanAndConfirm([]skill.Skill{item}, opts)
+			if err != nil {
+				return err
+			}
+			if !ok {
+				return nil
+			}
+
+			installMode := opts.resolveInstallMode(config)
+			fallbackNotifier := func(_ string, target string, err error) {
+				ccolor.Warnf("symlink not supported, fallback to copy for %s: %v\n", target, err)
+			}
+			result, err := installapp.NewService(config.LockFile).
+				WithInstallMode(installMode).
+				WithSymlinkFallbackNotifier(fallbackNotifier).
+				RunResolved(config, installapp.InstallReq{
+					SkillID: item.SourceQualifiedName,
+					Agent:   opts.Agent,
+					Scope:   opts.Scope,
+					WorkDir: cwd,
+				}, []skill.Skill{item}, nil)
+			if err != nil {
+				return err
+			}
+			return printInstallResult(result)
+		},
+	}
+}
+
+func applyRegistryInstallTrailingOptions(opts *ManageOptions, args []string) error {
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		name, value, hasValue := strings.Cut(arg, "=")
+		switch name {
+		case "--yes", "-y":
+			opts.Yes = true
+		case "--copy":
+			opts.UseCopy = true
+		case "--agent", "-a":
+			if !hasValue {
+				i++
+				if i >= len(args) {
+					return fmt.Errorf("%s requires a value", name)
+				}
+				value = args[i]
+			}
+			opts.Agent = value
+		case "--scope", "-s":
+			if !hasValue {
+				i++
+				if i >= len(args) {
+					return fmt.Errorf("%s requires a value", name)
+				}
+				value = args[i]
+			}
+			opts.Scope = value
+		case "--install-mode":
+			if !hasValue {
+				i++
+				if i >= len(args) {
+					return fmt.Errorf("%s requires a value", name)
+				}
+				value = args[i]
+			}
+			opts.InstallMode = value
+		default:
+			return fmt.Errorf("unknown registry install argument: %s", arg)
+		}
+	}
+	return nil
 }
 
 func registryLocation(item registry.Registry) string {

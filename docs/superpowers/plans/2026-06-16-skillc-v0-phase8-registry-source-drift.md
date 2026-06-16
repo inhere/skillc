@@ -1564,7 +1564,7 @@ git commit -m "feat(skillc): track precise drift metadata"
 - Modify: `internal/app/webapp/manager_server_test.go`
 - Modify: `internal/app/webapp/manager_static.go`
 
-- [ ] **Step 1: Write failing Web drift tests**
+- [x] **Step 1: Write failing Web drift tests**
 
 Add to `internal/app/webapp/project_index_test.go`:
 
@@ -1597,7 +1597,7 @@ func TestBuildVersionDriftReportsSameVersionGitRefDrift(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run Web drift tests to verify they fail**
+- [x] **Step 2: Run Web drift tests to verify they fail**
 
 Run:
 
@@ -1607,7 +1607,7 @@ go test ./internal/app/webapp -run 'TestBuildVersionDriftReportsSameVersion' -v
 
 Expected: FAIL because ProjectInstall and VersionDriftGroup do not expose drift metadata.
 
-- [ ] **Step 3: Implement Web drift metadata**
+- [x] **Step 3: Implement Web drift metadata**
 
 Modify `internal/app/webapp/project_index.go`:
 
@@ -1648,7 +1648,7 @@ Behavior:
   - latest source resolved ref differs from at least one installed ref.
 - `DriftReasons` contains stable values: `version`, `checksum`, `git ref`.
 
-- [ ] **Step 4: Update manager status JSON and static UI**
+- [x] **Step 4: Update manager status JSON and static UI**
 
 Modify `internal/app/webapp/manager_server.go`:
 
@@ -1660,7 +1660,7 @@ Modify `internal/app/webapp/manager_static.go`:
 - Version Drift table adds a `Signals` column using `drift_reasons`.
 - Keep layout compact; do not add a new Web page.
 
-- [ ] **Step 5: Update CLI update check output**
+- [x] **Step 5: Update CLI update check output**
 
 Modify `internal/cli/manage_cmd.go`:
 
@@ -1668,7 +1668,7 @@ Modify `internal/cli/manage_cmd.go`:
 - Ensure status reason from Task 6 appears unchanged.
 - Add a CLI test if no existing test asserts reason output.
 
-- [ ] **Step 6: Run Web and CLI drift presentation tests**
+- [x] **Step 6: Run Web and CLI drift presentation tests**
 
 Run:
 
@@ -1678,7 +1678,7 @@ go test ./internal/app/webapp ./internal/cli
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit Web/CLI drift presentation**
+- [x] **Step 7: Commit Web/CLI drift presentation**
 
 Run:
 

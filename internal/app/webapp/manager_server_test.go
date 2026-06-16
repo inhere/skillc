@@ -10,11 +10,13 @@ import (
 	"testing"
 
 	"github.com/gookit/goutil/testutil/assert"
+	lockpkg "github.com/inhere/skillc/internal/domain/lock"
 	"github.com/inhere/skillc/internal/domain/profile"
 	"github.com/inhere/skillc/internal/domain/project"
 	"github.com/inhere/skillc/internal/domain/skill"
 	sourcepkg "github.com/inhere/skillc/internal/domain/source"
 	"github.com/inhere/skillc/internal/infra/configstore"
+	"github.com/inhere/skillc/internal/infra/lockstore"
 	"github.com/inhere/skillc/internal/infra/repoindex"
 )
 
@@ -60,7 +62,16 @@ func TestManagerServerInstallMapEndpoint(t *testing.T) {
 
 func TestManagerServerStatusEndpointUsesWebJSONModel(t *testing.T) {
 	baseDir := t.TempDir()
-	configFile, _ := writeWebManagerFixture(t, baseDir)
+	configFile, config := writeWebManagerFixture(t, baseDir)
+	assert.NoErr(t, lockstore.NewStore().Save(config.LockFile, lockpkg.File{
+		filepath.Clean(baseDir): {{
+			SkillID: "go-pro", SourceID: "gstack", Version: "1.0.0", Agents: []string{"universal"},
+			Checksum: "oldsum", SourceResolvedRef: "oldcommit",
+		}},
+	}))
+	assert.NoErr(t, repoindex.NewStore().Save(config.IndexFile, []skill.Skill{{
+		ID: "go-pro", SourceID: "gstack", Version: "1.0.0", Checksum: "newsum", SourceResolvedRef: "newcommit",
+	}}))
 	server := NewManagerServer(configFile, baseDir)
 
 	rec := performManagerRequest(server, http.MethodGet, "/api/status?agent=universal&scope=project")
@@ -69,6 +80,10 @@ func TestManagerServerStatusEndpointUsesWebJSONModel(t *testing.T) {
 	assert.Contains(t, rec.Body.String(), `"items"`)
 	assert.Contains(t, rec.Body.String(), `"summary"`)
 	assert.Contains(t, rec.Body.String(), `"outdated":1`)
+	assert.Contains(t, rec.Body.String(), `"current_checksum":"oldsum"`)
+	assert.Contains(t, rec.Body.String(), `"latest_checksum":"newsum"`)
+	assert.Contains(t, rec.Body.String(), `"current_source_resolved_ref":"oldcommit"`)
+	assert.Contains(t, rec.Body.String(), `"latest_source_resolved_ref":"newcommit"`)
 	assert.NotContains(t, rec.Body.String(), `"Items"`)
 	assert.NotContains(t, rec.Body.String(), `"Summary"`)
 }

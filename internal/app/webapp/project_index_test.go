@@ -2,6 +2,7 @@ package webapp
 
 import (
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/gookit/goutil/testutil/assert"
@@ -19,6 +20,8 @@ func TestBuildProjectInstallIndexExpandsAgentsAndProfiles(t *testing.T) {
 				SourceQualifiedName: "gstack/tools/go-pro",
 				SourceID:            "gstack",
 				Version:             "1.0.0",
+				Checksum:            "abc123",
+				SourceResolvedRef:   "deadbeef",
 				Profile:             "go-dev",
 				Agents:              []string{"universal", "codex"},
 			},
@@ -33,6 +36,8 @@ func TestBuildProjectInstallIndexExpandsAgentsAndProfiles(t *testing.T) {
 	assert.Eq(t, "codex", items[0].Agent)
 	assert.Eq(t, "go-dev", items[0].Profile)
 	assert.Eq(t, "gstack/tools/go-pro", items[0].SourceQualifiedName)
+	assert.Eq(t, "abc123", items[0].Checksum)
+	assert.Eq(t, "deadbeef", items[0].SourceResolvedRef)
 	assert.Eq(t, "universal", items[1].Agent)
 }
 
@@ -121,6 +126,33 @@ func TestBuildVersionDriftGroupsBySourceQualifiedIdentity(t *testing.T) {
 	assert.Len(t, groups[0].Versions, 2)
 	assert.Eq(t, "1.0.0", groups[0].Versions[0].Version)
 	assert.Eq(t, "2.0.0", groups[0].Versions[1].Version)
+}
+
+func TestBuildVersionDriftReportsSameVersionChecksumDrift(t *testing.T) {
+	items := []ProjectInstall{
+		{ProjectPath: "a", SkillID: "rules", SourceID: "local", Version: "1.0.0", Checksum: "oldsum"},
+		{ProjectPath: "b", SkillID: "rules", SourceID: "local", Version: "1.0.0", Checksum: "newsum"},
+	}
+	index := []skill.Skill{{ID: "rules", SourceID: "local", Version: "1.0.0", Checksum: "newsum"}}
+
+	groups := BuildVersionDrift(items, index)
+
+	assert.Len(t, groups, 1)
+	assert.Eq(t, "rules", groups[0].SkillID)
+	assert.Contains(t, strings.Join(groups[0].DriftReasons, ","), "checksum")
+}
+
+func TestBuildVersionDriftReportsSameVersionGitRefDrift(t *testing.T) {
+	items := []ProjectInstall{
+		{ProjectPath: "a", SkillID: "go-pro", SourceID: "gstack", Version: "1.0.0", SourceResolvedRef: "oldcommit"},
+		{ProjectPath: "b", SkillID: "go-pro", SourceID: "gstack", Version: "1.0.0", SourceResolvedRef: "newcommit"},
+	}
+	index := []skill.Skill{{ID: "go-pro", SourceID: "gstack", Version: "1.0.0", SourceResolvedRef: "newcommit"}}
+
+	groups := BuildVersionDrift(items, index)
+
+	assert.Len(t, groups, 1)
+	assert.Contains(t, strings.Join(groups[0].DriftReasons, ","), "git ref")
 }
 
 func TestBuildVersionDriftChoosesLatestVersionNumerically(t *testing.T) {

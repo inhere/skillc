@@ -20,14 +20,19 @@ type ProjectInstall struct {
 	SourceQualifiedName string `json:"source_qualified_name,omitempty"`
 	SourceID            string `json:"source_id,omitempty"`
 	Version             string `json:"version,omitempty"`
+	Checksum            string `json:"checksum,omitempty"`
+	SourceResolvedRef   string `json:"source_resolved_ref,omitempty"`
 }
 
 type VersionDriftGroup struct {
-	SkillID             string          `json:"skill_id"`
-	SourceQualifiedName string          `json:"source_qualified_name,omitempty"`
-	SourceID            string          `json:"source_id,omitempty"`
-	LatestVersion       string          `json:"latest_version,omitempty"`
-	Versions            []VersionBucket `json:"versions"`
+	SkillID                 string          `json:"skill_id"`
+	SourceQualifiedName     string          `json:"source_qualified_name,omitempty"`
+	SourceID                string          `json:"source_id,omitempty"`
+	LatestVersion           string          `json:"latest_version,omitempty"`
+	LatestChecksum          string          `json:"latest_checksum,omitempty"`
+	LatestSourceResolvedRef string          `json:"latest_source_resolved_ref,omitempty"`
+	DriftReasons            []string        `json:"drift_reasons,omitempty"`
+	Versions                []VersionBucket `json:"versions"`
 }
 
 type VersionBucket struct {
@@ -60,6 +65,8 @@ func BuildProjectInstallIndex(records lockpkg.File) []ProjectInstall {
 					SourceQualifiedName: record.SourceQualifiedName,
 					SourceID:            record.SourceID,
 					Version:             record.Version,
+					Checksum:            record.Checksum,
+					SourceResolvedRef:   record.SourceResolvedRef,
 				})
 			}
 		}
@@ -102,24 +109,14 @@ func BuildVersionDrift(items []ProjectInstall, index []skill.Skill) []VersionDri
 		sortProjectInstalls(projects)
 
 		versionBuckets := make(map[string][]ProjectInstall)
-		currentVersions := make(map[string]struct{})
 		for _, item := range projects {
 			versionBuckets[item.Version] = append(versionBuckets[item.Version], item)
-			currentVersions[item.Version] = struct{}{}
 		}
 
 		latestSkill, hasLatestSkill := resolver.LatestSkill(key)
 		latestVersion := latestSkill.Version
-		hasDriftFromLatest := false
-		if latestVersion != "" {
-			for version := range currentVersions {
-				if version != latestVersion {
-					hasDriftFromLatest = true
-					break
-				}
-			}
-		}
-		if len(currentVersions) <= 1 && !hasDriftFromLatest {
+		driftReasons := makeDriftReasons(projects, latestSkill, hasLatestSkill)
+		if len(driftReasons) == 0 {
 			continue
 		}
 
@@ -158,15 +155,72 @@ func BuildVersionDrift(items []ProjectInstall, index []skill.Skill) []VersionDri
 		}
 
 		groups = append(groups, VersionDriftGroup{
-			SkillID:             groupSkillID,
-			SourceQualifiedName: groupSourceQualifiedName,
-			SourceID:            groupSourceID,
-			LatestVersion:       latestVersion,
-			Versions:            buckets,
+			SkillID:                 groupSkillID,
+			SourceQualifiedName:     groupSourceQualifiedName,
+			SourceID:                groupSourceID,
+			LatestVersion:           latestVersion,
+			LatestChecksum:          latestSkill.Checksum,
+			LatestSourceResolvedRef: latestSkill.SourceResolvedRef,
+			DriftReasons:            driftReasons,
+			Versions:                buckets,
 		})
 	}
 
 	return groups
+}
+
+func makeDriftReasons(projects []ProjectInstall, latest skill.Skill, hasLatest bool) []string {
+	var reasons []string
+	if hasVersionDrift(projects, latest, hasLatest) {
+		reasons = append(reasons, "version")
+	}
+	if hasMetadataDrift(projects, latest.Checksum, hasLatest, func(item ProjectInstall) string { return item.Checksum }) {
+		reasons = append(reasons, "checksum")
+	}
+	if hasMetadataDrift(projects, latest.SourceResolvedRef, hasLatest, func(item ProjectInstall) string { return item.SourceResolvedRef }) {
+		reasons = append(reasons, "git ref")
+	}
+	return reasons
+}
+
+func hasVersionDrift(projects []ProjectInstall, latest skill.Skill, hasLatest bool) bool {
+	versions := make(map[string]struct{})
+	for _, item := range projects {
+		versions[item.Version] = struct{}{}
+	}
+	if len(versions) > 1 {
+		return true
+	}
+	if hasLatest && latest.Version != "" {
+		for version := range versions {
+			if version != latest.Version {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func hasMetadataDrift(projects []ProjectInstall, latestValue string, hasLatest bool, valueOf func(ProjectInstall) string) bool {
+	values := make(map[string]struct{})
+	for _, item := range projects {
+		value := valueOf(item)
+		if value == "" {
+			continue
+		}
+		values[value] = struct{}{}
+	}
+	if len(values) > 1 {
+		return true
+	}
+	if hasLatest && latestValue != "" {
+		for value := range values {
+			if value != latestValue {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func projectInstallKey(item ProjectInstall) string {

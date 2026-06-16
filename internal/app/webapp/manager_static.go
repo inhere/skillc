@@ -491,11 +491,12 @@ td.wrap { overflow-wrap: anywhere; }
       var versions = (group.versions || []).map(function (bucket) {
         return esc(bucket.version || '(empty)') + ' (' + (bucket.projects || []).length + ')';
       }).join(', ');
+      var signals = (group.drift_reasons || []).join(', ');
       return '<tr><td>' + esc(group.source_qualified_name || group.skill_id) +
         '</td><td>' + esc(group.source_id || '') + '</td><td>' + esc(group.latest_version || '') +
-        '</td><td class="wrap">' + versions + '</td><td><button data-drift="' + idx + '">Plan update</button></td></tr>';
+        '</td><td>' + esc(signals) + '</td><td class="wrap">' + versions + '</td><td><button data-drift="' + idx + '">Plan update</button></td></tr>';
     });
-    byId('drift-table').innerHTML = table(['Skill', 'Source', 'Latest', 'Installed versions', ''], rows, 'No version drift found.');
+    byId('drift-table').innerHTML = table(['Skill', 'Source', 'Latest', 'Signals', 'Installed versions', ''], rows, 'No version drift found.');
     byId('drift-table').querySelectorAll('button[data-drift]').forEach(function (btn) {
       btn.addEventListener('click', planUpdate);
     });

@@ -28,18 +28,22 @@ type managerStatusResp struct {
 }
 
 type managerStatusItem struct {
-	SkillID             string `json:"skill_id"`
-	QualifiedName       string `json:"qualified_name,omitempty"`
-	SourceQualifiedName string `json:"source_qualified_name,omitempty"`
-	SourceID            string `json:"source_id,omitempty"`
-	Agent               string `json:"agent"`
-	Scope               string `json:"scope"`
-	Profile             string `json:"profile,omitempty"`
-	Status              string `json:"status"`
-	CurrentVersion      string `json:"current_version,omitempty"`
-	LatestVersion       string `json:"latest_version,omitempty"`
-	InstalledPath       string `json:"installed_path,omitempty"`
-	Reason              string `json:"reason,omitempty"`
+	SkillID                  string `json:"skill_id"`
+	QualifiedName            string `json:"qualified_name,omitempty"`
+	SourceQualifiedName      string `json:"source_qualified_name,omitempty"`
+	SourceID                 string `json:"source_id,omitempty"`
+	Agent                    string `json:"agent"`
+	Scope                    string `json:"scope"`
+	Profile                  string `json:"profile,omitempty"`
+	Status                   string `json:"status"`
+	CurrentVersion           string `json:"current_version,omitempty"`
+	LatestVersion            string `json:"latest_version,omitempty"`
+	CurrentChecksum          string `json:"current_checksum,omitempty"`
+	LatestChecksum           string `json:"latest_checksum,omitempty"`
+	CurrentSourceResolvedRef string `json:"current_source_resolved_ref,omitempty"`
+	LatestSourceResolvedRef  string `json:"latest_source_resolved_ref,omitempty"`
+	InstalledPath            string `json:"installed_path,omitempty"`
+	Reason                   string `json:"reason,omitempty"`
 }
 
 type errorResp struct {
@@ -691,17 +695,21 @@ func toManagerStatusResp(result statusapp.Result) managerStatusResp {
 
 func toManagerStatusItem(item statusapp.Item) managerStatusItem {
 	return managerStatusItem{
-		SkillID:             item.SkillID,
-		QualifiedName:       item.QualifiedName,
-		SourceQualifiedName: item.SourceQualifiedName,
-		SourceID:            item.SourceID,
-		Agent:               item.Agent,
-		Scope:               item.Scope,
-		Profile:             item.Profile,
-		Status:              item.Status,
-		CurrentVersion:      item.CurrentVersion,
-		LatestVersion:       item.LatestVersion,
-		InstalledPath:       item.InstalledPath,
-		Reason:              item.Reason,
+		SkillID:                  item.SkillID,
+		QualifiedName:            item.QualifiedName,
+		SourceQualifiedName:      item.SourceQualifiedName,
+		SourceID:                 item.SourceID,
+		Agent:                    item.Agent,
+		Scope:                    item.Scope,
+		Profile:                  item.Profile,
+		Status:                   item.Status,
+		CurrentVersion:           item.CurrentVersion,
+		LatestVersion:            item.LatestVersion,
+		CurrentChecksum:          item.CurrentChecksum,
+		LatestChecksum:           item.LatestChecksum,
+		CurrentSourceResolvedRef: item.CurrentSourceResolvedRef,
+		LatestSourceResolvedRef:  item.LatestSourceResolvedRef,
+		InstalledPath:            item.InstalledPath,
+		Reason:                   item.Reason,
 	}
 }

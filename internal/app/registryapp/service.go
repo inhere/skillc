@@ -13,8 +13,10 @@ import (
 	"github.com/inhere/skillc/internal/app/sourceapp"
 	cfg "github.com/inhere/skillc/internal/domain/config"
 	"github.com/inhere/skillc/internal/domain/registry"
+	"github.com/inhere/skillc/internal/domain/skill"
 	"github.com/inhere/skillc/internal/domain/source"
 	"github.com/inhere/skillc/internal/infra/configstore"
+	"github.com/inhere/skillc/internal/infra/gitx"
 	"github.com/inhere/skillc/internal/infra/registrystore"
 )
 
@@ -228,6 +230,19 @@ func (s *Service) InfoSkill(selector string) (registry.SkillEntry, error) {
 	default:
 		return registry.SkillEntry{}, fmt.Errorf("ambiguous registry skill: %s", selector)
 	}
+}
+
+func (s *Service) MaterializeSkill(selector string) (skill.Skill, error) {
+	entry, err := s.InfoSkill(selector)
+	if err != nil {
+		return skill.Skill{}, err
+	}
+	data, err := s.load()
+	if err != nil {
+		return skill.Skill{}, err
+	}
+	targetDir := filepath.Join(data.RegistryCacheDir, "skills", entry.RegistryID, entry.ID, safeVersion(entry.Version))
+	return newMaterializer(nil).Materialize(entry, targetDir, gitx.SyncOptions{ProxyURL: data.ProxyURL})
 }
 
 func (s *Service) AddSource(req AddSourceReq) (source.Source, error) {
@@ -608,6 +623,14 @@ func registryLocation(item registry.Registry) string {
 		return item.URL
 	}
 	return item.Path
+}
+
+func safeVersion(version string) string {
+	version = registry.NormalizeID(version)
+	if version == "" {
+		return "latest"
+	}
+	return version
 }
 
 func firstNonEmpty(values ...string) string {

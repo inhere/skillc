@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gookit/goutil/testutil/assert"
+	"github.com/gookit/goutil/x/assert"
 	"github.com/inhere/skillc/internal/app/searchapp"
 	"github.com/inhere/skillc/internal/domain/agent"
 	cfg "github.com/inhere/skillc/internal/domain/config"
@@ -316,6 +316,32 @@ func TestService_InstallWritesDriftMetadataToLock(t *testing.T) {
 	locks := mustLoadLockFile(t, svc, lockFile)
 	assert.Eq(t, "abc123", locks[baseDir][0].Checksum)
 	assert.Eq(t, "deadbeefcafebabe", locks[baseDir][0].SourceResolvedRef)
+}
+
+func TestService_InstallWritesRegistryProvenanceToLock(t *testing.T) {
+	baseDir := t.TempDir()
+	lockFile := filepath.Join(baseDir, "skillc.lock.json")
+	targetRoot := filepath.Join(baseDir, "target")
+	sourceDir := filepath.Join(baseDir, "cache", "go-pro")
+	assert.NoErr(t, os.MkdirAll(sourceDir, 0o755))
+	assert.NoErr(t, os.WriteFile(filepath.Join(sourceDir, "SKILL.md"), []byte("# Go Pro"), 0o644))
+
+	_, err := NewService(lockFile).Install(skill.Skill{
+		ID: "go-pro", Version: "1.2.0", SourceID: "team", SourceType: sourcepkg.TypeRegistry,
+		RegistryEntryID: "go-pro", RegistryURL: "https://example.com/registry.json",
+		SourceURL: "https://example.com/skills.git", SourceRef: "main",
+		DownloadURL:  "https://example.com/go-pro.zip",
+		InstallEntry: ".", Path: sourceDir,
+	}, "codex", agent.ScopeProject, baseDir, targetRoot)
+
+	assert.NoErr(t, err)
+	locks := mustLoadLockFile(t, NewService(lockFile), lockFile)
+	assert.Eq(t, "registry", locks[baseDir][0].SourceType)
+	assert.Eq(t, "go-pro", locks[baseDir][0].RegistryEntryID)
+	assert.Eq(t, "https://example.com/registry.json", locks[baseDir][0].RegistryURL)
+	assert.Eq(t, "https://example.com/skills.git", locks[baseDir][0].SourceURL)
+	assert.Eq(t, "main", locks[baseDir][0].SourceRef)
+	assert.Eq(t, "https://example.com/go-pro.zip", locks[baseDir][0].DownloadURL)
 }
 
 func TestService_UninstallRemovesOnlyTargetAgentAndKeepsGroupedRecord(t *testing.T) {

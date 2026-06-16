@@ -18,4 +18,9 @@ type Skill struct {
 	Path                string         `json:"path,omitempty"`
 	Checksum            string         `json:"checksum,omitempty"`
 	SourceResolvedRef   string         `json:"source_resolved_ref,omitempty"`
+	RegistryEntryID     string         `json:"registry_entry_id,omitempty"`
+	RegistryURL         string         `json:"registry_url,omitempty"`
+	DownloadURL         string         `json:"download_url,omitempty"`
+	SourceURL           string         `json:"source_url,omitempty"`
+	SourceRef           string         `json:"source_ref,omitempty"`
 }

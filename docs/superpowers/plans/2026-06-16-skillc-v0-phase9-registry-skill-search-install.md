@@ -329,7 +329,7 @@ go test ./internal/domain/source ./internal/domain/registry
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 Run:
 
@@ -464,7 +464,7 @@ go test ./internal/infra/registrystore
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 Run:
 
@@ -603,7 +603,7 @@ go test ./internal/app/registryapp
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 Run:
 
@@ -622,7 +622,7 @@ git commit -m "feat(skillc): search registry skill entries"
 - Modify: `internal/app/installapp/service.go`
 - Modify: `internal/app/installapp/service_test.go`
 
-- [ ] **Step 1: Write failing materializer tests**
+- [x] **Step 1: Write failing materializer tests**
 
 Create `internal/app/registryapp/materializer_test.go`:
 
@@ -680,7 +680,7 @@ func TestMaterializer_MaterializeLocalSourceURLCopiesSnapshot(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Write failing lock provenance test**
+- [x] **Step 2: Write failing lock provenance test**
 
 Add to `internal/app/installapp/service_test.go`:
 
@@ -707,7 +707,7 @@ func TestService_InstallWritesRegistryProvenanceToLock(t *testing.T) {
 }
 ```
 
-- [ ] **Step 3: Run tests to verify they fail**
+- [x] **Step 3: Run tests to verify they fail**
 
 Run:
 
@@ -717,7 +717,7 @@ go test ./internal/app/registryapp ./internal/app/installapp -run 'Test(Material
 
 Expected: FAIL because provenance fields, local snapshot materialization, and materializer do not exist.
 
-- [ ] **Step 4: Implement provenance fields and materializer**
+- [x] **Step 4: Implement provenance fields and materializer**
 
 Extend `skill.Skill` and `lock.Record` with:
 
@@ -836,7 +836,7 @@ func safeVersion(version string) string {
 }
 ```
 
-- [ ] **Step 5: Run materializer/install tests**
+- [x] **Step 5: Run materializer/install tests**
 
 Run:
 
@@ -846,7 +846,7 @@ go test ./internal/app/registryapp ./internal/app/installapp
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 Run:
 

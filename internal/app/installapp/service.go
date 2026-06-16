@@ -241,21 +241,7 @@ func (s *Service) Install(item skill.Skill, agentName string, scope agent.Scope,
 func (s *Service) installInto(item skill.Skill, agentName string, scope agent.Scope, scopeKey string, targetRoot string, locks lockpkg.File, profileName string) (RuntimeRecord, error) {
 	records := append([]lockpkg.Record(nil), locks[scopeKey]...)
 	now := s.now()
-	record := lockpkg.Record{
-		SkillID:             item.ID,
-		QualifiedName:       item.QualifiedName,
-		SourceQualifiedName: item.SourceQualifiedName,
-		Version:             item.Version,
-		SourceID:            item.SourceID,
-		SourceType:          string(item.SourceType),
-		SourceResolvedRef:   item.SourceResolvedRef,
-		Profile:             profileName,
-		InstallEntry:        item.InstallEntry,
-		Agents:              []string{agentName},
-		Checksum:            item.Checksum,
-		InstalledAt:         now,
-		UpdatedAt:           now,
-	}
+	record := newLockRecord(item, agentName, profileName, now)
 	if conflict, ok := findConflictingSkillSource(records, record); ok {
 		return RuntimeRecord{}, fmt.Errorf("skill already installed from another source: %s (%s)", item.ID, conflict.SourceQualifiedName)
 	}
@@ -286,20 +272,7 @@ func (s *Service) ReinstallAtPath(item skill.Skill, agentName string, scope agen
 	}
 
 	now := s.now()
-	record := lockpkg.Record{
-		SkillID:             item.ID,
-		QualifiedName:       item.QualifiedName,
-		SourceQualifiedName: item.SourceQualifiedName,
-		Version:             item.Version,
-		SourceID:            item.SourceID,
-		SourceType:          string(item.SourceType),
-		SourceResolvedRef:   item.SourceResolvedRef,
-		InstallEntry:        item.InstallEntry,
-		Agents:              []string{agentName},
-		Checksum:            item.Checksum,
-		InstalledAt:         now,
-		UpdatedAt:           now,
-	}
+	record := newLockRecord(item, agentName, "", now)
 
 	records, record = upsertRecord(records, record)
 	if len(records) == 0 {
@@ -573,6 +546,29 @@ func newRuntimeRecord(record lockpkg.Record, agentName string, scope agent.Scope
 		Agent:         agentName,
 		Scope:         string(scope),
 		InstalledPath: targetPath,
+	}
+}
+
+func newLockRecord(item skill.Skill, agentName string, profileName string, now time.Time) lockpkg.Record {
+	return lockpkg.Record{
+		SkillID:             item.ID,
+		QualifiedName:       item.QualifiedName,
+		SourceQualifiedName: item.SourceQualifiedName,
+		Version:             item.Version,
+		SourceID:            item.SourceID,
+		SourceType:          string(item.SourceType),
+		SourceResolvedRef:   item.SourceResolvedRef,
+		Profile:             profileName,
+		InstallEntry:        item.InstallEntry,
+		Agents:              []string{agentName},
+		Checksum:            item.Checksum,
+		RegistryEntryID:     item.RegistryEntryID,
+		RegistryURL:         item.RegistryURL,
+		DownloadURL:         item.DownloadURL,
+		SourceURL:           item.SourceURL,
+		SourceRef:           item.SourceRef,
+		InstalledAt:         now,
+		UpdatedAt:           now,
 	}
 }
 

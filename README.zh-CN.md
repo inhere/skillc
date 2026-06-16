@@ -55,8 +55,8 @@ make install        # 安装到 $GOPATH/bin
 skillc config init
 
 # 2. 添加 Skill 来源（Git 仓库或本地路径）
-skillc source add git https://github.com/org/skills.git
-skillc source add local /path/to/my-skills
+skillc source add https://github.com/org/skills.git --id org-skills --name "Org Skills"
+skillc source add /path/to/my-skills --id my-skills
 
 # 3. 同步来源（拉取并建立索引）
 skillc source sync --all
@@ -85,8 +85,10 @@ skillc config set <key> <value>  # 修改配置项
 
 ```bash
 skillc source list                              # 列出所有来源
-skillc source add git <url> [ref]              # 添加 Git 来源
-skillc source add local <path>                 # 添加本地来源
+skillc source add <path-or-git-url> [--id <id>] [--name <name>] [--ref <ref>] [--sync]
+skillc source add git <url> [ref] [--id <id>] [--name <name>] [--sync]
+skillc source add local <path> [--id <id>] [--name <name>] [--sync]
+skillc source info <id>                        # 查看来源详情（支持部分 ID 匹配）
 skillc source sync <id>                        # 同步指定来源（支持部分 ID 匹配）
 skillc source sync --all                       # 同步所有来源
 skillc source status                           # 查看来源状态
@@ -96,7 +98,8 @@ skillc source skills <source> --collection <name>
 skillc source remove <id>                      # 删除来源
 ```
 
-> `source sync` 支持 **部分 ID 匹配**，例如 `skillc source sync edge` 可匹配 `local-golang-edge-skills`。
+> 新生成的 source ID 不再强制添加 `local-` / `git-` 前缀；已有配置中的旧 ID 不会被自动改写。
+> `source sync` 和 `source info` 支持 **部分 ID 匹配**，例如 `skillc source sync edge` 可匹配 `golang-edge-skills`。
 
 ### `profile` — Skill 组合
 

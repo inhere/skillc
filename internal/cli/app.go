@@ -65,6 +65,11 @@ func newSourceService() *sourceapp.Service {
 	return sourceapp.NewService(defaultConfigFile(cwd), cwd)
 }
 
+func newLocalSourceService() *sourceapp.Service {
+	cwd := getWorkdir()
+	return sourceapp.NewService(filepath.Join(cwd, "skillc.yaml"), cwd)
+}
+
 func newDoctorService() *doctorapp.Service {
 	cwd := getWorkdir()
 	return doctorapp.NewService(defaultConfigFile(cwd), cwd)

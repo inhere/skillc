@@ -1334,6 +1334,48 @@ func TestSourceAddLocalCommand_PrintsNextSyncHint(t *testing.T) {
 	assert.Contains(t, output, "Next, please run: skillc source sync ")
 }
 
+func TestSourceAddCommandAcceptsDirectPathWithCustomIDAndName(t *testing.T) {
+	baseDir := t.TempDir()
+	sourceDir := filepath.Join(baseDir, "skills")
+	assert.NoErr(t, os.MkdirAll(sourceDir, 0o755))
+
+	output := runAppInDirWithStdout(t, baseDir, []string{"source", "add", "--id", "gstack", "--name", "GStack Skills", sourceDir})
+
+	assert.Contains(t, output, "gstack added")
+	assert.Contains(t, output, "GStack Skills")
+	config, err := configstore.NewYAMLStore().Load(filepath.Join(baseDir, "skillc.yaml"), baseDir)
+	assert.NoErr(t, err)
+	assert.Len(t, config.Sources, 1)
+	if len(config.Sources) == 0 {
+		return
+	}
+	assert.Eq(t, "gstack", config.Sources[0].ID)
+	assert.Eq(t, "GStack Skills", config.Sources[0].Name)
+}
+
+func TestSourceAddGitCommandAcceptsCustomIDAndName(t *testing.T) {
+	baseDir := t.TempDir()
+
+	output := runAppInDirWithStdout(t, baseDir, []string{"source", "add", "git", "--id", "acme", "--name", "Acme Skills", "https://example.com/skills.git", "main"})
+
+	assert.Contains(t, output, "acme added")
+	assert.Contains(t, output, "Acme Skills")
+}
+
+func TestSourceInfoCommandPrintsDetails(t *testing.T) {
+	baseDir := t.TempDir()
+	sourceDir := filepath.Join(baseDir, "skills")
+	assert.NoErr(t, os.MkdirAll(sourceDir, 0o755))
+	runAppInDirWithStdout(t, baseDir, []string{"source", "add", "--id", "gstack", "--name", "GStack Skills", sourceDir})
+
+	output := runAppInDirWithStdout(t, baseDir, []string{"source", "info", "gst"})
+
+	assert.Contains(t, output, "Source Info")
+	assert.Contains(t, output, "gstack")
+	assert.Contains(t, output, "GStack Skills")
+	assert.Contains(t, output, sourceDir)
+}
+
 func TestSourceAddLocalCommand_WithSyncRebuildsIndexForSearch(t *testing.T) {
 	baseDir := t.TempDir()
 	configFile := filepath.Join(baseDir, "skillc.yaml")
@@ -1376,7 +1418,7 @@ func TestSourceAddGitCommand_PrintsNextSyncHint(t *testing.T) {
 
 	assert.Contains(t, output, "added.")
 	assert.Contains(t, output, "url=https://example.com/repo.git")
-	assert.Contains(t, output, "Next, please run: skillc source sync git-repo")
+	assert.Contains(t, output, "Next, please run: skillc source sync repo")
 }
 
 func TestSourceSyncCommand_PrintsSourceStatusAfterSync(t *testing.T) {

@@ -53,8 +53,8 @@ make install        # install to $GOPATH/bin
 skillc config init
 
 # 2. Add a Skill source (Git repo or local path)
-skillc source add git https://github.com/org/skills.git
-skillc source add local /path/to/my-skills
+skillc source add https://github.com/org/skills.git --id org-skills --name "Org Skills"
+skillc source add /path/to/my-skills --id my-skills
 
 # 3. Sync sources (clone/pull and rebuild index)
 skillc source sync --all
@@ -83,8 +83,10 @@ skillc config set <key> <value>  # update a config value
 
 ```bash
 skillc source list                    # list all sources
-skillc source add git <url> [ref]     # add a Git source
-skillc source add local <path>        # add a local source
+skillc source add <path-or-git-url> [--id <id>] [--name <name>] [--ref <ref>] [--sync]
+skillc source add git <url> [ref] [--id <id>] [--name <name>] [--sync]
+skillc source add local <path> [--id <id>] [--name <name>] [--sync]
+skillc source info <id>               # show source details (partial ID match supported)
 skillc source sync <id>               # sync a source (partial ID match supported)
 skillc source sync --all              # sync all sources
 skillc source status                  # show source status
@@ -94,7 +96,8 @@ skillc source skills <source> --collection <name>
 skillc source remove <id>             # remove a source
 ```
 
-> `source sync` supports **partial ID matching** — e.g. `skillc source sync edge` matches `local-golang-edge-skills`.
+> New generated source IDs no longer receive forced `local-` / `git-` prefixes. Existing configured IDs are left unchanged.
+> `source sync` and `source info` support **partial ID matching** — e.g. `skillc source sync edge` matches `golang-edge-skills`.
 
 ### `profile` — Saved Skill sets
 

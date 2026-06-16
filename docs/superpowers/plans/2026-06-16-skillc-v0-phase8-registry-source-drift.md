@@ -691,7 +691,7 @@ git commit -m "feat(skillc): improve source identity creation"
 - Modify: `README.md`
 - Modify: `README.zh-CN.md`
 
-- [ ] **Step 1: Write failing CLI tests**
+- [x] **Step 1: Write failing CLI tests**
 
 Add tests to `internal/cli/app_test.go`:
 
@@ -736,7 +736,7 @@ func TestSourceInfoCommandPrintsDetails(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run CLI tests to verify they fail**
+- [x] **Step 2: Run CLI tests to verify they fail**
 
 Run:
 
@@ -746,7 +746,7 @@ go test ./internal/cli -run 'TestSource(Add|Info)' -v
 
 Expected: FAIL because direct `source add <value>` and `source info` are not implemented.
 
-- [ ] **Step 3: Implement source CLI**
+- [x] **Step 3: Implement source CLI**
 
 Modify `internal/cli/source_cmd.go`:
 
@@ -771,7 +771,7 @@ skillc source info <id>
 
 Use `sourceapp.Info()` so partial matching works the same as `source sync`.
 
-- [ ] **Step 4: Run source CLI tests**
+- [x] **Step 4: Run source CLI tests**
 
 Run:
 
@@ -781,7 +781,7 @@ go test ./internal/cli -run 'TestSource(Add|Info)' -v
 
 Expected: PASS.
 
-- [ ] **Step 5: Update README source command snippets**
+- [x] **Step 5: Update README source command snippets**
 
 Update source command sections:
 
@@ -794,7 +794,7 @@ skillc source info <id>
 
 Mention: new generated IDs no longer receive `local-` / `git-` prefixes; existing IDs are left untouched.
 
-- [ ] **Step 6: Run focused CLI and sourceapp tests**
+- [x] **Step 6: Run focused CLI and sourceapp tests**
 
 Run:
 
@@ -804,7 +804,7 @@ go test ./internal/domain/source ./internal/app/sourceapp ./internal/cli
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit source CLI cleanup**
+- [x] **Step 7: Commit source CLI cleanup**
 
 Run:
 

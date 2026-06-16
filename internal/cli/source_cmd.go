@@ -9,6 +9,8 @@ import (
 	"github.com/gookit/gcli/v3"
 	"github.com/gookit/goutil/x/ccolor"
 	"github.com/gookit/slog"
+	"github.com/inhere/skillc/internal/app/sourceapp"
+	"github.com/inhere/skillc/internal/domain/source"
 )
 
 func buildSourceCommand() *gcli.Command {
@@ -18,13 +20,7 @@ func buildSourceCommand() *gcli.Command {
 		Aliases: []string{"src"},
 	}
 
-	add := &gcli.Command{
-		Name: "add",
-		Desc: "Add a git or local source",
-	}
-	add.Add(buildSourceAddLocalCommand())
-	add.Add(buildSourceAddGitCommand())
-	cmd.Add(add)
+	cmd.Add(buildSourceAddCommand())
 
 	cmd.Add(&gcli.Command{
 		Name:    "list",
@@ -47,6 +43,7 @@ func buildSourceCommand() *gcli.Command {
 	})
 
 	cmd.Add(buildSourceSyncCommand())
+	cmd.Add(buildSourceInfoCommand())
 	cmd.Add(buildSourceCollectionsCommand())
 	cmd.Add(buildSourceSkillsCommand())
 
@@ -272,12 +269,82 @@ func buildSourceSyncCommand() *gcli.Command {
 	}
 }
 
+func buildSourceInfoCommand() *gcli.Command {
+	return &gcli.Command{
+		Name: "info",
+		Desc: "Show source details",
+		Config: func(c *gcli.Command) {
+			c.AddArg("id", "source id or partial id", true)
+		},
+		Func: func(c *gcli.Command, _ []string) error {
+			src, err := newSourceService().Info(c.Arg("id").String())
+			if err != nil {
+				return err
+			}
+			return printSourceInfo(src)
+		},
+	}
+}
+
+func buildSourceAddCommand() *gcli.Command {
+	var id string
+	var name string
+	var ref string
+	var syncNow bool
+
+	cmd := &gcli.Command{
+		Name: "add",
+		Desc: "Add a git or local source",
+		Config: func(c *gcli.Command) {
+			c.StrOpt(&id, "id", "", "", "custom source id")
+			c.StrOpt(&name, "name", "", "", "custom source name")
+			c.StrOpt(&ref, "ref", "r", "", "git ref(branch/tag/hash)")
+			c.BoolOpt(&syncNow, "sync", "", false, "sync source after adding")
+			c.AddArg("value", "local source path or git source url", true)
+		},
+		Func: func(c *gcli.Command, _ []string) error {
+			value := c.Arg("value").String()
+			service := newLocalSourceService()
+			src, err := service.Add(sourceapp.AddReq{
+				Value: value,
+				ID:    id,
+				Name:  name,
+				Ref:   ref,
+			})
+			if err != nil {
+				slog.Error(err)
+				return err
+			}
+			if err := printSourceAdded(src); err != nil {
+				return err
+			}
+
+			if syncNow {
+				if err := service.Sync(src.ID); err != nil {
+					slog.Error(err)
+					return err
+				}
+				return nil
+			}
+			ccolor.Infof("Next, please run: skillc source sync %s\n", src.ID)
+			return nil
+		},
+	}
+	cmd.Add(buildSourceAddLocalCommand())
+	cmd.Add(buildSourceAddGitCommand())
+	return cmd
+}
+
 func buildSourceAddLocalCommand() *gcli.Command {
 	var syncNow bool
+	var id string
+	var name string
 	return &gcli.Command{
 		Name: "local",
 		Desc: "Add a local source",
 		Config: func(c *gcli.Command) {
+			c.StrOpt(&id, "id", "", "", "custom source id")
+			c.StrOpt(&name, "name", "", "", "custom source name")
 			c.BoolOpt(&syncNow, "sync", "", false, "sync source after adding")
 			c.AddArg("path", "local source path", true)
 		},
@@ -287,13 +354,13 @@ func buildSourceAddLocalCommand() *gcli.Command {
 				return fmt.Errorf("local source path is required")
 			}
 
-			service := newSourceService()
-			src, err := service.AddLocal(pathArg)
+			service := newLocalSourceService()
+			src, err := service.AddLocalWithOptions(pathArg, source.SourceOptions{ID: id, Name: name})
 			if err != nil {
 				slog.Error(err)
 				return err
 			}
-			if _, err := fmt.Fprintf(os.Stdout, "%s added.\n - path=%s\n", src.ID, src.Path); err != nil {
+			if err := printSourceAdded(src); err != nil {
 				return err
 			}
 
@@ -312,10 +379,14 @@ func buildSourceAddLocalCommand() *gcli.Command {
 
 func buildSourceAddGitCommand() *gcli.Command {
 	var syncNow bool
+	var id string
+	var name string
 	return &gcli.Command{
 		Name: "git",
 		Desc: "Add a git source",
 		Config: func(c *gcli.Command) {
+			c.StrOpt(&id, "id", "", "", "custom source id")
+			c.StrOpt(&name, "name", "", "", "custom source name")
 			c.AddArg("url", "git source url", true)
 			c.AddArg("ref", "git ref(branch/tag/hash)", false)
 			c.BoolOpt(&syncNow, "sync", "", false, "sync source after adding")
@@ -327,14 +398,14 @@ func buildSourceAddGitCommand() *gcli.Command {
 			if urlArg == "" {
 				return fmt.Errorf("git source url is required")
 			}
-			service := newSourceService()
-			src, err := service.AddGit(urlArg, ref)
+			service := newLocalSourceService()
+			src, err := service.AddGitWithOptions(urlArg, ref, source.SourceOptions{ID: id, Name: name})
 			if err != nil {
 				slog.Error(err)
 				return err
 			}
 
-			if _, err := fmt.Fprintf(os.Stdout, "%s added.\n - url=%s, ref=%s\n", src.ID, src.URL, src.Ref); err != nil {
+			if err := printSourceAdded(src); err != nil {
 				return err
 			}
 
@@ -349,4 +420,38 @@ func buildSourceAddGitCommand() *gcli.Command {
 			return nil
 		},
 	}
+}
+
+func printSourceAdded(src source.Source) error {
+	if _, err := fmt.Fprintf(os.Stdout, "%s added.\n - name=%s\n - type=%s\n", src.ID, src.Name, src.Type); err != nil {
+		return err
+	}
+	if src.Type == source.TypeGit {
+		_, err := fmt.Fprintf(os.Stdout, " - url=%s, ref=%s\n", src.URL, src.Ref)
+		return err
+	}
+	_, err := fmt.Fprintf(os.Stdout, " - path=%s\n", src.Path)
+	return err
+}
+
+func printSourceInfo(src source.Source) error {
+	tb := table.New("Source Info").SetHeads("Field", "Value")
+	tb.AddRow("ID", src.ID)
+	tb.AddRow("Name", src.Name)
+	tb.AddRow("Type", src.Type)
+	tb.AddRow("Status", src.Status)
+	if src.Path != "" {
+		tb.AddRow("Path", src.Path)
+	}
+	if src.URL != "" {
+		tb.AddRow("URL", src.URL)
+	}
+	if src.Ref != "" {
+		tb.AddRow("Ref", src.Ref)
+	}
+	if src.ResolvedRef != "" {
+		tb.AddRow("Resolved Ref", src.ResolvedRef)
+	}
+	_, err := fmt.Fprint(os.Stdout, tb.Render())
+	return err
 }

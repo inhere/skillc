@@ -24,6 +24,14 @@
   - 可以在项目里配置不同的 skill 组合，每个组合可以包含多个 skill
   - 可以在项目里快速切换使用不同的 skill 组合，方便测试和观察效果
 - [ ] 不要给 source 名称加 local/git 前缀; 现在无法方便的查看一个 source 的信息
+  - 八期计划：`docs/superpowers/plans/2026-06-16-skillc-v0-phase8-registry-source-drift.md`
+  - 八期目标：支持 `source add <path-or-url> --id/--name`、新 source ID 不再强加 `local-` / `git-` 前缀，并新增 `source info <id>`。
+- [ ] 支持 Registry 发现 source catalog
+  - 八期计划：`docs/superpowers/plans/2026-06-16-skillc-v0-phase8-registry-source-drift.md`
+  - 八期目标：先做本机/HTTP JSON catalog 的 `registry list/add/remove/sync/search/info/add-source`，不做账号、签名和 Web Registry 页面。
+- [ ] 支持 Git resolved ref / local checksum 的精确 drift 判断
+  - 八期计划：`docs/superpowers/plans/2026-06-16-skillc-v0-phase8-registry-source-drift.md`
+  - 八期目标：index/lock/status/Web 记录并展示 checksum/ref drift，版本相同时也能标记 outdated。
 
 ## [ ] skillc 增强重构
 
@@ -42,6 +50,8 @@
 六期状态：当前项目 Web 管理补齐已完成，覆盖 source 管理、profile 管理、uninstall 和最小 history，仍不做跨项目批量更新、Registry、source ID 命名清理或精确 drift。
 七期计划：`docs/superpowers/plans/2026-06-16-skillc-v0-phase7-cross-project-update.md`
 七期状态：已新增 project registry、`project` CLI、`update --all-projects` 和 Web 跨项目更新闭环。
+八期计划：`docs/superpowers/plans/2026-06-16-skillc-v0-phase8-registry-source-drift.md`
+八期目标：分批实现 source UX cleanup、Registry 最小发现闭环和精确 drift metadata。
 
 cli 优先，这样可以方便的进入任何目录进行操作
 skillc 技能场景 - 自由选择多个技能配置为一个场景(eg: go-dev, flutter-dev)

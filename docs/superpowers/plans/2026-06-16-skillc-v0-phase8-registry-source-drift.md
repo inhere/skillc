@@ -13,6 +13,7 @@
 | 修订时间 | 版本 | 作者 | 说明 |
 | --- | --- | --- | --- |
 | 2026-06-16 | v0.1 | Codex | 输出 P8 Registry / source UX / precise drift 实施计划 |
+| 2026-06-16 | v0.2 | Codex | 复审后补强 URL 解析、Registry HTTP/歧义测试、目录级 checksum 和 status fixture |
 
 相关文档：
 
@@ -58,6 +59,7 @@ P8 采用 MVP 边界，可以同一期完成，但必须分批提交：
   - `registry add-source <entry-id>` 把 catalog entry 转成 source 配置，可选 `--sync`。
 - Precise drift：
   - index skill 记录 `checksum` 和 `source_resolved_ref`。
+  - local checksum 使用 install entry 目录级 checksum，不只 hash `SKILL.md`。
   - lock record 写入安装时的 `checksum` 和 `source_resolved_ref`。
   - `status` / `update --check` 在版本相同但 Git commit 或 local checksum 变化时标记 `outdated`，并给出原因。
   - Web install-map/version-drift 暴露 checksum/ref metadata，并在版本相同但 metadata 不同时展示 drift group。
@@ -269,6 +271,12 @@ SourceResolvedRef string `json:"source_resolved_ref"`
 
 已有 `Checksum string` 字段开始写入真实值。
 
+Checksum 语义：
+
+- `skill.ParseSkillMarkdown` 先写入 `SKILL.md` 内容 hash，作为没有目录上下文时的 fallback。
+- `repoindex.Scanner` 在知道 skill dir 和 `install_entry` 后，覆盖为 install entry 目录级 checksum。
+- 目录级 checksum 按相对文件路径排序，hash 相对路径和文件内容，跳过 `.git` 目录，保证同内容跨机器稳定。
+
 `statusapp.Item` 增加：
 
 ```go
@@ -331,6 +339,10 @@ LatestSourceResolvedRef  string `json:"latest_source_resolved_ref,omitempty"`
   - 保留每个 indexed skill 的 checksum/ref metadata。
 - `internal/infra/repoindex/scanner_test.go`
   - 覆盖 indexed metadata。
+- `internal/infra/hashx/dir.go`
+  - 新增 install entry 目录级 checksum。
+- `internal/infra/hashx/dir_test.go`
+  - 覆盖多文件顺序稳定、内容变化和跳过 `.git`。
 - `internal/domain/lock/model.go`
   - 增加 source resolved ref。
 - `internal/app/installapp/service.go`
@@ -488,12 +500,12 @@ func sourceNameFromPath(path string) string {
 }
 
 func sourceNameFromGitURL(url string) string {
-	name := strings.TrimSuffix(filepath.Base(strings.TrimSpace(url)), ".git")
+	name := strings.TrimSuffix(path.Base(strings.TrimSpace(url)), ".git")
 	if name == "." || name == "/" || name == "" {
 		return ""
 	}
 	if name == "skills" || name == "skill" {
-		parent := filepath.Base(filepath.Dir(url))
+		parent := path.Base(path.Dir(url))
 		if parent != "." && parent != "/" && parent != "" {
 			name = parent + "-" + name
 		}
@@ -536,6 +548,7 @@ func firstNonEmpty(values ...string) string {
 ```
 
 `sourceNameFromPath` keeps the existing `skills` / `skill` parent-name behavior.
+`sourceNameFromGitURL` must use the standard `path` package, not `filepath`; on Windows `filepath.Base("https://github.com/acme/skills.git")` treats `/` as ordinary text and generates invalid IDs.
 
 - [ ] **Step 4: Run source domain tests**
 
@@ -1071,6 +1084,26 @@ func TestService_SyncLocalRegistryAndSearch(t *testing.T) {
 	assert.Eq(t, "local", results[0].RegistryID)
 }
 
+func TestService_SyncHTTPRegistryAndSearch(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"sources":[{"id":"remote","name":"Remote Skills","description":"Remote Go workflow","type":"git","url":"https://example.com/remote.git","tags":["go"]}]}`))
+	}))
+	defer server.Close()
+	service := NewService(configFile, baseDir)
+
+	_, err := service.Add(AddReq{ID: "official", Name: "Official", Value: server.URL})
+	assert.NoErr(t, err)
+	assert.NoErr(t, service.Sync("official"))
+
+	results, err := service.Search("remote")
+	assert.NoErr(t, err)
+	assert.Len(t, results, 1)
+	assert.Eq(t, "remote", results[0].ID)
+	assert.Eq(t, "official", results[0].RegistryID)
+}
+
 func TestService_AddSourceFromRegistryEntry(t *testing.T) {
 	baseDir := t.TempDir()
 	configFile := filepath.Join(baseDir, "skillc.yaml")
@@ -1087,6 +1120,26 @@ func TestService_AddSourceFromRegistryEntry(t *testing.T) {
 	assert.Eq(t, "gstack", src.ID)
 	assert.Eq(t, "GStack Skills", src.Name)
 	assert.Eq(t, "https://example.com/gstack.git", src.URL)
+}
+
+func TestService_InfoRejectsAmbiguousEntryID(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	firstPath := filepath.Join(baseDir, "first.json")
+	secondPath := filepath.Join(baseDir, "second.json")
+	assert.NoErr(t, os.WriteFile(firstPath, []byte(`{"sources":[{"id":"shared","name":"First","type":"git","url":"https://example.com/first.git"}]}`), 0o644))
+	assert.NoErr(t, os.WriteFile(secondPath, []byte(`{"sources":[{"id":"shared","name":"Second","type":"git","url":"https://example.com/second.git"}]}`), 0o644))
+	service := NewService(configFile, baseDir)
+	_, err := service.Add(AddReq{ID: "first", Value: firstPath})
+	assert.NoErr(t, err)
+	_, err = service.Add(AddReq{ID: "second", Value: secondPath})
+	assert.NoErr(t, err)
+	assert.NoErr(t, service.SyncAll())
+
+	_, err = service.Info("shared")
+
+	assert.Err(t, err)
+	assert.Contains(t, err.Error(), "ambiguous registry entry")
 }
 ```
 
@@ -1147,7 +1200,10 @@ Important behavior:
 - Cache path is `filepath.Join(config.RegistryCacheDir, "registry-index.json")`.
 - Search matches ID, name, description, tags, URL/path case-insensitively.
 - Duplicate entry IDs across registries are preserved in cache, but `Info(entryID)` returns an error if ambiguous; the user can pass `registryID/entryID`.
-- `AddSource` calls `sourceapp.NewService(...).Add(sourceapp.AddReq{Value, Type, ID, Name, Ref})`.
+- `AddSource` calls `sourceapp.NewService(s.configFile, s.baseDir).Add(sourceapp.AddReq{Value: entry.URL or entry.Path, Type: source.Type(entry.Type), ID: firstNonEmpty(req.ID, entry.ID), Name: firstNonEmpty(req.Name, entry.Name), Ref: entry.Ref})`.
+- Local catalog entry paths are resolved relative to the catalog file directory during sync and cached as cleaned absolute paths.
+- HTTP catalog entries with `type:"local"` are rejected unless `path` is absolute; remote registries should normally publish git entries.
+- `Sync` updates registry `Status`, `ErrorMessage`, and `LastSyncAt` in config before saving cache entries.
 
 - [ ] **Step 7: Run registryapp tests**
 
@@ -1299,6 +1355,8 @@ git commit -m "feat(skillc): add registry cli"
 - Modify: `internal/domain/skill/model.go`
 - Modify: `internal/domain/skill/parser.go`
 - Modify: `internal/domain/skill/parser_test.go`
+- Create: `internal/infra/hashx/dir.go`
+- Create: `internal/infra/hashx/dir_test.go`
 - Modify: `internal/infra/repoindex/scanner.go`
 - Modify: `internal/infra/repoindex/scanner_test.go`
 - Modify: `internal/domain/lock/model.go`
@@ -1341,7 +1399,17 @@ Modify:
 
 - `internal/domain/skill/model.go`: add `Checksum` and `SourceResolvedRef`.
 - `internal/domain/skill/parser.go`: set `Checksum: hashx.SumString(content)` and `SourceResolvedRef: src.ResolvedRef`.
-- `internal/infra/repoindex/scanner.go`: no separate logic is needed beyond preserving parsed fields, but add a test to lock the behavior.
+- `internal/infra/hashx/dir.go`: add deterministic directory checksum:
+
+```go
+func SumDir(root string) (string, error) {
+	// Walk root recursively, skip .git directories, sort relative file paths,
+	// and hash each relative path plus file content using sha256.
+}
+```
+
+- `internal/infra/repoindex/scanner.go`: after parsing `SKILL.md`, compute `hashx.SumDir(filepath.Join(skillDir, parsed.InstallEntry))` and assign it to `parsed.Checksum`.
+- `internal/infra/repoindex/scanner_test.go`: add a test that changes a non-`SKILL.md` file under the install entry and proves the indexed checksum changes.
 
 - [ ] **Step 4: Write failing install/status drift tests**
 
@@ -1375,8 +1443,9 @@ Add to `internal/app/statusapp/service_test.go`:
 ```go
 func TestService_RunMarksOutdatedWhenGitResolvedRefChanges(t *testing.T) {
 	baseDir := t.TempDir()
-	configFile, config := writeStatusFixture(t, baseDir)
+	configFile, config := writeStatusDriftFixture(t, baseDir)
 	projectKey := baseDir
+	assert.NoErr(t, os.MkdirAll(filepath.Join(baseDir, ".agents", "skills", "go-pro"), 0o755))
 	assert.NoErr(t, lockstore.NewStore().Save(config.LockFile, lockpkg.File{
 		projectKey: {{
 			SkillID: "go-pro", SourceID: "gstack", SourceType: "git", Version: "1.0.0",
@@ -1397,8 +1466,9 @@ func TestService_RunMarksOutdatedWhenGitResolvedRefChanges(t *testing.T) {
 
 func TestService_RunMarksOutdatedWhenLocalChecksumChanges(t *testing.T) {
 	baseDir := t.TempDir()
-	configFile, config := writeStatusFixture(t, baseDir)
+	configFile, config := writeStatusDriftFixture(t, baseDir)
 	projectKey := baseDir
+	assert.NoErr(t, os.MkdirAll(filepath.Join(baseDir, ".agents", "skills", "rules"), 0o755))
 	assert.NoErr(t, lockstore.NewStore().Save(config.LockFile, lockpkg.File{
 		projectKey: {{
 			SkillID: "rules", SourceID: "local", SourceType: "local", Version: "1.0.0",
@@ -1415,6 +1485,20 @@ func TestService_RunMarksOutdatedWhenLocalChecksumChanges(t *testing.T) {
 	assert.NoErr(t, err)
 	assert.Eq(t, StatusOutdated, result.Items[0].Status)
 	assert.Contains(t, result.Items[0].Reason, "checksum")
+}
+
+func writeStatusDriftFixture(t *testing.T, baseDir string) (string, cfg.Config) {
+	t.Helper()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	lockFile := filepath.Join(baseDir, "skillc.lock.json")
+	indexFile := filepath.Join(baseDir, "index.json")
+
+	config := cfg.DefaultConfig()
+	config.LockFile = lockFile
+	config.IndexFile = indexFile
+	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, ".agents")}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config, baseDir))
+	return configFile, config
 }
 ```
 
@@ -1439,6 +1523,8 @@ Modify:
 - `internal/app/listapp/service.go`:
   - `Item` carries `SourceResolvedRef`.
   - list conversion copies `record.SourceResolvedRef`.
+- `internal/app/listapp/service_test.go`:
+  - add `TestService_ListCarriesDriftMetadata` that writes lock `Checksum` and `SourceResolvedRef`, creates the installed skill dir, and asserts both fields appear on `listapp.Item`.
 - `internal/app/statusapp/service.go`:
   - `Item` carries current/latest checksum/ref.
   - `classifyListItem` sets metadata from current and latest.
@@ -1527,16 +1613,28 @@ Modify `internal/app/webapp/project_index.go`:
 
 ```go
 type ProjectInstall struct {
-	...
-	Checksum          string `json:"checksum,omitempty"`
-	SourceResolvedRef string `json:"source_resolved_ref,omitempty"`
+	ProjectPath         string `json:"project_path"`
+	Scope               string `json:"scope"`
+	Agent               string `json:"agent"`
+	Profile             string `json:"profile,omitempty"`
+	SkillID             string `json:"skill_id"`
+	QualifiedName       string `json:"qualified_name,omitempty"`
+	SourceQualifiedName string `json:"source_qualified_name,omitempty"`
+	SourceID            string `json:"source_id,omitempty"`
+	Version             string `json:"version,omitempty"`
+	Checksum            string `json:"checksum,omitempty"`
+	SourceResolvedRef   string `json:"source_resolved_ref,omitempty"`
 }
 
 type VersionDriftGroup struct {
-	...
-	LatestChecksum          string   `json:"latest_checksum,omitempty"`
-	LatestSourceResolvedRef string   `json:"latest_source_resolved_ref,omitempty"`
-	DriftReasons            []string `json:"drift_reasons,omitempty"`
+	SkillID                 string          `json:"skill_id"`
+	SourceQualifiedName     string          `json:"source_qualified_name,omitempty"`
+	SourceID                string          `json:"source_id,omitempty"`
+	LatestVersion           string          `json:"latest_version,omitempty"`
+	LatestChecksum          string          `json:"latest_checksum,omitempty"`
+	LatestSourceResolvedRef string          `json:"latest_source_resolved_ref,omitempty"`
+	DriftReasons            []string        `json:"drift_reasons,omitempty"`
+	Versions                []VersionBucket `json:"versions"`
 }
 ```
 
@@ -1545,6 +1643,7 @@ Behavior:
 - `BuildProjectInstallIndex` copies checksum/ref from lock records.
 - `BuildVersionDrift` includes a group when:
   - versions differ, or
+  - installed checksum/ref buckets differ even if latest metadata is unavailable, or
   - latest checksum differs from at least one installed checksum, or
   - latest source resolved ref differs from at least one installed ref.
 - `DriftReasons` contains stable values: `version`, `checksum`, `git ref`.

@@ -130,6 +130,33 @@ func TestService_InfoRejectsAmbiguousEntryID(t *testing.T) {
 	assert.Contains(t, err.Error(), "ambiguous registry entry")
 }
 
+func TestRegistryService_NormalizeLocalSkillRelativeDownloadURL(t *testing.T) {
+	baseDir := t.TempDir()
+	catalogDir := filepath.Join(baseDir, "registry")
+	assert.NoErr(t, os.MkdirAll(catalogDir, 0o755))
+	item := registry.Registry{ID: "team", Type: registry.TypeLocal, Path: filepath.Join(catalogDir, "registry.json")}
+
+	catalog, err := normalizeCatalog(registry.Catalog{Skills: []registry.SkillEntry{{
+		ID: "go-pro", DownloadURL: "archives/go-pro.zip",
+	}}}, item, catalogDir, false)
+
+	assert.NoErr(t, err)
+	assert.Eq(t, filepath.Join(catalogDir, "archives", "go-pro.zip"), catalog.Skills[0].DownloadURL)
+}
+
+func TestRegistryService_RejectsRemoteRelativeDownloadURL(t *testing.T) {
+	item := registry.Registry{ID: "team", Type: registry.TypeHTTP, URL: "https://example.com/registry.json"}
+
+	_, err := normalizeCatalog(registry.Catalog{Skills: []registry.SkillEntry{{
+		ID: "go-pro", DownloadURL: "archives/go-pro.zip",
+	}}}, item, "", true)
+
+	if err == nil {
+		t.Fatal("expected remote relative download_url error")
+	}
+	assert.Contains(t, err.Error(), "download_url must be http URL")
+}
+
 func writeRegistryAppConfig(t *testing.T, baseDir string) string {
 	t.Helper()
 	configFile := filepath.Join(baseDir, "skillc.yaml")

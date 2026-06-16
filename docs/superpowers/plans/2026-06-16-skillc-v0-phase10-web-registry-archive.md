@@ -522,7 +522,7 @@ go test ./internal/app/registryapp -run 'TestArchiveMaterializer_' -count=1
 
 Expected: PASS.
 
-- [ ] **Step 8: Commit archive hardening**
+- [x] **Step 8: Commit archive hardening**
 
 ```bash
 git add internal/app/registryapp/archive_materializer.go internal/app/registryapp/archive_materializer_test.go docs/superpowers/plans/2026-06-16-skillc-v0-phase10-web-registry-archive.md
@@ -537,7 +537,7 @@ git commit -m "feat(skillc): verify registry archive downloads"
 - Modify: `internal/app/registryapp/service.go`
 - Modify: `internal/app/registryapp/service_test.go`
 
-- [ ] **Step 1: Write failing download-only materializer test**
+- [x] **Step 1: Write failing download-only materializer test**
 
 Add to `materializer_test.go`:
 
@@ -560,7 +560,7 @@ func TestMaterializer_MaterializeDownloadURLArchive(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run focused test and verify failure**
+- [x] **Step 2: Run focused test and verify failure**
 
 Run:
 
@@ -570,7 +570,7 @@ go test ./internal/app/registryapp -run TestMaterializer_MaterializeDownloadURLA
 
 Expected: FAIL because materializer requires `source_url`.
 
-- [ ] **Step 3: Update materializer source/download branching**
+- [x] **Step 3: Update materializer source/download branching**
 
 Modify `Materialize`:
 
@@ -630,7 +630,7 @@ func copyLocalSourceSnapshot(sourceURL string, targetDir string) error {
 
 Update `skillFromEntry` to remove the `SourceURL` required check and replace it with source-or-download check.
 
-- [ ] **Step 4: Run materializer tests**
+- [x] **Step 4: Run materializer tests**
 
 Run:
 
@@ -640,7 +640,7 @@ go test ./internal/app/registryapp -run 'TestMaterializer_' -count=1
 
 Expected: PASS.
 
-- [ ] **Step 5: Write failing catalog download_url normalization tests**
+- [x] **Step 5: Write failing catalog download_url normalization tests**
 
 Add to `service_test.go`:
 
@@ -671,7 +671,7 @@ func TestRegistryService_RejectsRemoteRelativeDownloadURL(t *testing.T) {
 }
 ```
 
-- [ ] **Step 6: Implement download_url normalization**
+- [x] **Step 6: Implement download_url normalization**
 
 In `normalizeSkillEntries`, before `NormalizeSkillEntry`, add:
 
@@ -688,7 +688,7 @@ if entry.DownloadURL != "" && !registry.IsHTTPURL(entry.DownloadURL) {
 }
 ```
 
-- [ ] **Step 7: Run registryapp tests**
+- [x] **Step 7: Run registryapp tests**
 
 Run:
 

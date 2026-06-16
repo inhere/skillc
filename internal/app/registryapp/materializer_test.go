@@ -49,3 +49,20 @@ func TestMaterializer_MaterializeLocalSourceURLCopiesSnapshot(t *testing.T) {
 	assert.Eq(t, targetRoot, got.Path)
 	assert.FileExists(t, filepath.Join(targetRoot, "skills", "go-pro", "SKILL.md"))
 }
+
+func TestMaterializer_MaterializeDownloadURLArchive(t *testing.T) {
+	baseDir := t.TempDir()
+	archivePath := filepath.Join(baseDir, "go-pro.zip")
+	writeZipArchive(t, archivePath, map[string]string{"skills/go-pro/SKILL.md": "# Go Pro"})
+	targetRoot := filepath.Join(baseDir, "cache", "skills", "team", "go-pro", "1.0.0")
+
+	got, err := newMaterializer(nil).Materialize(registry.SkillEntry{
+		ID: "go-pro", Name: "Go Pro", Version: "1.0.0", RegistryID: "team",
+		DownloadURL: archivePath, InstallEntry: "skills/go-pro",
+	}, targetRoot, gitx.SyncOptions{})
+
+	assert.NoErr(t, err)
+	assert.Eq(t, targetRoot, got.Path)
+	assert.Eq(t, archivePath, got.DownloadURL)
+	assert.FileExists(t, filepath.Join(targetRoot, "skills", "go-pro", "SKILL.md"))
+}

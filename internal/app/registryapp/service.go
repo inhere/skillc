@@ -376,6 +376,16 @@ func normalizeSkillEntries(entries []registry.SkillEntry, item registry.Registry
 			}
 			entry.SourceURL = filepath.Clean(entry.SourceURL)
 		}
+		entry.DownloadURL = strings.TrimSpace(entry.DownloadURL)
+		if entry.DownloadURL != "" && !registry.IsHTTPURL(entry.DownloadURL) {
+			if remote {
+				return nil, fmt.Errorf("registry skill download_url must be http URL for remote catalog: %s", entry.ID)
+			}
+			if !filepath.IsAbs(entry.DownloadURL) {
+				entry.DownloadURL = filepath.Join(catalogDir, entry.DownloadURL)
+			}
+			entry.DownloadURL = filepath.Clean(entry.DownloadURL)
+		}
 		normalized, err := registry.NormalizeSkillEntry(entry, item.ID)
 		if err != nil {
 			return nil, err

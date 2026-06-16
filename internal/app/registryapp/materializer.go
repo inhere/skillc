@@ -29,34 +29,27 @@ func newMaterializer(git gitSyncer) *materializer {
 }
 
 func (m *materializer) Materialize(entry registry.SkillEntry, targetDir string, opts gitx.SyncOptions) (skill.Skill, error) {
-	if strings.TrimSpace(entry.SourceURL) == "" {
-		return skill.Skill{}, fmt.Errorf("registry skill source_url is required for install: %s/%s", entry.RegistryID, entry.ID)
-	}
-
 	resolvedRef := ""
-	if sourceapp.IsGitURL(entry.SourceURL) {
-		ref, err := m.git.Sync(entry.SourceURL, targetDir, entry.SourceRef, opts)
-		if err != nil {
+	if strings.TrimSpace(entry.SourceURL) != "" {
+		if sourceapp.IsGitURL(entry.SourceURL) {
+			ref, err := m.git.Sync(entry.SourceURL, targetDir, entry.SourceRef, opts)
+			if err != nil {
+				return skill.Skill{}, err
+			}
+			resolvedRef = ref
+		} else {
+			if err := copyLocalSourceSnapshot(entry.SourceURL, targetDir); err != nil {
+				return skill.Skill{}, err
+			}
+		}
+	} else if strings.TrimSpace(entry.DownloadURL) != "" {
+		if _, err := extractArchiveDownload(archiveDownloadReq{
+			URL: entry.DownloadURL, Checksum: entry.Checksum, TargetDir: targetDir,
+		}); err != nil {
 			return skill.Skill{}, err
 		}
-		resolvedRef = ref
 	} else {
-		info, err := os.Stat(entry.SourceURL)
-		if err != nil {
-			return skill.Skill{}, err
-		}
-		if !info.IsDir() {
-			return skill.Skill{}, fmt.Errorf("registry skill source_url must be git URL or local directory: %s", entry.SourceURL)
-		}
-		if err := os.RemoveAll(targetDir); err != nil {
-			return skill.Skill{}, err
-		}
-		if err := os.MkdirAll(filepath.Dir(targetDir), 0o755); err != nil {
-			return skill.Skill{}, err
-		}
-		if err := os.CopyFS(targetDir, os.DirFS(entry.SourceURL)); err != nil {
-			return skill.Skill{}, err
-		}
+		return skill.Skill{}, fmt.Errorf("registry skill source_url or download_url is required for install: %s/%s", entry.RegistryID, entry.ID)
 	}
 
 	item, err := m.skillFromEntry(entry, targetDir)
@@ -67,9 +60,26 @@ func (m *materializer) Materialize(entry registry.SkillEntry, targetDir string, 
 	return item, nil
 }
 
+func copyLocalSourceSnapshot(sourceURL string, targetDir string) error {
+	info, err := os.Stat(sourceURL)
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("registry skill source_url must be git URL or local directory: %s", sourceURL)
+	}
+	if err := os.RemoveAll(targetDir); err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(targetDir), 0o755); err != nil {
+		return err
+	}
+	return os.CopyFS(targetDir, os.DirFS(sourceURL))
+}
+
 func (m *materializer) skillFromEntry(entry registry.SkillEntry, root string) (skill.Skill, error) {
-	if strings.TrimSpace(entry.SourceURL) == "" {
-		return skill.Skill{}, fmt.Errorf("registry skill source_url is required for install: %s/%s", entry.RegistryID, entry.ID)
+	if strings.TrimSpace(entry.SourceURL) == "" && strings.TrimSpace(entry.DownloadURL) == "" {
+		return skill.Skill{}, fmt.Errorf("registry skill source_url or download_url is required for install: %s/%s", entry.RegistryID, entry.ID)
 	}
 	return skill.Skill{
 		ID:                  entry.ID,

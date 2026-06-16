@@ -90,7 +90,7 @@ P10 不做：
 - Modify: `internal/app/registryapp/materializer.go`
 - Modify: `internal/app/registryapp/materializer_test.go`
 
-- [ ] **Step 1: Write failing zip archive materialization test**
+- [x] **Step 1: Write failing zip archive materialization test**
 
 Add `TestArchiveMaterializer_ExtractsZipDownload` to `internal/app/registryapp/archive_materializer_test.go`.
 
@@ -116,7 +116,7 @@ func TestArchiveMaterializer_ExtractsZipDownload(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run focused test and verify failure**
+- [x] **Step 2: Run focused test and verify failure**
 
 Run:
 
@@ -126,7 +126,7 @@ go test ./internal/app/registryapp -run TestArchiveMaterializer_ExtractsZipDownl
 
 Expected: FAIL because `extractArchiveDownload` and `archiveDownloadReq` do not exist.
 
-- [ ] **Step 3: Implement minimal archive request and zip extraction**
+- [x] **Step 3: Implement minimal archive request and zip extraction**
 
 Create `internal/app/registryapp/archive_materializer.go` with:
 
@@ -261,7 +261,7 @@ func writeFileFromReader(path string, src io.Reader) error {
 }
 ```
 
-- [ ] **Step 4: Add test helper for zip archives**
+- [x] **Step 4: Add test helper for zip archives**
 
 In `archive_materializer_test.go`, add helper:
 
@@ -282,7 +282,7 @@ func writeZipArchive(t *testing.T, path string, files map[string]string) {
 }
 ```
 
-- [ ] **Step 5: Run focused test and verify pass**
+- [x] **Step 5: Run focused test and verify pass**
 
 Run:
 

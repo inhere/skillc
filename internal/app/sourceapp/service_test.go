@@ -85,6 +85,57 @@ func TestService_AddListRemoveLocalSource(t *testing.T) {
 	assert.Len(t, list, 0)
 }
 
+func TestService_AddLocalWithCustomIDAndName(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	sourceRoot := filepath.Join(baseDir, "skills")
+	assert.NoErr(t, os.MkdirAll(sourceRoot, 0o755))
+
+	src, err := NewService(configFile, baseDir).Add(AddReq{
+		Value: sourceRoot,
+		ID:    "GStack",
+		Name:  "GStack Skills",
+	})
+
+	assert.NoErr(t, err)
+	assert.Eq(t, "gstack", src.ID)
+	assert.Eq(t, "GStack Skills", src.Name)
+	assert.Eq(t, source.TypeLocal, src.Type)
+}
+
+func TestService_AddGeneratesUniqueIDForDuplicateNames(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	first := filepath.Join(baseDir, "a", "skills")
+	second := filepath.Join(baseDir, "b", "skills")
+	assert.NoErr(t, os.MkdirAll(first, 0o755))
+	assert.NoErr(t, os.MkdirAll(second, 0o755))
+	service := NewService(configFile, baseDir)
+
+	one, err := service.Add(AddReq{Value: first, Name: "Shared Skills"})
+	assert.NoErr(t, err)
+	two, err := service.Add(AddReq{Value: second, Name: "Shared Skills"})
+	assert.NoErr(t, err)
+
+	assert.Eq(t, "shared-skills", one.ID)
+	assert.Eq(t, "shared-skills-2", two.ID)
+}
+
+func TestService_InfoFindsSourceByPartialID(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	sourceRoot := filepath.Join(baseDir, "skills")
+	assert.NoErr(t, os.MkdirAll(sourceRoot, 0o755))
+	service := NewService(configFile, baseDir)
+	_, err := service.Add(AddReq{Value: sourceRoot, ID: "gstack"})
+	assert.NoErr(t, err)
+
+	src, err := service.Info("gst")
+
+	assert.NoErr(t, err)
+	assert.Eq(t, "gstack", src.ID)
+}
+
 func TestService_SyncLocalRebuildsIndex(t *testing.T) {
 	baseDir := t.TempDir()
 	configFile := filepath.Join(baseDir, "skillc.yaml")
@@ -125,7 +176,7 @@ func TestService_AddGitAndSyncStatus(t *testing.T) {
 	assert.NoErr(t, err)
 	service := NewService(configFile, baseDir)
 	service.git = gitRunnerStub{syncFn: func(url, dir, ref string, opts gitx.SyncOptions) (string, error) {
-		assert.Eq(t, filepath.Join(cfg.RepoCacheDir, "git-repo"), dir)
+		assert.Eq(t, filepath.Join(cfg.RepoCacheDir, "repo"), dir)
 		return "deadbeefcafebabe", os.MkdirAll(dir, 0o755)
 	}}
 
@@ -394,7 +445,7 @@ func TestService_EnsureSource_Local(t *testing.T) {
 	src, isNew, err := service.EnsureSource(localDir, "")
 	assert.NoErr(t, err)
 	assert.True(t, isNew)
-	assert.Eq(t, "local-my-skills", src.ID)
+	assert.Eq(t, "my-skills", src.ID)
 
 	// 再次调用：返回已有 source，不报错
 	src2, isNew2, err := service.EnsureSource(localDir, "")
@@ -418,7 +469,7 @@ func TestService_EnsureSource_Git(t *testing.T) {
 	src, isNew, err := service.EnsureSource("https://github.com/example/skills.git", "main")
 	assert.NoErr(t, err)
 	assert.True(t, isNew)
-	assert.Eq(t, "git-example-skills", src.ID)
+	assert.Eq(t, "example-skills", src.ID)
 
 	// 再次调用：返回已有 source
 	src2, isNew2, err := service.EnsureSource("https://github.com/example/skills.git", "main")

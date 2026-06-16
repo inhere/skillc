@@ -46,6 +46,14 @@ type Service struct {
 	progressWriter io.Writer
 }
 
+type AddReq struct {
+	Value string
+	Type  domainsource.Type
+	ID    string
+	Name  string
+	Ref   string
+}
+
 func NewService(configFile string, baseDir string) *Service {
 	gitClient := gitx.New("git")
 	return &Service{
@@ -62,18 +70,40 @@ func NewService(configFile string, baseDir string) *Service {
 	}
 }
 
+func (s *Service) Add(req AddReq) (domainsource.Source, error) {
+	value := strings.TrimSpace(req.Value)
+	if value == "" {
+		return domainsource.Source{}, fmt.Errorf("source value is required")
+	}
+	opts := domainsource.SourceOptions{ID: req.ID, Name: req.Name}
+	if req.Type == domainsource.TypeGit || (req.Type == "" && isGitURL(value)) {
+		return s.AddGitWithOptions(value, req.Ref, opts)
+	}
+	return s.AddLocalWithOptions(value, opts)
+}
+
 func (s *Service) AddLocal(path string) (domainsource.Source, error) {
+	return s.AddLocalWithOptions(path, domainsource.SourceOptions{})
+}
+
+func (s *Service) AddLocalWithOptions(path string, opts domainsource.SourceOptions) (domainsource.Source, error) {
 	data, err := s.load()
 	if err != nil {
 		return domainsource.Source{}, err
 	}
 
-	src, err := domainsource.NewLocalSource(path)
+	src, err := domainsource.NewLocalSourceWithOptions(path, opts)
 	if err != nil {
 		return domainsource.Source{}, err
 	}
 	if sourcestore.ExistsByPath(data, src.Path) {
 		return domainsource.Source{}, fmt.Errorf("source already exists: %s", src.Path)
+	}
+	if opts.ID != "" && sourcestore.ExistsByID(data, src.ID) {
+		return domainsource.Source{}, fmt.Errorf("source already exists: %s", src.ID)
+	}
+	if opts.ID == "" {
+		src.ID = uniqueSourceID(src.ID, data.Sources)
 	}
 
 	sourcestore.Add(&data, src)
@@ -84,17 +114,27 @@ func (s *Service) AddLocal(path string) (domainsource.Source, error) {
 }
 
 func (s *Service) AddGit(url string, ref string) (domainsource.Source, error) {
+	return s.AddGitWithOptions(url, ref, domainsource.SourceOptions{})
+}
+
+func (s *Service) AddGitWithOptions(url string, ref string, opts domainsource.SourceOptions) (domainsource.Source, error) {
 	data, err := s.load()
 	if err != nil {
 		return domainsource.Source{}, err
 	}
 
-	src, err := domainsource.NewGitSource(url, ref)
+	src, err := domainsource.NewGitSourceWithOptions(url, ref, opts)
 	if err != nil {
 		return domainsource.Source{}, err
 	}
+	if existsByGitURL(data, src.URL) {
+		return domainsource.Source{}, fmt.Errorf("source already exists: %s", src.URL)
+	}
 	if sourcestore.ExistsByID(data, src.ID) {
-		return domainsource.Source{}, fmt.Errorf("source already exists: %s", src.ID)
+		if opts.ID != "" {
+			return domainsource.Source{}, fmt.Errorf("source already exists: %s", src.ID)
+		}
+		src.ID = uniqueSourceID(src.ID, data.Sources)
 	}
 
 	sourcestore.Add(&data, src)
@@ -102,6 +142,21 @@ func (s *Service) AddGit(url string, ref string) (domainsource.Source, error) {
 		return domainsource.Source{}, err
 	}
 	return src, nil
+}
+
+func (s *Service) Info(partial string) (domainsource.Source, error) {
+	matches, err := s.MatchSources(partial)
+	if err != nil {
+		return domainsource.Source{}, err
+	}
+	switch len(matches) {
+	case 0:
+		return domainsource.Source{}, fmt.Errorf("source not found: %s", partial)
+	case 1:
+		return matches[0], nil
+	default:
+		return domainsource.Source{}, fmt.Errorf("multiple sources matched: %s", partial)
+	}
 }
 
 // List 列出
@@ -212,8 +267,13 @@ func (s *Service) findLocalSourceByPath(path string) (domainsource.Source, error
 	if err != nil {
 		return domainsource.Source{}, err
 	}
+	clean := filepath.Clean(path)
+	absPath, err := filepath.Abs(clean)
+	if err == nil {
+		clean = absPath
+	}
 	for _, src := range list {
-		if src.Type == domainsource.TypeLocal && src.Path == path {
+		if src.Type == domainsource.TypeLocal && filepath.Clean(src.Path) == clean {
 			return src, nil
 		}
 	}
@@ -317,4 +377,34 @@ func (s *Service) rebuildIndex(data cfg.Config) error {
 
 func (s *Service) load() (cfg.Config, error) {
 	return s.store.Load(s.configFile, s.baseDir)
+}
+
+func uniqueSourceID(id string, sources []domainsource.Source) string {
+	if !containsSourceID(sources, id) {
+		return id
+	}
+	for i := 2; ; i++ {
+		candidate := fmt.Sprintf("%s-%d", id, i)
+		if !containsSourceID(sources, candidate) {
+			return candidate
+		}
+	}
+}
+
+func containsSourceID(sources []domainsource.Source, id string) bool {
+	for _, source := range sources {
+		if source.ID == id {
+			return true
+		}
+	}
+	return false
+}
+
+func existsByGitURL(config cfg.Config, url string) bool {
+	for _, source := range config.Sources {
+		if source.Type == domainsource.TypeGit && source.URL == url {
+			return true
+		}
+	}
+	return false
 }

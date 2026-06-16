@@ -382,7 +382,7 @@ LatestSourceResolvedRef  string `json:"latest_source_resolved_ref,omitempty"`
 - Modify: `internal/app/sourceapp/service.go`
 - Modify: `internal/app/sourceapp/service_test.go`
 
-- [ ] **Step 1: Write failing source domain tests**
+- [x] **Step 1: Write failing source domain tests**
 
 Add tests to `internal/domain/source/model_test.go`:
 
@@ -418,7 +418,7 @@ func TestNewSourceWithExplicitIDAndName(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run source domain tests to verify they fail**
+- [x] **Step 2: Run source domain tests to verify they fail**
 
 Run:
 
@@ -428,7 +428,7 @@ go test ./internal/domain/source -run 'TestNew(Local|Git)SourceGeneratesIDWithou
 
 Expected: FAIL because source IDs still include `local-` / `git-` and `SourceOptions` does not exist.
 
-- [ ] **Step 3: Implement source options and new ID rule**
+- [x] **Step 3: Implement source options and new ID rule**
 
 Modify `internal/domain/source/model.go`:
 
@@ -550,7 +550,7 @@ func firstNonEmpty(values ...string) string {
 `sourceNameFromPath` keeps the existing `skills` / `skill` parent-name behavior.
 `sourceNameFromGitURL` must use the standard `path` package, not `filepath`; on Windows `filepath.Base("https://github.com/acme/skills.git")` treats `/` as ordinary text and generates invalid IDs.
 
-- [ ] **Step 4: Run source domain tests**
+- [x] **Step 4: Run source domain tests**
 
 Run:
 
@@ -560,7 +560,7 @@ go test ./internal/domain/source
 
 Expected: PASS after updating old ID expectations to the new no-prefix rule.
 
-- [ ] **Step 5: Write failing sourceapp tests**
+- [x] **Step 5: Write failing sourceapp tests**
 
 Add tests to `internal/app/sourceapp/service_test.go`:
 
@@ -617,7 +617,7 @@ func TestService_InfoFindsSourceByPartialID(t *testing.T) {
 }
 ```
 
-- [ ] **Step 6: Run sourceapp tests to verify they fail**
+- [x] **Step 6: Run sourceapp tests to verify they fail**
 
 Run:
 
@@ -627,7 +627,7 @@ go test ./internal/app/sourceapp -run 'TestService_AddLocalWithCustomIDAndName|T
 
 Expected: FAIL because `AddReq`, `Add`, and `Info` do not exist.
 
-- [ ] **Step 7: Implement sourceapp AddReq and Info**
+- [x] **Step 7: Implement sourceapp AddReq and Info**
 
 Modify `internal/app/sourceapp/service.go`:
 
@@ -664,7 +664,7 @@ Use exact duplicate checks:
 
 Keep existing `AddLocal` and `AddGit` as wrappers around the new option-aware methods.
 
-- [ ] **Step 8: Run sourceapp tests**
+- [x] **Step 8: Run sourceapp tests**
 
 Run:
 

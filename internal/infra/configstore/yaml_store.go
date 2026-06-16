@@ -8,6 +8,7 @@ import (
 	gkyaml "github.com/gookit/config/v2/yaml"
 	cfg "github.com/inhere/skillc/internal/domain/config"
 	"github.com/inhere/skillc/internal/domain/profile"
+	"github.com/inhere/skillc/internal/domain/project"
 	domainsource "github.com/inhere/skillc/internal/domain/source"
 	"github.com/inhere/skillc/internal/infra/fsx"
 )
@@ -27,6 +28,13 @@ type sourceRecord struct {
 	ErrorMessage string            `yaml:"error_message,omitempty"`
 }
 
+type projectRecord struct {
+	ID          string `yaml:"id"`
+	Name        string `yaml:"name,omitempty"`
+	Path        string `yaml:"path"`
+	Description string `yaml:"description,omitempty"`
+}
+
 type rawConfig struct {
 	ProxyURL string `yaml:"proxy_url"`
 	// AgentTools is the agent tools config.
@@ -40,6 +48,7 @@ type rawConfig struct {
 	IndexFile        string                     `yaml:"index_file"`
 	Sources          []sourceRecord             `yaml:"sources"`
 	Profiles         map[string]profile.Profile `yaml:"profiles,omitempty"`
+	Projects         []projectRecord            `yaml:"projects,omitempty"`
 }
 
 func NewYAMLStore() *YAMLStore {
@@ -117,6 +126,9 @@ func (s *YAMLStore) Save(path string, data cfg.Config, runtimeBaseDir ...string)
 	if len(persisted.Profiles) > 0 {
 		out["profiles"] = persisted.Profiles
 	}
+	if len(persisted.Projects) > 0 {
+		out["projects"] = toProjectRecords(persisted.Projects)
+	}
 	loader.SetData(out)
 	return loader.DumpToFile(path, gkconfig.Yaml)
 }
@@ -188,6 +200,9 @@ func cloneConfig(data cfg.Config) cfg.Config {
 			clone.Profiles[name] = item
 		}
 	}
+	if data.Projects != nil {
+		clone.Projects = append([]project.Project(nil), data.Projects...)
+	}
 	return clone
 }
 
@@ -243,6 +258,23 @@ func compactRuntimePaths(data cfg.Config, baseDir string, existing rawConfig, ha
 			}
 		}
 		data.AgentTools[name] = tool
+	}
+
+	for i, item := range data.Projects {
+		existingRaw := ""
+		if hasExisting {
+			for _, existingProject := range existing.Projects {
+				if existingProject.ID == item.ID {
+					existingRaw = existingProject.Path
+					break
+				}
+			}
+		}
+		item.Path, err = compactPath(item.Path, existingRaw, "", baseDir, hasExisting)
+		if err != nil {
+			return cfg.Config{}, err
+		}
+		data.Projects[i] = item
 	}
 
 	return data, nil
@@ -323,6 +355,18 @@ func expandRuntimePaths(data cfg.Config, baseDir string) (cfg.Config, error) {
 		data.Sources[i] = src
 	}
 
+	for i, item := range data.Projects {
+		if item.Path == "" {
+			continue
+		}
+		item.Path, err = fsx.ExpandPath(item.Path, baseDir)
+		if err != nil {
+			return cfg.Config{}, err
+		}
+		item.Path = filepath.Clean(item.Path)
+		data.Projects[i] = item
+	}
+
 	return data, nil
 }
 
@@ -347,6 +391,38 @@ func toSourceRecords(sources []domainsource.Source) []sourceRecord {
 		records = append(records, record)
 	}
 	return records
+}
+
+func toProjectRecords(projects []project.Project) []projectRecord {
+	if len(projects) == 0 {
+		return nil
+	}
+	records := make([]projectRecord, 0, len(projects))
+	for _, item := range projects {
+		records = append(records, projectRecord{
+			ID:          item.ID,
+			Name:        item.Name,
+			Path:        item.Path,
+			Description: item.Description,
+		})
+	}
+	return records
+}
+
+func fromProjectRecords(records []projectRecord) []project.Project {
+	if len(records) == 0 {
+		return []project.Project{}
+	}
+	items := make([]project.Project, 0, len(records))
+	for _, record := range records {
+		items = append(items, project.Project{
+			ID:          record.ID,
+			Name:        record.Name,
+			Path:        record.Path,
+			Description: record.Description,
+		})
+	}
+	return items
 }
 
 func fromRawConfig(raw rawConfig) (cfg.Config, error) {
@@ -377,5 +453,6 @@ func fromRawConfig(raw rawConfig) (cfg.Config, error) {
 		IndexFile:        raw.IndexFile,
 		Sources:          sources,
 		Profiles:         raw.Profiles,
+		Projects:         fromProjectRecords(raw.Projects),
 	}, nil
 }

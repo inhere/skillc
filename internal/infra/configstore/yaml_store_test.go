@@ -8,6 +8,7 @@ import (
 	"github.com/gookit/goutil/testutil/assert"
 	cfg "github.com/inhere/skillc/internal/domain/config"
 	"github.com/inhere/skillc/internal/domain/profile"
+	"github.com/inhere/skillc/internal/domain/project"
 	sourcepkg "github.com/inhere/skillc/internal/domain/source"
 )
 
@@ -123,6 +124,37 @@ func TestYAMLStore_SaveDefaultConfigOmitsEmptyProfiles(t *testing.T) {
 	content, err := os.ReadFile(path)
 	assert.NoErr(t, err)
 	assert.NotContains(t, string(content), "profiles:")
+}
+
+func TestYAMLStore_LoadSaveProjects(t *testing.T) {
+	baseDir := t.TempDir()
+	path := filepath.Join(baseDir, "skillc.yaml")
+	projectPath := filepath.Join(baseDir, "demo")
+	assert.NoErr(t, os.MkdirAll(projectPath, 0o755))
+
+	data := cfg.DefaultConfig()
+	data.Projects = []project.Project{{ID: "demo", Name: "Demo", Path: projectPath}}
+
+	store := NewYAMLStore()
+	assert.NoErr(t, store.Save(path, data, baseDir))
+
+	got, err := store.Load(path, baseDir)
+	assert.NoErr(t, err)
+	assert.Len(t, got.Projects, 1)
+	assert.Eq(t, "demo", got.Projects[0].ID)
+	assert.Eq(t, projectPath, got.Projects[0].Path)
+}
+
+func TestYAMLStore_SaveDefaultConfigOmitsEmptyProjects(t *testing.T) {
+	baseDir := t.TempDir()
+	path := filepath.Join(baseDir, "skillc.yaml")
+
+	store := NewYAMLStore()
+	assert.NoErr(t, store.Save(path, cfg.DefaultConfig(), baseDir))
+
+	content, err := os.ReadFile(path)
+	assert.NoErr(t, err)
+	assert.NotContains(t, string(content), "projects:")
 }
 
 func TestStore_SaveAfterLoadKeepsProjectDirsPortable(t *testing.T) {

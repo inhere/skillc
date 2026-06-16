@@ -4,6 +4,7 @@ import (
 	"slices"
 
 	"github.com/inhere/skillc/internal/domain/profile"
+	"github.com/inhere/skillc/internal/domain/project"
 	domainsource "github.com/inhere/skillc/internal/domain/source"
 )
 
@@ -27,6 +28,7 @@ type Config struct {
 	IndexFile        string                     `yaml:"index_file"`
 	Sources          []domainsource.Source      `yaml:"sources"`
 	Profiles         map[string]profile.Profile `yaml:"profiles,omitempty"`
+	Projects         []project.Project          `yaml:"projects,omitempty"`
 }
 
 type AgentToolConfig struct {

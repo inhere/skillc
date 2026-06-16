@@ -1331,7 +1331,7 @@ git commit -m "docs(skillc): document registry skill install workflow"
 **Files:**
 - Modify: `docs/superpowers/plans/2026-06-16-skillc-v0-phase9-registry-skill-search-install.md`
 
-- [ ] **Step 1: Run focused verification**
+- [x] **Step 1: Run focused verification**
 
 Run:
 
@@ -1341,7 +1341,7 @@ go test ./internal/domain/source ./internal/domain/registry ./internal/infra/reg
 
 Expected: PASS.
 
-- [ ] **Step 2: Run full verification**
+- [x] **Step 2: Run full verification**
 
 Run:
 
@@ -1351,7 +1351,7 @@ go test ./...
 
 Expected: PASS.
 
-- [ ] **Step 3: Update verification record**
+- [x] **Step 3: Update verification record**
 
 Add a `## Verification` section to this plan with:
 
@@ -1362,7 +1362,7 @@ Add a `## Verification` section to this plan with:
 - `go test ./...`
 ```
 
-- [ ] **Step 4: Commit verification record**
+- [x] **Step 4: Commit verification record**
 
 Run:
 
@@ -1373,17 +1373,22 @@ git commit -m "docs(skillc): complete phase 9 registry plan verification"
 
 ## Self-Review Checklist
 
-- [ ] `registry search` defaults to Skill results.
-- [ ] `registry search --kind source` preserves P8 source catalog behavior.
-- [ ] Generic JSON catalog supports both `skills` and `sources`.
-- [ ] `registry install <registry>/<skill>` installs without adding a source config entry.
-- [ ] Registry-installed lock records use `source_type=registry`.
-- [ ] Lock records preserve registry provenance fields.
-- [ ] `install` restore handles registry records.
-- [ ] `status` / `update --check` do not mark registry records as orphan when registry cache has the skill.
-- [ ] `update` can reinstall registry skills from materialized cache.
-- [ ] README, TODO, design doc, and this plan agree that public site adapters are not implemented in P9.
-- [ ] `go test ./...` passes before claiming Phase 9 complete.
+- [x] `registry search` defaults to Skill results.
+- [x] `registry search --kind source` preserves P8 source catalog behavior.
+- [x] Generic JSON catalog supports both `skills` and `sources`.
+- [x] `registry install <registry>/<skill>` installs without adding a source config entry.
+- [x] Registry-installed lock records use `source_type=registry`.
+- [x] Lock records preserve registry provenance fields.
+- [x] `install` restore handles registry records.
+- [x] `status` / `update --check` do not mark registry records as orphan when registry cache has the skill.
+- [x] `update` can reinstall registry skills from materialized cache.
+- [x] README, TODO, design doc, and this plan agree that public site adapters are not implemented in P9.
+- [x] `go test ./...` passes before claiming Phase 9 complete.
+
+## Verification
+
+- `go test ./internal/domain/source ./internal/domain/registry ./internal/infra/registrystore ./internal/app/registryapp ./internal/app/installapp ./internal/app/statusapp ./internal/app/updateapp ./internal/cli`
+- `go test ./...`
 
 ## Remaining After Phase 9
 

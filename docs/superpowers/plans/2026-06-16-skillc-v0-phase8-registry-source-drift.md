@@ -823,7 +823,7 @@ git commit -m "feat(skillc): add source info and custom source ids"
 - Modify: `internal/infra/configstore/yaml_store.go`
 - Modify: `internal/infra/configstore/yaml_store_test.go`
 
-- [ ] **Step 1: Write failing registry domain tests**
+- [x] **Step 1: Write failing registry domain tests**
 
 Create `internal/domain/registry/model_test.go`:
 
@@ -863,7 +863,7 @@ func TestEntryValidateRequiresSourceLocation(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run registry domain tests to verify they fail**
+- [x] **Step 2: Run registry domain tests to verify they fail**
 
 Run:
 
@@ -873,7 +873,7 @@ go test ./internal/domain/registry -v
 
 Expected: FAIL because package does not exist.
 
-- [ ] **Step 3: Implement registry domain model**
+- [x] **Step 3: Implement registry domain model**
 
 Create `internal/domain/registry/model.go` with:
 
@@ -922,7 +922,7 @@ func NormalizeID(value string) string
 func IsHTTPURL(value string) bool
 ```
 
-- [ ] **Step 4: Write failing configstore registry tests**
+- [x] **Step 4: Write failing configstore registry tests**
 
 Add to `internal/infra/configstore/yaml_store_test.go`:
 
@@ -947,7 +947,7 @@ func TestYAMLStore_LoadSaveRegistries(t *testing.T) {
 }
 ```
 
-- [ ] **Step 5: Run configstore registry tests to verify they fail**
+- [x] **Step 5: Run configstore registry tests to verify they fail**
 
 Run:
 
@@ -957,7 +957,7 @@ go test ./internal/infra/configstore -run TestYAMLStore_LoadSaveRegistries -v
 
 Expected: FAIL because config does not persist registries.
 
-- [ ] **Step 6: Implement config registries persistence**
+- [x] **Step 6: Implement config registries persistence**
 
 Modify:
 
@@ -971,7 +971,7 @@ Modify:
   - expand/compact local registry `Path`; do not expand HTTP `URL`.
   - omit empty registries on save.
 
-- [ ] **Step 7: Run registry domain and configstore tests**
+- [x] **Step 7: Run registry domain and configstore tests**
 
 Run:
 
@@ -981,7 +981,7 @@ go test ./internal/domain/registry ./internal/infra/configstore
 
 Expected: PASS.
 
-- [ ] **Step 8: Commit registry config model**
+- [x] **Step 8: Commit registry config model**
 
 Run:
 

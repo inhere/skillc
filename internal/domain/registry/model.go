@@ -1,0 +1,137 @@
+package registry
+
+import (
+	"fmt"
+	"path/filepath"
+	"strings"
+)
+
+type Type string
+
+const (
+	TypeLocal Type = "local"
+	TypeHTTP  Type = "http"
+)
+
+type Registry struct {
+	ID           string `yaml:"id" json:"id"`
+	Name         string `yaml:"name,omitempty" json:"name,omitempty"`
+	Type         Type   `yaml:"type" json:"type"`
+	Path         string `yaml:"path,omitempty" json:"path,omitempty"`
+	URL          string `yaml:"url,omitempty" json:"url,omitempty"`
+	LastSyncAt   string `yaml:"last_sync_at,omitempty" json:"last_sync_at,omitempty"`
+	Status       string `yaml:"status,omitempty" json:"status,omitempty"`
+	ErrorMessage string `yaml:"error_message,omitempty" json:"error_message,omitempty"`
+}
+
+type Entry struct {
+	ID          string   `json:"id"`
+	Name        string   `json:"name,omitempty"`
+	Description string   `json:"description,omitempty"`
+	Type        string   `json:"type"`
+	URL         string   `json:"url,omitempty"`
+	Path        string   `json:"path,omitempty"`
+	Ref         string   `json:"ref,omitempty"`
+	Tags        []string `json:"tags,omitempty"`
+	RegistryID  string   `json:"registry_id,omitempty"`
+}
+
+type Catalog struct {
+	Sources []Entry `json:"sources"`
+}
+
+func New(id string, name string, value string) (Registry, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return Registry{}, fmt.Errorf("registry path or url is required")
+	}
+	if name == "" {
+		name = strings.TrimSpace(id)
+	}
+	if name == "" {
+		name = registryNameFromValue(value)
+	}
+	id = NormalizeID(firstNonEmpty(id, name))
+	if id == "" {
+		return Registry{}, fmt.Errorf("registry id is required")
+	}
+
+	if IsHTTPURL(value) {
+		return Registry{ID: id, Name: name, Type: TypeHTTP, URL: value}, nil
+	}
+
+	absPath, err := filepath.Abs(value)
+	if err != nil {
+		return Registry{}, err
+	}
+	return Registry{ID: id, Name: name, Type: TypeLocal, Path: filepath.Clean(absPath)}, nil
+}
+
+func (e Entry) Validate() error {
+	if NormalizeID(e.ID) == "" {
+		return fmt.Errorf("registry entry id is required")
+	}
+	switch strings.TrimSpace(strings.ToLower(e.Type)) {
+	case "git":
+		if strings.TrimSpace(e.URL) == "" {
+			return fmt.Errorf("registry entry git url is required")
+		}
+	case "local":
+		if strings.TrimSpace(e.Path) == "" {
+			return fmt.Errorf("registry entry local path is required")
+		}
+	default:
+		return fmt.Errorf("registry entry type is required")
+	}
+	return nil
+}
+
+func NormalizeID(value string) string {
+	value = strings.TrimSpace(strings.ToLower(value))
+	var b strings.Builder
+	lastDash := false
+	for _, r := range value {
+		switch {
+		case r >= 'a' && r <= 'z':
+			b.WriteRune(r)
+			lastDash = false
+		case r >= '0' && r <= '9':
+			b.WriteRune(r)
+			lastDash = false
+		case r == '_' || r == '-':
+			b.WriteRune(r)
+			lastDash = r == '-'
+		case !lastDash:
+			b.WriteByte('-')
+			lastDash = true
+		}
+	}
+	return strings.Trim(b.String(), "-_")
+}
+
+func IsHTTPURL(value string) bool {
+	value = strings.ToLower(strings.TrimSpace(value))
+	return strings.HasPrefix(value, "http://") || strings.HasPrefix(value, "https://")
+}
+
+func registryNameFromValue(value string) string {
+	if IsHTTPURL(value) {
+		value = strings.TrimSuffix(value, "/")
+	}
+	base := filepath.Base(value)
+	base = strings.TrimSuffix(base, filepath.Ext(base))
+	if base == "." || base == string(filepath.Separator) || base == "" {
+		return "registry"
+	}
+	return base
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value != "" {
+			return value
+		}
+	}
+	return ""
+}

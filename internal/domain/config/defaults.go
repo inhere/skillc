@@ -2,6 +2,7 @@ package config
 
 import (
 	"github.com/inhere/skillc/internal/domain/project"
+	"github.com/inhere/skillc/internal/domain/registry"
 	domainsource "github.com/inhere/skillc/internal/domain/source"
 )
 
@@ -38,6 +39,7 @@ func DefaultConfig() Config {
 		RegistryCacheDir: "~/.cache/skillc/registry",
 		IndexFile:        "~/.cache/skillc/skillc-index.json",
 		Sources:          []domainsource.Source{},
+		Registries:       []registry.Registry{},
 		Projects:         []project.Project{},
 	}
 }

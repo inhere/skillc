@@ -9,6 +9,7 @@ import (
 	cfg "github.com/inhere/skillc/internal/domain/config"
 	"github.com/inhere/skillc/internal/domain/profile"
 	"github.com/inhere/skillc/internal/domain/project"
+	"github.com/inhere/skillc/internal/domain/registry"
 	sourcepkg "github.com/inhere/skillc/internal/domain/source"
 )
 
@@ -155,6 +156,25 @@ func TestYAMLStore_SaveDefaultConfigOmitsEmptyProjects(t *testing.T) {
 	content, err := os.ReadFile(path)
 	assert.NoErr(t, err)
 	assert.NotContains(t, string(content), "projects:")
+}
+
+func TestYAMLStore_LoadSaveRegistries(t *testing.T) {
+	baseDir := t.TempDir()
+	path := filepath.Join(baseDir, "skillc.yaml")
+	registryPath := filepath.Join(baseDir, "registry.json")
+	assert.NoErr(t, os.WriteFile(registryPath, []byte(`{"sources":[]}`), 0o644))
+
+	data := cfg.DefaultConfig()
+	data.Registries = []registry.Registry{{ID: "local", Name: "Local", Type: registry.TypeLocal, Path: registryPath}}
+
+	store := NewYAMLStore()
+	assert.NoErr(t, store.Save(path, data, baseDir))
+
+	got, err := store.Load(path, baseDir)
+	assert.NoErr(t, err)
+	assert.Len(t, got.Registries, 1)
+	assert.Eq(t, "local", got.Registries[0].ID)
+	assert.Eq(t, registryPath, got.Registries[0].Path)
 }
 
 func TestStore_SaveAfterLoadKeepsProjectDirsPortable(t *testing.T) {

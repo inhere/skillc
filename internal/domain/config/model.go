@@ -5,6 +5,7 @@ import (
 
 	"github.com/inhere/skillc/internal/domain/profile"
 	"github.com/inhere/skillc/internal/domain/project"
+	"github.com/inhere/skillc/internal/domain/registry"
 	domainsource "github.com/inhere/skillc/internal/domain/source"
 )
 
@@ -27,6 +28,7 @@ type Config struct {
 	RegistryCacheDir string                     `yaml:"registry_cache_dir"`
 	IndexFile        string                     `yaml:"index_file"`
 	Sources          []domainsource.Source      `yaml:"sources"`
+	Registries       []registry.Registry        `yaml:"registries,omitempty"`
 	Profiles         map[string]profile.Profile `yaml:"profiles,omitempty"`
 	Projects         []project.Project          `yaml:"projects,omitempty"`
 }

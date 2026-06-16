@@ -9,6 +9,7 @@ import (
 	cfg "github.com/inhere/skillc/internal/domain/config"
 	"github.com/inhere/skillc/internal/domain/profile"
 	"github.com/inhere/skillc/internal/domain/project"
+	"github.com/inhere/skillc/internal/domain/registry"
 	domainsource "github.com/inhere/skillc/internal/domain/source"
 	"github.com/inhere/skillc/internal/infra/fsx"
 )
@@ -35,6 +36,17 @@ type projectRecord struct {
 	Description string `yaml:"description,omitempty"`
 }
 
+type registryRecord struct {
+	ID           string        `yaml:"id"`
+	Name         string        `yaml:"name,omitempty"`
+	Type         registry.Type `yaml:"type"`
+	Path         string        `yaml:"path,omitempty"`
+	URL          string        `yaml:"url,omitempty"`
+	LastSyncAt   string        `yaml:"last_sync_at,omitempty"`
+	Status       string        `yaml:"status,omitempty"`
+	ErrorMessage string        `yaml:"error_message,omitempty"`
+}
+
 type rawConfig struct {
 	ProxyURL string `yaml:"proxy_url"`
 	// AgentTools is the agent tools config.
@@ -47,6 +59,7 @@ type rawConfig struct {
 	RegistryCacheDir string                     `yaml:"registry_cache_dir"`
 	IndexFile        string                     `yaml:"index_file"`
 	Sources          []sourceRecord             `yaml:"sources"`
+	Registries       []registryRecord           `yaml:"registries,omitempty"`
 	Profiles         map[string]profile.Profile `yaml:"profiles,omitempty"`
 	Projects         []projectRecord            `yaml:"projects,omitempty"`
 }
@@ -123,6 +136,9 @@ func (s *YAMLStore) Save(path string, data cfg.Config, runtimeBaseDir ...string)
 		"index_file":         persisted.IndexFile,
 		"sources":            toSourceRecords(persisted.Sources),
 	}
+	if len(persisted.Registries) > 0 {
+		out["registries"] = toRegistryRecords(persisted.Registries)
+	}
 	if len(persisted.Profiles) > 0 {
 		out["profiles"] = persisted.Profiles
 	}
@@ -160,6 +176,9 @@ func mergeDefaults(dst *cfg.Config, defaults cfg.Config) {
 	}
 	if dst.Sources == nil {
 		dst.Sources = defaults.Sources
+	}
+	if dst.Registries == nil {
+		dst.Registries = defaults.Registries
 	}
 }
 
@@ -202,6 +221,9 @@ func cloneConfig(data cfg.Config) cfg.Config {
 	}
 	if data.Projects != nil {
 		clone.Projects = append([]project.Project(nil), data.Projects...)
+	}
+	if data.Registries != nil {
+		clone.Registries = append([]registry.Registry(nil), data.Registries...)
 	}
 	return clone
 }
@@ -275,6 +297,26 @@ func compactRuntimePaths(data cfg.Config, baseDir string, existing rawConfig, ha
 			return cfg.Config{}, err
 		}
 		data.Projects[i] = item
+	}
+
+	for i, item := range data.Registries {
+		if item.Type != registry.TypeLocal || item.Path == "" {
+			continue
+		}
+		existingRaw := ""
+		if hasExisting {
+			for _, existingRegistry := range existing.Registries {
+				if existingRegistry.ID == item.ID {
+					existingRaw = existingRegistry.Path
+					break
+				}
+			}
+		}
+		item.Path, err = compactPath(item.Path, existingRaw, "", baseDir, hasExisting)
+		if err != nil {
+			return cfg.Config{}, err
+		}
+		data.Registries[i] = item
 	}
 
 	return data, nil
@@ -367,6 +409,18 @@ func expandRuntimePaths(data cfg.Config, baseDir string) (cfg.Config, error) {
 		data.Projects[i] = item
 	}
 
+	for i, item := range data.Registries {
+		if item.Type != registry.TypeLocal || item.Path == "" {
+			continue
+		}
+		item.Path, err = fsx.ExpandPath(item.Path, baseDir)
+		if err != nil {
+			return cfg.Config{}, err
+		}
+		item.Path = filepath.Clean(item.Path)
+		data.Registries[i] = item
+	}
+
 	return data, nil
 }
 
@@ -409,6 +463,26 @@ func toProjectRecords(projects []project.Project) []projectRecord {
 	return records
 }
 
+func toRegistryRecords(registries []registry.Registry) []registryRecord {
+	if len(registries) == 0 {
+		return nil
+	}
+	records := make([]registryRecord, 0, len(registries))
+	for _, item := range registries {
+		records = append(records, registryRecord{
+			ID:           item.ID,
+			Name:         item.Name,
+			Type:         item.Type,
+			Path:         item.Path,
+			URL:          item.URL,
+			LastSyncAt:   item.LastSyncAt,
+			Status:       item.Status,
+			ErrorMessage: item.ErrorMessage,
+		})
+	}
+	return records
+}
+
 func fromProjectRecords(records []projectRecord) []project.Project {
 	if len(records) == 0 {
 		return []project.Project{}
@@ -420,6 +494,26 @@ func fromProjectRecords(records []projectRecord) []project.Project {
 			Name:        record.Name,
 			Path:        record.Path,
 			Description: record.Description,
+		})
+	}
+	return items
+}
+
+func fromRegistryRecords(records []registryRecord) []registry.Registry {
+	if len(records) == 0 {
+		return []registry.Registry{}
+	}
+	items := make([]registry.Registry, 0, len(records))
+	for _, record := range records {
+		items = append(items, registry.Registry{
+			ID:           record.ID,
+			Name:         record.Name,
+			Type:         record.Type,
+			Path:         record.Path,
+			URL:          record.URL,
+			LastSyncAt:   record.LastSyncAt,
+			Status:       record.Status,
+			ErrorMessage: record.ErrorMessage,
 		})
 	}
 	return items
@@ -452,6 +546,7 @@ func fromRawConfig(raw rawConfig) (cfg.Config, error) {
 		RegistryCacheDir: raw.RegistryCacheDir,
 		IndexFile:        raw.IndexFile,
 		Sources:          sources,
+		Registries:       fromRegistryRecords(raw.Registries),
 		Profiles:         raw.Profiles,
 		Projects:         fromProjectRecords(raw.Projects),
 	}, nil

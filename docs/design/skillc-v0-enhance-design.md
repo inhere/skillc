@@ -23,6 +23,7 @@
 | 2026-06-16 | v0.19 | Codex | 记录 Phase 8 已落地 Registry MVP、source UX cleanup 和精确 drift metadata |
 | 2026-06-16 | v0.20 | Codex | 复核 PRD 后修正 Registry 定位：P8 为 JSON source catalog 子集，Phase 9 回到 Skill registry 搜索/安装 |
 | 2026-06-16 | v0.21 | Codex | 记录 Phase 9 已落地 generic JSON Registry skill search/install、lock provenance 和 registry record restore/status/update |
+| 2026-06-16 | v0.22 | Codex | 增加 Phase 10 Web Registry 页面与 archive download 实施计划链接 |
 
 状态：Draft
 
@@ -39,6 +40,8 @@
 - `docs/superpowers/plans/2026-06-16-skillc-v0-phase7-cross-project-update.md`
 - `docs/superpowers/plans/2026-06-16-skillc-v0-phase8-registry-source-drift.md`
 - `docs/superpowers/plans/2026-06-16-skillc-v0-phase9-registry-skill-search-install.md`
+- `docs/superpowers/specs/2026-06-16-skillc-v0-phase10-web-registry-archive-design.md`
+- `docs/superpowers/plans/2026-06-16-skillc-v0-phase10-web-registry-archive.md`
 - `docs/prd.md`
 - `docs/mvp-arch.md`
 - `docs/mvp-plan.md`
@@ -82,6 +85,12 @@
 九期开发计划：`docs/superpowers/plans/2026-06-16-skillc-v0-phase9-registry-skill-search-install.md`
 
 九期状态：已修正 Registry 回到 PRD 定位的第一条可执行路径。Generic JSON catalog 支持 `skills` + `sources`；`registry search` 默认返回 Skill 级结果，`registry search --kind source` 保留 P8 source catalog；`registry install <registry>/<skill>` 可直接把单个 registry skill materialize 到本地 cache 并安装，lock 记录 `source_type=registry` 和 registry provenance。`install` restore、`status`、`update --check`、`update` 已能处理 registry-installed skills；skills.sh / SkillsMP / SkillsLLM 等真实站点 adapter 仍后置。
+
+十期设计：`docs/superpowers/specs/2026-06-16-skillc-v0-phase10-web-registry-archive-design.md`
+
+十期开发计划：`docs/superpowers/plans/2026-06-16-skillc-v0-phase10-web-registry-archive.md`
+
+十期目标：补齐 registry skill archive `download_url` zip/tar.gz/tgz 下载安装能力，并在 Web 中新增 Registry 页面，支持当前项目范围内 registry skill 搜索、同步、安装和 source result add-source。真实 skills.sh / SkillsMP / SkillsLLM provider adapter、Registry auth/signature/trust、跨项目 registry install 继续后置。
 
 ## 1. 设计结论
 

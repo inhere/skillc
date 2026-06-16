@@ -7,9 +7,11 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/gookit/goutil/testutil/assert"
+	"github.com/gookit/goutil/x/assert"
 	cfg "github.com/inhere/skillc/internal/domain/config"
+	"github.com/inhere/skillc/internal/domain/registry"
 	"github.com/inhere/skillc/internal/infra/configstore"
+	"github.com/inhere/skillc/internal/infra/registrystore"
 )
 
 func TestService_SyncLocalRegistryAndSearch(t *testing.T) {
@@ -49,6 +51,45 @@ func TestService_SyncHTTPRegistryAndSearch(t *testing.T) {
 	assert.Len(t, results, 1)
 	assert.Eq(t, "remote", results[0].ID)
 	assert.Eq(t, "official", results[0].RegistryID)
+}
+
+func TestService_SyncJSONRegistryCachesSkillEntries(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := writeRegistryAppConfig(t, baseDir)
+	catalogPath := filepath.Join(baseDir, "registry.json")
+	assert.NoErr(t, os.WriteFile(catalogPath, []byte(`{"skills":[{"id":"go-pro","name":"Go Pro","description":"Go helper","version":"1.2.0","source_url":"https://example.com/skills.git","source_ref":"main","install_entry":"skills/go-pro","tags":["go"]}]}`), 0o644))
+
+	service := NewService(configFile, baseDir)
+	_, err := service.Add(AddReq{ID: "team", Name: "Team", Value: catalogPath})
+	assert.NoErr(t, err)
+	assert.NoErr(t, service.Sync("team"))
+
+	results, err := service.SearchSkills(SearchReq{Keyword: "go"})
+
+	assert.NoErr(t, err)
+	assert.Len(t, results, 1)
+	assert.Eq(t, "go-pro", results[0].ID)
+	assert.Eq(t, "team", results[0].RegistryID)
+	assert.Eq(t, catalogPath, results[0].RegistryURL)
+}
+
+func TestService_InfoSkillRequiresRegistryWhenAmbiguous(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := writeRegistryAppConfig(t, baseDir)
+	config, err := configstore.NewYAMLStore().Load(configFile, baseDir)
+	assert.NoErr(t, err)
+	service := NewService(configFile, baseDir)
+	assert.NoErr(t, service.cache.SaveFile(filepath.Join(config.RegistryCacheDir, "registry-index.json"), registrystore.File{
+		Skills: []registry.SkillEntry{
+			{ID: "go-pro", RegistryID: "team-a", SourceURL: "https://example.com/a.git", InstallEntry: "."},
+			{ID: "go-pro", RegistryID: "team-b", SourceURL: "https://example.com/b.git", InstallEntry: "."},
+		},
+	}))
+
+	_, err = service.InfoSkill("go-pro")
+
+	assert.Err(t, err)
+	assert.Contains(t, err.Error(), "ambiguous registry skill")
 }
 
 func TestService_AddSourceFromRegistryEntry(t *testing.T) {

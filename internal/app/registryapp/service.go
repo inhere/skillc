@@ -31,6 +31,11 @@ type AddSourceReq struct {
 	Sync    bool
 }
 
+type SearchReq struct {
+	Keyword    string
+	RegistryID string
+}
+
 type Service struct {
 	configFile string
 	baseDir    string
@@ -126,7 +131,7 @@ func (s *Service) Sync(id string) error {
 	}
 
 	item := data.Registries[idx]
-	entries, err := s.fetchEntries(item)
+	catalog, err := s.fetchCatalog(item)
 	if err != nil {
 		data.Registries[idx].Status = "error"
 		data.Registries[idx].ErrorMessage = err.Error()
@@ -139,7 +144,7 @@ func (s *Service) Sync(id string) error {
 	if err := s.save(data); err != nil {
 		return err
 	}
-	return s.replaceCachedEntries(data, item.ID, entries)
+	return s.replaceCachedCatalog(data, item.ID, catalog)
 }
 
 func (s *Service) SyncAll() error {
@@ -173,6 +178,26 @@ func (s *Service) Search(keyword string) ([]registry.Entry, error) {
 	return out, nil
 }
 
+func (s *Service) SearchSkills(req SearchReq) ([]registry.SkillEntry, error) {
+	file, err := s.loadCacheFile()
+	if err != nil {
+		return nil, err
+	}
+	keyword := strings.ToLower(strings.TrimSpace(req.Keyword))
+	registryID := strings.ToLower(strings.TrimSpace(req.RegistryID))
+	var out []registry.SkillEntry
+	for _, entry := range file.Skills {
+		if registryID != "" && strings.ToLower(entry.RegistryID) != registryID {
+			continue
+		}
+		if keyword == "" || skillEntryMatches(entry, keyword) {
+			out = append(out, entry)
+		}
+	}
+	sortSkillEntries(out)
+	return out, nil
+}
+
 func (s *Service) Info(entryID string) (registry.Entry, error) {
 	entries, err := s.loadCachedEntries()
 	if err != nil {
@@ -186,6 +211,22 @@ func (s *Service) Info(entryID string) (registry.Entry, error) {
 		return matches[0], nil
 	default:
 		return registry.Entry{}, fmt.Errorf("ambiguous registry entry: %s", entryID)
+	}
+}
+
+func (s *Service) InfoSkill(selector string) (registry.SkillEntry, error) {
+	file, err := s.loadCacheFile()
+	if err != nil {
+		return registry.SkillEntry{}, err
+	}
+	matches := matchSkillEntries(file.Skills, selector)
+	switch len(matches) {
+	case 0:
+		return registry.SkillEntry{}, fmt.Errorf("registry skill not found: %s", selector)
+	case 1:
+		return matches[0], nil
+	default:
+		return registry.SkillEntry{}, fmt.Errorf("ambiguous registry skill: %s", selector)
 	}
 }
 
@@ -220,43 +261,55 @@ func (s *Service) AddSource(req AddSourceReq) (source.Source, error) {
 	return src, nil
 }
 
-func (s *Service) fetchEntries(item registry.Registry) ([]registry.Entry, error) {
+func (s *Service) fetchCatalog(item registry.Registry) (registry.Catalog, error) {
 	switch item.Type {
 	case registry.TypeLocal:
-		return s.fetchLocalEntries(item)
+		return s.fetchLocalCatalog(item)
 	case registry.TypeHTTP:
-		return s.fetchHTTPEntries(item)
+		return s.fetchHTTPCatalog(item)
 	default:
-		return nil, fmt.Errorf("unsupported registry type: %s", item.Type)
+		return registry.Catalog{}, fmt.Errorf("unsupported registry type: %s", item.Type)
 	}
 }
 
-func (s *Service) fetchLocalEntries(item registry.Registry) ([]registry.Entry, error) {
+func (s *Service) fetchLocalCatalog(item registry.Registry) (registry.Catalog, error) {
 	data, err := os.ReadFile(item.Path)
 	if err != nil {
-		return nil, err
+		return registry.Catalog{}, err
 	}
 	var catalog registry.Catalog
 	if err := json.Unmarshal(data, &catalog); err != nil {
-		return nil, err
+		return registry.Catalog{}, err
 	}
-	return normalizeEntries(catalog.Sources, item.ID, filepath.Dir(item.Path), false)
+	return normalizeCatalog(catalog, item, filepath.Dir(item.Path), false)
 }
 
-func (s *Service) fetchHTTPEntries(item registry.Registry) ([]registry.Entry, error) {
+func (s *Service) fetchHTTPCatalog(item registry.Registry) (registry.Catalog, error) {
 	resp, err := s.client.Get(item.URL)
 	if err != nil {
-		return nil, err
+		return registry.Catalog{}, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("registry http status: %d", resp.StatusCode)
+		return registry.Catalog{}, fmt.Errorf("registry http status: %d", resp.StatusCode)
 	}
 	var catalog registry.Catalog
 	if err := json.NewDecoder(resp.Body).Decode(&catalog); err != nil {
-		return nil, err
+		return registry.Catalog{}, err
 	}
-	return normalizeEntries(catalog.Sources, item.ID, "", true)
+	return normalizeCatalog(catalog, item, "", true)
+}
+
+func normalizeCatalog(catalog registry.Catalog, item registry.Registry, catalogDir string, remote bool) (registry.Catalog, error) {
+	sources, err := normalizeEntries(catalog.Sources, item.ID, catalogDir, remote)
+	if err != nil {
+		return registry.Catalog{}, err
+	}
+	skills, err := normalizeSkillEntries(catalog.Skills, item, catalogDir, remote)
+	if err != nil {
+		return registry.Catalog{}, err
+	}
+	return registry.Catalog{Skills: skills, Sources: sources}, nil
 }
 
 func normalizeEntries(entries []registry.Entry, registryID string, catalogDir string, remote bool) ([]registry.Entry, error) {
@@ -294,34 +347,74 @@ func normalizeEntries(entries []registry.Entry, registryID string, catalogDir st
 	return out, nil
 }
 
-func (s *Service) replaceCachedEntries(data cfg.Config, registryID string, entries []registry.Entry) error {
-	current, err := s.cache.Load(registryCachePath(data))
+func normalizeSkillEntries(entries []registry.SkillEntry, item registry.Registry, catalogDir string, remote bool) ([]registry.SkillEntry, error) {
+	out := make([]registry.SkillEntry, 0, len(entries))
+	registryURL := registryLocation(item)
+	for _, entry := range entries {
+		entry.RegistryURL = registryURL
+		if entry.SourceURL != "" && !sourceapp.IsGitURL(entry.SourceURL) {
+			if remote {
+				return nil, fmt.Errorf("registry skill source_url must be git URL for remote catalog: %s", entry.ID)
+			}
+			if !filepath.IsAbs(entry.SourceURL) {
+				entry.SourceURL = filepath.Join(catalogDir, entry.SourceURL)
+			}
+			entry.SourceURL = filepath.Clean(entry.SourceURL)
+		}
+		normalized, err := registry.NormalizeSkillEntry(entry, item.ID)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, normalized)
+	}
+	sortSkillEntries(out)
+	return out, nil
+}
+
+func (s *Service) replaceCachedCatalog(data cfg.Config, registryID string, catalog registry.Catalog) error {
+	current, err := s.cache.LoadFile(registryCachePath(data))
 	if err != nil {
 		return err
 	}
-	filtered := make([]registry.Entry, 0, len(current)+len(entries))
-	for _, entry := range current {
+	filteredSources := make([]registry.Entry, 0, len(current.Sources)+len(catalog.Sources))
+	for _, entry := range current.Sources {
 		if entry.RegistryID != registryID {
-			filtered = append(filtered, entry)
+			filteredSources = append(filteredSources, entry)
 		}
 	}
-	filtered = append(filtered, entries...)
-	sortEntries(filtered)
-	return s.cache.Save(registryCachePath(data), filtered)
+	filteredSources = append(filteredSources, catalog.Sources...)
+	sortEntries(filteredSources)
+
+	filteredSkills := make([]registry.SkillEntry, 0, len(current.Skills)+len(catalog.Skills))
+	for _, entry := range current.Skills {
+		if entry.RegistryID != registryID {
+			filteredSkills = append(filteredSkills, entry)
+		}
+	}
+	filteredSkills = append(filteredSkills, catalog.Skills...)
+	sortSkillEntries(filteredSkills)
+
+	return s.cache.SaveFile(registryCachePath(data), registrystore.File{Skills: filteredSkills, Sources: filteredSources})
 }
 
 func (s *Service) removeCachedEntries(data cfg.Config, registryID string) error {
-	current, err := s.cache.Load(registryCachePath(data))
+	current, err := s.cache.LoadFile(registryCachePath(data))
 	if err != nil {
 		return err
 	}
-	filtered := current[:0]
-	for _, entry := range current {
+	filteredSources := current.Sources[:0]
+	for _, entry := range current.Sources {
 		if entry.RegistryID != registryID {
-			filtered = append(filtered, entry)
+			filteredSources = append(filteredSources, entry)
 		}
 	}
-	return s.cache.Save(registryCachePath(data), filtered)
+	filteredSkills := current.Skills[:0]
+	for _, entry := range current.Skills {
+		if entry.RegistryID != registryID {
+			filteredSkills = append(filteredSkills, entry)
+		}
+	}
+	return s.cache.SaveFile(registryCachePath(data), registrystore.File{Skills: filteredSkills, Sources: filteredSources})
 }
 
 func (s *Service) loadCachedEntries() ([]registry.Entry, error) {
@@ -335,6 +428,20 @@ func (s *Service) loadCachedEntries() ([]registry.Entry, error) {
 	}
 	sortEntries(entries)
 	return entries, nil
+}
+
+func (s *Service) loadCacheFile() (registrystore.File, error) {
+	data, err := s.load()
+	if err != nil {
+		return registrystore.File{}, err
+	}
+	file, err := s.cache.LoadFile(registryCachePath(data))
+	if err != nil {
+		return registrystore.File{}, err
+	}
+	sortEntries(file.Sources)
+	sortSkillEntries(file.Skills)
+	return file, nil
 }
 
 func registryCachePath(data cfg.Config) string {
@@ -384,6 +491,26 @@ func entryMatches(entry registry.Entry, keyword string) bool {
 	return false
 }
 
+func skillEntryMatches(entry registry.SkillEntry, keyword string) bool {
+	fields := []string{entry.ID, entry.Name, entry.Description, entry.Version, entry.SourceURL, entry.DownloadURL, entry.RegistryID, entry.Homepage}
+	for _, field := range fields {
+		if strings.Contains(strings.ToLower(field), keyword) {
+			return true
+		}
+	}
+	for _, agent := range entry.SupportedAgents {
+		if strings.Contains(strings.ToLower(agent), keyword) {
+			return true
+		}
+	}
+	for _, tag := range entry.Tags {
+		if strings.Contains(strings.ToLower(tag), keyword) {
+			return true
+		}
+	}
+	return false
+}
+
 func matchEntries(entries []registry.Entry, selector string) []registry.Entry {
 	selector = strings.TrimSpace(selector)
 	if selector == "" {
@@ -421,6 +548,43 @@ func matchEntries(entries []registry.Entry, selector string) []registry.Entry {
 	return partial
 }
 
+func matchSkillEntries(entries []registry.SkillEntry, selector string) []registry.SkillEntry {
+	selector = strings.TrimSpace(selector)
+	if selector == "" {
+		return nil
+	}
+	if registryID, entryID, ok := strings.Cut(selector, "/"); ok {
+		registryID = strings.ToLower(strings.TrimSpace(registryID))
+		entryID = strings.ToLower(strings.TrimSpace(entryID))
+		var matches []registry.SkillEntry
+		for _, entry := range entries {
+			if strings.ToLower(entry.RegistryID) == registryID && strings.ToLower(entry.ID) == entryID {
+				matches = append(matches, entry)
+			}
+		}
+		return matches
+	}
+
+	lower := strings.ToLower(selector)
+	var exact []registry.SkillEntry
+	for _, entry := range entries {
+		if strings.ToLower(entry.ID) == lower {
+			exact = append(exact, entry)
+		}
+	}
+	if len(exact) > 0 {
+		return exact
+	}
+
+	var partial []registry.SkillEntry
+	for _, entry := range entries {
+		if strings.Contains(strings.ToLower(entry.ID), lower) {
+			partial = append(partial, entry)
+		}
+	}
+	return partial
+}
+
 func sortEntries(entries []registry.Entry) {
 	sort.Slice(entries, func(i, j int) bool {
 		if entries[i].RegistryID == entries[j].RegistryID {
@@ -428,6 +592,22 @@ func sortEntries(entries []registry.Entry) {
 		}
 		return entries[i].RegistryID < entries[j].RegistryID
 	})
+}
+
+func sortSkillEntries(entries []registry.SkillEntry) {
+	sort.Slice(entries, func(i, j int) bool {
+		if entries[i].RegistryID == entries[j].RegistryID {
+			return entries[i].ID < entries[j].ID
+		}
+		return entries[i].RegistryID < entries[j].RegistryID
+	})
+}
+
+func registryLocation(item registry.Registry) string {
+	if item.Type == registry.TypeHTTP {
+		return item.URL
+	}
+	return item.Path
 }
 
 func firstNonEmpty(values ...string) string {

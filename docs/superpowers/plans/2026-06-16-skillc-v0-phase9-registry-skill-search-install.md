@@ -479,7 +479,7 @@ git commit -m "feat(skillc): cache registry skills and sources"
 - Modify: `internal/app/registryapp/service.go`
 - Modify: `internal/app/registryapp/service_test.go`
 
-- [ ] **Step 1: Write failing skill search tests**
+- [x] **Step 1: Write failing skill search tests**
 
 Add to `internal/app/registryapp/service_test.go`:
 
@@ -526,7 +526,7 @@ func TestService_InfoSkillRequiresRegistryWhenAmbiguous(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run:
 
@@ -536,7 +536,7 @@ go test ./internal/app/registryapp -run 'TestService_(SyncJSONRegistryCachesSkil
 
 Expected: FAIL because service only supports source entries.
 
-- [ ] **Step 3: Implement SearchReq and skill search/info**
+- [x] **Step 3: Implement SearchReq and skill search/info**
 
 Modify `internal/app/registryapp/service.go`:
 
@@ -593,7 +593,7 @@ func (s *Service) InfoSkill(selector string) (registry.SkillEntry, error) {
 
 Update `Sync` so it normalizes and caches both `catalog.Skills` and `catalog.Sources`. During normalization, populate `SkillEntry.RegistryURL` from the registry provider: use `item.URL` for HTTP registries and `item.Path` for local registries. For local registry catalogs, a non-Git relative `source_url` is resolved relative to the catalog file directory; for HTTP registry catalogs, a non-Git local path `source_url` is rejected because remote registries cannot safely point at the user's filesystem. Keep existing source `Search` / `Info` / `AddSource` behavior by reading `file.Sources`.
 
-- [ ] **Step 4: Run registry service tests**
+- [x] **Step 4: Run registry service tests**
 
 Run:
 

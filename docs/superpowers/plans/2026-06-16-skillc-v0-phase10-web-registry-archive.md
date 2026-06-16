@@ -1242,7 +1242,7 @@ Expected: PASS.
 Run:
 
 ```bash
-go run . web --host 127.0.0.1 --port 8765
+go run ./cmd/skillc web --host 127.0.0.1 --port 8765
 ```
 
 Open `http://127.0.0.1:8765`, verify:
@@ -1253,7 +1253,7 @@ Open `http://127.0.0.1:8765`, verify:
 
 Stop server after verification.
 
-- [ ] **Step 9: Commit static UI**
+- [x] **Step 9: Commit static UI**
 
 ```bash
 git add internal/app/webapp/manager_static.go internal/app/webapp/manager_server_test.go docs/superpowers/plans/2026-06-16-skillc-v0-phase10-web-registry-archive.md
@@ -1268,7 +1268,7 @@ git commit -m "feat(skillc): add registry web page"
 - Modify: `docs/design/skillc-v0-enhance-design.md`
 - Modify: `docs/superpowers/plans/2026-06-16-skillc-v0-phase10-web-registry-archive.md`
 
-- [ ] **Step 1: Update README registry examples**
+- [x] **Step 1: Update README registry examples**
 
 Add a short example showing archive skill entry:
 
@@ -1293,7 +1293,7 @@ Mention Web Registry:
 Run `skillc web` and open the Registry view to search synced registry skills, preview install plans, and install a registry skill into the current project.
 ```
 
-- [ ] **Step 2: Update Chinese README**
+- [x] **Step 2: Update Chinese README**
 
 Add equivalent Chinese explanation for:
 
@@ -1301,7 +1301,7 @@ Add equivalent Chinese explanation for:
 - checksum 校验 archive 原始字节。
 - `skillc web` 的 Registry 页面支持搜索、同步、安装、add-source。
 
-- [ ] **Step 3: Update design doc revision table**
+- [x] **Step 3: Update design doc revision table**
 
 Add revision row:
 
@@ -1317,7 +1317,7 @@ Add Phase 10 section near Phase 9:
 十期目标：补齐 registry skill archive `download_url` zip/tar.gz 下载安装能力，并在 Web 中新增 Registry 页面，支持当前项目范围内 registry skill 搜索、同步、安装和 source result add-source。
 ```
 
-- [ ] **Step 4: Run focused package tests**
+- [x] **Step 4: Run focused package tests**
 
 Run:
 
@@ -1327,7 +1327,7 @@ go test ./internal/domain/registry ./internal/app/registryapp ./internal/app/web
 
 Expected: PASS.
 
-- [ ] **Step 5: Run full test suite**
+- [x] **Step 5: Run full test suite**
 
 Run:
 
@@ -1337,18 +1337,18 @@ go test ./... -count=1
 
 Expected: PASS.
 
-- [ ] **Step 6: Update all completed checkboxes in this plan**
+- [x] **Step 6: Update all completed checkboxes in this plan**
 
 Mark every completed step as `[x]`. Do not mark a step complete unless its command passed or the documented artifact was updated.
 
-- [ ] **Step 7: Commit docs and plan completion**
+- [x] **Step 7: Commit docs and plan completion**
 
 ```bash
 git add README.md README.zh-CN.md docs/design/skillc-v0-enhance-design.md docs/superpowers/plans/2026-06-16-skillc-v0-phase10-web-registry-archive.md
 git commit -m "docs(skillc): document web registry archive workflow"
 ```
 
-- [ ] **Step 8: Final branch status**
+- [x] **Step 8: Final branch status**
 
 Run:
 

@@ -115,6 +115,23 @@ skillc registry add-source official/gstack [--id <id>] [--name <name>] [--sync]
 
 Registry providers discover Skill-level results from a generic JSON catalog. `registry install` materializes one Skill into the local registry cache and then uses the normal install/lock flow with `source_type=registry` provenance. `registry add-source` is optional and only turns a source result into a long-lived source subscription. Public site adapters such as skills.sh, SkillsMP, and SkillsLLM are planned after the generic JSON path.
 
+Registry Skill entries can point at a Git/local `source_url` or an archive `download_url`. Archive downloads support `zip`, `tar.gz`, and `tgz`; `checksum` verifies the original archive bytes with SHA-256 before extraction:
+
+```json
+{
+  "skills": [
+    {
+      "id": "go-pro",
+      "name": "Go Pro",
+      "version": "1.0.0",
+      "download_url": "https://example.com/skills/go-pro.zip",
+      "checksum": "sha256:<archive-sha256>",
+      "install_entry": "skills/go-pro"
+    }
+  ]
+}
+```
+
 ### `profile` — Saved Skill sets
 
 ```bash
@@ -199,7 +216,9 @@ skillc web --port 8090
 skillc web --host 127.0.0.1 --port 8090
 ```
 
-The web manager runs on `127.0.0.1` by default and supports source/profile/status/install-map/version-drift views, guarded current-project profile apply and update, source add/sync/remove, profile save/from-installed/from-collection, uninstall, and registered-project cross-project update plan/run. Every Web write action is plan-first, requires `confirm:true` on the run request, appends a local `skillc-web-history.jsonl` record, and only operates on the current project or explicitly selected registered projects.
+The web manager runs on `127.0.0.1` by default and supports source/profile/status/install-map/version-drift views, Registry search/sync/install/add-source, guarded current-project profile apply and update, source add/sync/remove, profile save/from-installed/from-collection, uninstall, and registered-project cross-project update plan/run. Every Web write action is plan-first, requires `confirm:true` on the run request, appends a local `skillc-web-history.jsonl` record, and only operates on the current project or explicitly selected registered projects.
+
+Open the Registry view in `skillc web` to search synced registry Skills, preview install plans, install a registry Skill into the current project, sync registry catalogs, or convert a registry source result into a configured source.
 
 Version Drift also exposes checksum and Git ref signals, so same-version content changes are visible in Web alongside ordinary version differences.
 

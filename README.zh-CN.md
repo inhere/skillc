@@ -117,6 +117,23 @@ skillc registry add-source official/gstack [--id <id>] [--name <name>] [--sync]
 
 Registry 用于从 generic JSON catalog 发现 Skill 级结果。`registry install` 会先把单个 Skill materialize 到本地 registry cache，再复用普通 install/lock 流程，并在 lock 中记录 `source_type=registry` provenance。`registry add-source` 是可选入口，只用于把 source 结果转成长期订阅的 source。skills.sh、SkillsMP、SkillsLLM 等公开站点 adapter 后续再实现。
 
+Registry Skill entry 可以使用 Git/本地 `source_url`，也可以使用 archive `download_url`。Archive 下载支持 `zip`、`tar.gz`、`tgz`；`checksum` 用 SHA-256 校验 archive 原始字节后再解压：
+
+```json
+{
+  "skills": [
+    {
+      "id": "go-pro",
+      "name": "Go Pro",
+      "version": "1.0.0",
+      "download_url": "https://example.com/skills/go-pro.zip",
+      "checksum": "sha256:<archive-sha256>",
+      "install_entry": "skills/go-pro"
+    }
+  ]
+}
+```
+
 ### `profile` — Skill 组合
 
 ```bash
@@ -203,7 +220,9 @@ skillc web --port 8090
 skillc web --host 127.0.0.1 --port 8090
 ```
 
-Web 管理界面默认监听 `127.0.0.1`，当前支持查看 source/profile/status/install-map/version-drift，计划后确认执行当前项目 profile apply/update、source add/sync/remove、profile save/from-installed/from-collection、uninstall，以及已登记项目的跨项目 update plan/run。所有 Web 写操作都会先展示 plan，执行请求必须包含 `confirm:true`，写入本地 `skillc-web-history.jsonl` 历史记录，并且只操作当前项目或显式选择的 registered projects。
+Web 管理界面默认监听 `127.0.0.1`，当前支持查看 source/profile/status/install-map/version-drift、Registry 搜索/同步/安装/add-source，计划后确认执行当前项目 profile apply/update、source add/sync/remove、profile save/from-installed/from-collection、uninstall，以及已登记项目的跨项目 update plan/run。所有 Web 写操作都会先展示 plan，执行请求必须包含 `confirm:true`，写入本地 `skillc-web-history.jsonl` 历史记录，并且只操作当前项目或显式选择的 registered projects。
+
+在 `skillc web` 的 Registry 页面可以搜索已同步的 registry Skills，预览安装计划，把 registry Skill 安装到当前项目，同步 registry catalog，或把 registry source 结果转换为已配置 source。
 
 Version Drift 视图也会展示 checksum / Git ref 信号，因此版本号相同但内容或 commit 已变化的情况也能被看到。
 

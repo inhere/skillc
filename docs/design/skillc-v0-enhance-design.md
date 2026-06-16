@@ -24,6 +24,7 @@
 | 2026-06-16 | v0.20 | Codex | 复核 PRD 后修正 Registry 定位：P8 为 JSON source catalog 子集，Phase 9 回到 Skill registry 搜索/安装 |
 | 2026-06-16 | v0.21 | Codex | 记录 Phase 9 已落地 generic JSON Registry skill search/install、lock provenance 和 registry record restore/status/update |
 | 2026-06-16 | v0.22 | Codex | 增加 Phase 10 Web Registry 页面与 archive download 实施计划链接 |
+| 2026-06-16 | v0.23 | Codex | 记录 Phase 10 已落地 Web Registry 页面与 archive download 安装能力 |
 
 状态：Draft
 
@@ -90,7 +91,7 @@
 
 十期开发计划：`docs/superpowers/plans/2026-06-16-skillc-v0-phase10-web-registry-archive.md`
 
-十期目标：补齐 registry skill archive `download_url` zip/tar.gz/tgz 下载安装能力，并在 Web 中新增 Registry 页面，支持当前项目范围内 registry skill 搜索、同步、安装和 source result add-source。真实 skills.sh / SkillsMP / SkillsLLM provider adapter、Registry auth/signature/trust、跨项目 registry install 继续后置。
+十期状态：已补齐 registry skill archive `download_url` zip/tar.gz/tgz 下载安装能力，archive 解压包含 SHA-256 校验和 path traversal 防护；Web 已新增 Registry 页面，支持当前项目范围内 registry skill/source 搜索、registry sync、registry install plan/run 和 source result add-source plan/run。真实 skills.sh / SkillsMP / SkillsLLM provider adapter、Registry auth/signature/trust、跨项目 registry install 继续后置。
 
 ## 1. 设计结论
 
@@ -122,7 +123,7 @@
 - `install --source`：支持一条命令注册 source、同步并安装。
 - 安装方式：已支持 copy/symlink/junction，并在 Windows 做回退。
 - Web：目前 `show --web` 是单个 skill 文件查看器，不是管理后台。
-- Registry：P8 已落地本机/HTTP JSON source catalog 子集；P9 已补回 generic JSON Registry skill search/install 主链路。公开 Registry 站点 adapter、信任模型和 Web Registry 页面后置。
+- Registry：P8 已落地本机/HTTP JSON source catalog 子集；P9 已补回 generic JSON Registry skill search/install 主链路；P10 已补齐 archive download materialization 和 Web Registry 页面。公开 Registry 站点 adapter、信任模型继续后置。
 
 当前不顺的地方：
 
@@ -284,7 +285,7 @@ skillc registry install <registry>/<skill> --agent codex --scope project
 skillc registry install <registry>/<skill> --yes
 ```
 
-P9 继续保留 `registry add-source`，但只用于“把搜索结果背后的 Git/source 加入长期 source 管理”。公开 registry 搜到单个 Skill 时，用户不再需要先 add-source 再 source sync 再 install。当前 P9 实现 generic JSON catalog；真实 skills.sh / SkillsMP / SkillsLLM adapter、archive download/extract、签名和信任策略后置。
+P9 继续保留 `registry add-source`，但只用于“把搜索结果背后的 Git/source 加入长期 source 管理”。公开 registry 搜到单个 Skill 时，用户不再需要先 add-source 再 source sync 再 install。当前 P9 实现 generic JSON catalog；P10 已补齐 archive download/extract 和 Web Registry 页面。真实 skills.sh / SkillsMP / SkillsLLM adapter、签名和信任策略后置。
 
 ### 3.5 Lock
 
@@ -1127,7 +1128,7 @@ v0 增强重构完成后，应满足：
 
 ## 13. 下一步建议
 
-Phase 1/2/3/4/5/6/7/8/9 已经完成：profile 最小闭环、当前项目 status/update check、基于 `gookit/cliui` 的交互式选择、`skillc web` 本地管理查看、当前项目 profile apply / update 确认执行闭环、当前项目 Web source/profile/uninstall/history 管理补齐、project registry / `update --all-projects` / Web 跨项目更新闭环、source UX cleanup / JSON source catalog 子集 / 精确 drift metadata，以及 generic JSON Registry skill search/install、lock provenance 和 registry record restore/status/update 都已落地。
+Phase 1/2/3/4/5/6/7/8/9/10 已经完成：profile 最小闭环、当前项目 status/update check、基于 `gookit/cliui` 的交互式选择、`skillc web` 本地管理查看、当前项目 profile apply / update 确认执行闭环、当前项目 Web source/profile/uninstall/history 管理补齐、project registry / `update --all-projects` / Web 跨项目更新闭环、source UX cleanup / JSON source catalog 子集 / 精确 drift metadata、generic JSON Registry skill search/install、lock provenance 和 registry record restore/status/update、archive download materialization，以及 Web Registry 页面都已落地。
 
 Phase 5 实施计划见：`docs/superpowers/plans/2026-06-15-skillc-v0-phase5-web-execution.md`
 
@@ -1139,12 +1140,13 @@ Phase 8 实施计划见：`docs/superpowers/plans/2026-06-16-skillc-v0-phase8-re
 
 Phase 9 实施计划见：`docs/superpowers/plans/2026-06-16-skillc-v0-phase9-registry-skill-search-install.md`
 
+Phase 10 实施计划见：`docs/superpowers/plans/2026-06-16-skillc-v0-phase10-web-registry-archive.md`
+
 下一步建议转向协作与治理能力：
 
 - Project manifest / profile export-import：设计 `skillc.profile.yaml` 或 profile export/import，解决团队共享 profile 的落点。
 - Registry 信任模型：catalog entry 签名、checksum、来源 allow/deny policy 和远程 registry 安全边界。
 - Registry adapters：接入 skills.sh、SkillsMP、SkillsLLM 等公开站点搜索 API。
-- Web Registry 页面：浏览 registry skill/source result、registry install plan/run、add-source plan/run 和 registry sync 状态可视化。
 - Remote Web：远程访问、多用户权限和安全审计单独设计，不复用当前本地 JSONL history 作为安全审计系统。
 
 Phase 7 已经把跨项目更新收敛到 registered projects allowlist。后续继续坚持当前安全边界：先 plan、后确认、handler 保持薄层、执行复用 app service。

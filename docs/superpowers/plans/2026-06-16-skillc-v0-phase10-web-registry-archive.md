@@ -292,7 +292,7 @@ go test ./internal/app/registryapp -run TestArchiveMaterializer_ExtractsZipDownl
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit archive zip foundation**
+- [x] **Step 6: Commit archive zip foundation**
 
 ```bash
 git add internal/app/registryapp/archive_materializer.go internal/app/registryapp/archive_materializer_test.go docs/superpowers/plans/2026-06-16-skillc-v0-phase10-web-registry-archive.md
@@ -305,7 +305,7 @@ git commit -m "feat(skillc): extract registry zip archives"
 - Modify: `internal/app/registryapp/archive_materializer.go`
 - Modify: `internal/app/registryapp/archive_materializer_test.go`
 
-- [ ] **Step 1: Write failing checksum tests**
+- [x] **Step 1: Write failing checksum tests**
 
 Add tests:
 
@@ -338,7 +338,7 @@ func TestArchiveMaterializer_RejectsChecksumMismatch(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Write failing tar.gz extraction test**
+- [x] **Step 2: Write failing tar.gz extraction test**
 
 Add:
 
@@ -356,7 +356,7 @@ func TestArchiveMaterializer_ExtractsTarGzDownload(t *testing.T) {
 }
 ```
 
-- [ ] **Step 3: Write failing path traversal tests**
+- [x] **Step 3: Write failing path traversal tests**
 
 Add:
 
@@ -388,7 +388,7 @@ func TestArchiveMaterializer_RejectsTarPathTraversal(t *testing.T) {
 }
 ```
 
-- [ ] **Step 4: Run focused tests and verify failure**
+- [x] **Step 4: Run focused tests and verify failure**
 
 Run:
 
@@ -398,7 +398,7 @@ go test ./internal/app/registryapp -run 'TestArchiveMaterializer_(Verifies|Rejec
 
 Expected: FAIL for checksum/tar.gz unsupported behavior.
 
-- [ ] **Step 5: Implement checksum and tar.gz support**
+- [x] **Step 5: Implement checksum and tar.gz support**
 
 Update `archive_materializer.go` imports with `archive/tar`, `compress/gzip`, `crypto/sha256`, `encoding/hex`.
 
@@ -480,7 +480,7 @@ func extractTarGzBytes(data []byte, targetDir string) error {
 }
 ```
 
-- [ ] **Step 6: Add tar.gz and checksum test helpers**
+- [x] **Step 6: Add tar.gz and checksum test helpers**
 
 Add helpers:
 
@@ -512,7 +512,7 @@ func sha256FileHex(t *testing.T, path string) string {
 }
 ```
 
-- [ ] **Step 7: Run focused tests and verify pass**
+- [x] **Step 7: Run focused tests and verify pass**
 
 Run:
 

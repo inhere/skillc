@@ -1,8 +1,12 @@
 package registryapp
 
 import (
+	"archive/tar"
 	"archive/zip"
 	"bytes"
+	"compress/gzip"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http"
@@ -25,23 +29,46 @@ func extractArchiveDownload(req archiveDownloadReq) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if err := verifyArchiveChecksum(data, req.Checksum); err != nil {
+		return "", err
+	}
 	if err := os.RemoveAll(req.TargetDir); err != nil {
 		return "", err
 	}
 	if err := os.MkdirAll(req.TargetDir, 0o755); err != nil {
 		return "", err
 	}
-	if strings.HasSuffix(strings.ToLower(req.URL), ".zip") {
-		if err := extractZipBytes(data, req.TargetDir); err != nil {
-			return "", err
-		}
-	} else {
-		return "", fmt.Errorf("unsupported registry archive format: %s", req.URL)
+	lowerURL := strings.ToLower(req.URL)
+	var extractErr error
+	switch {
+	case strings.HasSuffix(lowerURL, ".zip"):
+		extractErr = extractZipBytes(data, req.TargetDir)
+	case strings.HasSuffix(lowerURL, ".tar.gz"), strings.HasSuffix(lowerURL, ".tgz"):
+		extractErr = extractTarGzBytes(data, req.TargetDir)
+	default:
+		extractErr = fmt.Errorf("unsupported registry archive format: %s", req.URL)
+	}
+	if extractErr != nil {
+		return "", extractErr
 	}
 	if strings.TrimSpace(req.Checksum) == "" {
 		return ArchiveChecksumMissingWarning, nil
 	}
 	return "", nil
+}
+
+func verifyArchiveChecksum(data []byte, checksum string) error {
+	checksum = strings.TrimSpace(strings.ToLower(checksum))
+	if checksum == "" {
+		return nil
+	}
+	checksum = strings.TrimPrefix(checksum, "sha256:")
+	sum := sha256.Sum256(data)
+	actual := hex.EncodeToString(sum[:])
+	if checksum != actual {
+		return fmt.Errorf("registry archive checksum mismatch: expected %s, got %s", checksum, actual)
+	}
+	return nil
 }
 
 func readArchiveBytes(req archiveDownloadReq) ([]byte, error) {
@@ -97,6 +124,43 @@ func extractZipBytes(data []byte, targetDir string) error {
 		}
 	}
 	return nil
+}
+
+func extractTarGzBytes(data []byte, targetDir string) error {
+	gz, err := gzip.NewReader(bytes.NewReader(data))
+	if err != nil {
+		return err
+	}
+	defer gz.Close()
+	tr := tar.NewReader(gz)
+	for {
+		header, err := tr.Next()
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		targetPath, err := safeArchiveTarget(targetDir, header.Name)
+		if err != nil {
+			return err
+		}
+		switch header.Typeflag {
+		case tar.TypeDir:
+			if err := os.MkdirAll(targetPath, 0o755); err != nil {
+				return err
+			}
+		case tar.TypeReg, tar.TypeRegA:
+			if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
+				return err
+			}
+			if err := writeFileFromReader(targetPath, tr); err != nil {
+				return err
+			}
+		default:
+			return fmt.Errorf("unsupported archive entry type for %s", header.Name)
+		}
+	}
 }
 
 func safeArchiveTarget(root string, name string) (string, error) {

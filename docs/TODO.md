@@ -8,6 +8,7 @@
 - [x] 支持链接方式安装 skill，方便多项目维护更新（Windows 默认 junction，其他系统默认 symlink；显式 symlink 在 Windows 无权限时自动回退到 copy）
 - [x] 支持快速检测已经安装到项目的 skill 是否需要更新（当前项目维度已支持 `skillc update --check`）
   - [ ] 支持一键批量更新所有下游项目的 skills 版本
+    - 七期计划：`docs/superpowers/plans/2026-06-16-skillc-v0-phase7-cross-project-update.md`
 - [ ] 通过 web 界面管理 skills，包括安装、更新、删除、查看等操作
   - 参考 https://github.com/xingkongliang/skills-manager
   - 四期计划：`docs/superpowers/plans/2026-06-15-skillc-v0-phase4-web-management.md`
@@ -16,6 +17,8 @@
   - 五期状态：已补齐当前项目 profile apply / update 的计划、确认、执行闭环；卸载、source 删除和跨项目批量更新继续后置。
   - 六期计划：`docs/superpowers/plans/2026-06-15-skillc-v0-phase6-web-current-project-management.md`
   - [x] 六期状态：已补齐当前项目 Web source add/sync/remove、profile save/from-installed/from-collection、uninstall plan/run 和最小操作历史；跨项目批量更新继续后置。
+  - 七期计划：`docs/superpowers/plans/2026-06-16-skillc-v0-phase7-cross-project-update.md`
+  - 七期目标：补齐 registered projects、跨项目 update plan/run 和 per-project 确认边界。
 - [ ] 希望支持类似 skills-manager 场景的功能，在项目里可以快速切换使用不同组合的 skills
   - 可以在项目里配置不同的 skill 组合，每个组合可以包含多个 skill
   - 可以在项目里快速切换使用不同的 skill 组合，方便测试和观察效果
@@ -36,6 +39,8 @@
 五期状态：Web 执行闭环第一步已落地，只允许当前项目范围内 profile apply / update 在显式确认后执行；跨项目批量更新、卸载和 source 删除继续后置。
 六期计划：`docs/superpowers/plans/2026-06-15-skillc-v0-phase6-web-current-project-management.md`
 六期状态：当前项目 Web 管理补齐已完成，覆盖 source 管理、profile 管理、uninstall 和最小 history，仍不做跨项目批量更新、Registry、source ID 命名清理或精确 drift。
+七期计划：`docs/superpowers/plans/2026-06-16-skillc-v0-phase7-cross-project-update.md`
+七期目标：新增 project registry、`project` CLI、`update --all-projects` 和 Web 跨项目更新闭环。
 
 cli 优先，这样可以方便的进入任何目录进行操作
 skillc 技能场景 - 自由选择多个技能配置为一个场景(eg: go-dev, flutter-dev)

@@ -18,6 +18,7 @@
 | 2026-06-15 | v0.14 | Codex | 增加 Phase 6 当前项目 Web 管理补齐实施计划链接和范围 |
 | 2026-06-15 | v0.15 | Codex | 记录 Phase 6 已落地当前项目 Web source/profile/uninstall/history 管理闭环 |
 | 2026-06-16 | v0.16 | Codex | 增加 Phase 7 跨项目 project registry / update --all-projects 实施计划链接和范围 |
+| 2026-06-16 | v0.17 | Codex | 记录 Phase 7 已落地 project registry、`update --all-projects` 和 Web 跨项目更新闭环 |
 
 状态：Draft
 
@@ -63,6 +64,8 @@
 七期开发计划：`docs/superpowers/plans/2026-06-16-skillc-v0-phase7-cross-project-update.md`
 
 七期目标：新增 project registry / project selection / per-project confirmation，并接入 `update --all-projects` 与 Web 跨项目 update plan/run。P7 只处理已登记项目，不直接扫描未知 lock key；Registry 发现、source ID 清理、checksum/Git commit 精确 drift、project manifest 和远程 Web 权限继续后置。
+
+七期状态：已落地 project registry 配置持久化、`skillc project list/add/remove/import-lock`、普通 project scope update 边界修正、`skillc update --all-projects` plan/run，以及 Web registered projects 跨项目 update plan/run。Web 执行仍要求 `confirm:true` 并记录 `update.all_projects` history。
 
 ## 1. 设计结论
 
@@ -953,8 +956,6 @@ internal/infra/termselect/
 
 仍后置：
 
-- 跨项目批量更新所有下游项目。
-- project registry / project selection / per-project confirmation。
 - Registry 发现能力。
 - source ID 去掉 `local-` / `git-` 前缀、自定义 `--id/--name` 和 `source info <id>`。
 - checksum / Git commit drift 精确判断。
@@ -966,7 +967,7 @@ internal/infra/termselect/
 
 实施计划：`docs/superpowers/plans/2026-06-16-skillc-v0-phase7-cross-project-update.md`
 
-计划落地：
+已落地：
 
 - Project registry：config 中新增 `projects`，CLI 提供 `skillc project list/add/remove/import-lock`。
 - Update 边界修正：普通 project scope `skillc update` 只处理当前项目，跨项目能力必须显式使用 `--all-projects`。
@@ -1058,13 +1059,14 @@ v0 增强重构完成后，应满足：
 - 用户能在任意项目一条命令应用 profile。
 - 所有安装/更新动作可以先预览。
 - 用户能检查已安装 skills 是否过期。
-- Web 能查看 source、collection、profile、安装分布和版本差异。
+- 用户能登记允许管理的本机项目，并对这些项目执行跨项目 update plan/run。
+- Web 能查看 source、collection、profile、安装分布和版本差异，并对 registered projects 执行确认后的跨项目更新。
 - CLI 仍能完成核心写操作；Web 是关系查看和批量管理入口。
 - Registry 作为后续发现能力保留设计入口。
 
 ## 13. 下一步建议
 
-Phase 1/2/3/4/5/6 已经完成：profile 最小闭环、当前项目 status/update check、基于 `gookit/cliui` 的交互式选择、`skillc web` 本地管理查看、当前项目 profile apply / update 确认执行闭环，以及当前项目 Web source/profile/uninstall/history 管理补齐都已落地。
+Phase 1/2/3/4/5/6/7 已经完成：profile 最小闭环、当前项目 status/update check、基于 `gookit/cliui` 的交互式选择、`skillc web` 本地管理查看、当前项目 profile apply / update 确认执行闭环、当前项目 Web source/profile/uninstall/history 管理补齐，以及 project registry / `update --all-projects` / Web 跨项目更新闭环都已落地。
 
 Phase 5 实施计划见：`docs/superpowers/plans/2026-06-15-skillc-v0-phase5-web-execution.md`
 
@@ -1072,16 +1074,15 @@ Phase 6 实施计划见：`docs/superpowers/plans/2026-06-15-skillc-v0-phase6-we
 
 Phase 7 实施计划见：`docs/superpowers/plans/2026-06-16-skillc-v0-phase7-cross-project-update.md`
 
-下一步建议按 Phase 7 先实现跨项目能力，不要把它直接塞进当前项目 Web run endpoint。更稳妥的顺序是先定义项目 registry / project selection / per-project confirmation，再接入跨项目 update 执行：
+下一步建议转向 discovery、source UX 和 drift 精确度，不再扩大当前跨项目更新的执行范围：
 
-- 跨项目批量更新：Phase 7 计划先设计项目 registry / project selection / per-project confirmation，再接入 update 执行，避免误更新未知项目。
 - Registry 发现能力：保持“发现归 registry，安装仍进入 source/index/install/profile/lock”的边界。
 - Source UX cleanup：支持自定义 `--id/--name`，去掉新 source ID 的 `local-` / `git-` 强前缀，并补 `source info <id>`。
 - Drift 精确化：后续使用 Git commit/resolved ref 和 local checksum 补齐版本漂移判断。
 - Project manifest：设计 `skillc.profile.yaml` 或 profile export/import，解决团队共享 profile 的落点。
 - Remote Web：远程访问、多用户权限和安全审计单独设计，不复用当前本地 JSONL history 作为安全审计系统。
 
-Phase 6 已经验证 Web 当前项目管理闭环的价值。Phase 7 应优先补齐跨项目更新；后续再推进 Registry 发现和 source UX cleanup，同时继续坚持当前安全边界：先 plan、后确认、handler 保持薄层、执行复用 app service。
+Phase 7 已经把跨项目更新收敛到 registered projects allowlist。后续继续坚持当前安全边界：先 plan、后确认、handler 保持薄层、执行复用 app service。
 
 ## 14. 参考项目复审补充
 

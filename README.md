@@ -109,6 +109,17 @@ skillc profile apply <name> --dry-run            # print plan without installing
 skillc profile apply <name> --yes                # apply profile without confirmation
 ```
 
+### `project` — Registered projects
+
+```bash
+skillc project list                              # list registered projects
+skillc project add . --id my-project --name "My Project"
+skillc project remove my-project
+skillc project import-lock                       # import existing project paths from lock records
+```
+
+Registered projects are the explicit allowlist used by Web cross-project updates and `update --all-projects`.
+
 ### `install` — Install Skills
 
 ```bash
@@ -143,7 +154,13 @@ skillc update                        # update all installed Skills
 skillc update --target <skill-id>    # update a specific Skill
 skillc update --check                # preview update candidates without installing
 skillc update --interactive          # filter and multi-select update candidates
+skillc update --all-projects --check # preview registered project updates
+skillc update --all-projects --projects my-project,api --target go-pro --yes
 ```
+
+### Project Registry and Cross-Project Updates
+
+`skillc project` registers local projects that are allowed to be managed by Web and `update --all-projects`. Cross-project updates only operate on registered projects; they do not blindly scan unknown lock entries. Use `skillc project add . --id <id>` or `skillc project import-lock`, inspect with `skillc update --all-projects --check`, then execute with `skillc update --all-projects --yes`.
 
 ### `status` — Skill health
 
@@ -161,7 +178,7 @@ skillc web --port 8090
 skillc web --host 127.0.0.1 --port 8090
 ```
 
-The web manager runs on `127.0.0.1` by default and supports current-project management: source/profile/status/install-map/version-drift views, guarded profile apply and update, source add/sync/remove, profile save/from-installed/from-collection, and uninstall. Every Web write action is plan-first, requires `confirm:true` on the run request, appends a local `skillc-web-history.jsonl` record, and only operates on the current project/agent/scope.
+The web manager runs on `127.0.0.1` by default and supports source/profile/status/install-map/version-drift views, guarded current-project profile apply and update, source add/sync/remove, profile save/from-installed/from-collection, uninstall, and registered-project cross-project update plan/run. Every Web write action is plan-first, requires `confirm:true` on the run request, appends a local `skillc-web-history.jsonl` record, and only operates on the current project or explicitly selected registered projects.
 
 ### `uninstall` — Remove Skills
 
@@ -207,6 +224,7 @@ index_file: skillc-index.json      # index file path
 repo_cache_dir: ~/.cache/skillc    # Git repo cache directory
 proxy_url: ""                      # HTTP proxy (optional)
 sources: []                        # registered sources
+projects: []                       # registered local projects for cross-project updates
 agent_tools:                      # agent tools config agent_name: config
   claude-code:
     dirname: .claude

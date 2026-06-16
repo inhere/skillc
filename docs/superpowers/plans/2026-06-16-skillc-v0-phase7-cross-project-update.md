@@ -13,6 +13,7 @@
 | 修订时间 | 版本 | 作者 | 说明 |
 | --- | --- | --- | --- |
 | 2026-06-16 | v0.1 | Codex | 基于 Phase 6 完成状态输出 P7 跨项目更新实施计划 |
+| 2026-06-16 | v0.2 | Codex | 记录 Phase 7 实施完成、文档更新和最终验证结果 |
 
 相关文档：
 
@@ -2447,7 +2448,7 @@ git commit -m "feat(skillc): add web cross-project updates"
 - Modify: `docs/design/skillc-v0-enhance-design.md`
 - Modify: `docs/superpowers/plans/2026-06-16-skillc-v0-phase7-cross-project-update.md`
 
-- [ ] **Step 1: Update README files**
+- [x] **Step 1: Update README files**
 
 Add to `README.zh-CN.md`:
 
@@ -2465,7 +2466,7 @@ Add to `README.md`:
 `skillc project` registers local projects that are allowed to be managed by Web and `update --all-projects`. Cross-project updates only operate on registered projects; they do not blindly scan unknown lock entries. Use `skillc project add . --id <id>` or `skillc project import-lock`, inspect with `skillc update --all-projects --check`, then execute with `skillc update --all-projects --yes`.
 ```
 
-- [ ] **Step 2: Update design and task docs**
+- [x] **Step 2: Update design and task docs**
 
 Update `docs/design/skillc-v0-enhance-design.md`:
 
@@ -2506,7 +2507,7 @@ Update `docs/TODO.md`:
 七期目标：新增 project registry、`project` CLI、`update --all-projects` 和 Web 跨项目更新闭环。
 ```
 
-- [ ] **Step 3: Run focused tests**
+- [x] **Step 3: Run focused tests**
 
 Run:
 
@@ -2516,7 +2517,7 @@ go test ./internal/domain/project ./internal/infra/configstore ./internal/app/pr
 
 Expected: PASS.
 
-- [ ] **Step 4: Run full verification**
+- [x] **Step 4: Run full verification**
 
 Run:
 
@@ -2526,7 +2527,7 @@ go test ./...
 
 Expected: PASS.
 
-- [ ] **Step 5: Update this plan checkbox statuses and verification record**
+- [x] **Step 5: Update this plan checkbox statuses and verification record**
 
 Add a verification section at the end of this file:
 
@@ -2539,7 +2540,7 @@ Add a verification section at the end of this file:
 
 Check off completed steps as each task lands.
 
-- [ ] **Step 6: Commit documentation and verification**
+- [x] **Step 6: Commit documentation and verification**
 
 Run:
 
@@ -2550,14 +2551,19 @@ git commit -m "docs(skillc): document phase 7 cross-project updates"
 
 ## Self-Review Checklist
 
-- [ ] Project registry is persisted in config and portable through YAML load/save.
-- [ ] `skillc project list/add/remove/import-lock` covers the local registry workflow.
-- [ ] Ordinary project-scope `skillc update` only updates the current project.
-- [ ] `update --all-projects` only uses registered projects.
-- [ ] Cross-project update has a plan-only path and an explicit execution confirmation path.
-- [ ] Web run endpoint requires `confirm:true` and records `update.all_projects` history.
-- [ ] P7 does not implement remote Registry, source ID cleanup, precise checksum/Git drift, project manifest, or remote Web permissions.
-- [ ] `go test ./...` passes before claiming Phase 7 complete.
+- [x] Project registry is persisted in config and portable through YAML load/save.
+- [x] `skillc project list/add/remove/import-lock` covers the local registry workflow.
+- [x] Ordinary project-scope `skillc update` only updates the current project.
+- [x] `update --all-projects` only uses registered projects.
+- [x] Cross-project update has a plan-only path and an explicit execution confirmation path.
+- [x] Web run endpoint requires `confirm:true` and records `update.all_projects` history.
+- [x] P7 does not implement remote Registry, source ID cleanup, precise checksum/Git drift, project manifest, or remote Web permissions.
+- [x] `go test ./...` passes before claiming Phase 7 complete.
+
+## Verification
+
+- `go test ./internal/domain/project ./internal/infra/configstore ./internal/app/projectapp ./internal/app/updateapp ./internal/app/projectupdateapp ./internal/cli ./internal/app/webapp`
+- `go test ./...`
 
 ## Remaining After Phase 7
 

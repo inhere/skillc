@@ -111,6 +111,17 @@ skillc profile apply <name> --dry-run                    # 只输出计划，不
 skillc profile apply <name> --yes                        # 跳过确认并应用 Profile
 ```
 
+### `project` — 已登记项目
+
+```bash
+skillc project list                                      # 列出已登记项目
+skillc project add . --id my-project --name "My Project"
+skillc project remove my-project
+skillc project import-lock                               # 从已有 lock 记录导入项目路径
+```
+
+已登记项目是 Web 跨项目更新和 `update --all-projects` 使用的显式 allowlist。
+
 ### `install` — 安装 Skills
 
 ```bash
@@ -147,7 +158,13 @@ skillc update                           # 更新所有已安装的 Skills
 skillc update --target <skill-id>       # 更新指定 Skill
 skillc update --check                   # 只预览更新候选，不安装
 skillc update --interactive             # 交互式过滤并多选可更新项
+skillc update --all-projects --check    # 预览已登记项目的更新候选
+skillc update --all-projects --projects my-project,api --target go-pro --yes
 ```
+
+### 项目登记与跨项目更新
+
+`skillc project` 用于登记允许被 Web 和 `update --all-projects` 管理的本机项目。跨项目更新只作用于这些 registered projects，不会直接扫描 lock 中的未知项目。推荐先运行 `skillc project add . --id <id>` 或 `skillc project import-lock`，再使用 `skillc update --all-projects --check` 查看计划，确认后用 `skillc update --all-projects --yes` 执行。
 
 ### `status` — Skill 状态
 
@@ -165,7 +182,7 @@ skillc web --port 8090
 skillc web --host 127.0.0.1 --port 8090
 ```
 
-Web 管理界面默认监听 `127.0.0.1`，当前支持本地当前项目管理：查看 source/profile/status/install-map/version-drift，计划后确认执行 profile apply、update、source add/sync/remove、profile save/from-installed/from-collection 和 uninstall。所有 Web 写操作都会先展示 plan，执行请求必须包含 `confirm:true`，写入本地 `skillc-web-history.jsonl` 历史记录，并且只操作当前项目、agent 和 scope。
+Web 管理界面默认监听 `127.0.0.1`，当前支持查看 source/profile/status/install-map/version-drift，计划后确认执行当前项目 profile apply/update、source add/sync/remove、profile save/from-installed/from-collection、uninstall，以及已登记项目的跨项目 update plan/run。所有 Web 写操作都会先展示 plan，执行请求必须包含 `confirm:true`，写入本地 `skillc-web-history.jsonl` 历史记录，并且只操作当前项目或显式选择的 registered projects。
 
 ### `uninstall` — 卸载 Skills
 
@@ -211,6 +228,7 @@ index_file: skillc-index.json     # 索引文件路径
 repo_cache_dir: ~/.cache/skillc   # Git 仓库缓存目录
 proxy_url: ""                     # HTTP 代理（可选）
 sources: []                       # 管理的来源列表
+projects: []                      # 跨项目更新允许管理的本机项目列表
 agent_tools:                      # Agent 工具配置 agent_name: config
   claude-code:
     dirname: .claude

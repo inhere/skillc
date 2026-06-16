@@ -22,6 +22,7 @@
 | 2026-06-16 | v0.18 | Codex | 增加 Phase 8 Registry 发现、source UX cleanup 和精确 drift 实施计划链接 |
 | 2026-06-16 | v0.19 | Codex | 记录 Phase 8 已落地 Registry MVP、source UX cleanup 和精确 drift metadata |
 | 2026-06-16 | v0.20 | Codex | 复核 PRD 后修正 Registry 定位：P8 为 JSON source catalog 子集，Phase 9 回到 Skill registry 搜索/安装 |
+| 2026-06-16 | v0.21 | Codex | 记录 Phase 9 已落地 generic JSON Registry skill search/install、lock provenance 和 registry record restore/status/update |
 
 状态：Draft
 
@@ -80,7 +81,7 @@
 
 九期开发计划：`docs/superpowers/plans/2026-06-16-skillc-v0-phase9-registry-skill-search-install.md`
 
-九期目标：修正 Registry 回到 PRD 定位。Registry provider 用于搜索第三方 Skill 收集站点或团队 JSON catalog；`registry search` 返回 Skill 级结果；`registry install <registry>/<skill>` 可直接把单个 registry skill 下载到本地 cache 并安装，lock 记录 `source_type=registry` 和 registry provenance。已有 `registry add-source` 保留为可选入口，用于把结果背后的 Git/source 加入长期 source 管理。
+九期状态：已修正 Registry 回到 PRD 定位的第一条可执行路径。Generic JSON catalog 支持 `skills` + `sources`；`registry search` 默认返回 Skill 级结果，`registry search --kind source` 保留 P8 source catalog；`registry install <registry>/<skill>` 可直接把单个 registry skill materialize 到本地 cache 并安装，lock 记录 `source_type=registry` 和 registry provenance。`install` restore、`status`、`update --check`、`update` 已能处理 registry-installed skills；skills.sh / SkillsMP / SkillsLLM 等真实站点 adapter 仍后置。
 
 ## 1. 设计结论
 
@@ -112,7 +113,7 @@
 - `install --source`：支持一条命令注册 source、同步并安装。
 - 安装方式：已支持 copy/symlink/junction，并在 Windows 做回退。
 - Web：目前 `show --web` 是单个 skill 文件查看器，不是管理后台。
-- Registry：P8 已落地本机/HTTP JSON source catalog 子集；P9 需要补回原 PRD 的公开 Registry skill search/install 主链路。
+- Registry：P8 已落地本机/HTTP JSON source catalog 子集；P9 已补回 generic JSON Registry skill search/install 主链路。公开 Registry 站点 adapter、信任模型和 Web Registry 页面后置。
 
 当前不顺的地方：
 
@@ -263,16 +264,18 @@ skillc registry add-source <entry-id> [--id <id>] [--name <name>] [--sync]
 
 P8 限制：只支持本机/HTTP JSON catalog 的 `sources` 部分，不支持 `skills` 部分，不做 registry skill install。`registry search` 当前只读 source catalog cache，`registry add-source` 只写 source 配置；安装仍由 source sync/search/install/update 主链路处理。
 
-P9 目标命令：
+P9 已落地命令：
 
 ```bash
-skillc registry search <keyword> [--registry <id>] [--sync]
+skillc registry search <keyword> [--registry <id>]
+skillc registry search <keyword> --kind source
 skillc registry info <registry>/<skill>
+skillc registry info <registry>/<source> --kind source
 skillc registry install <registry>/<skill> --agent codex --scope project
 skillc registry install <registry>/<skill> --yes
 ```
 
-P9 继续保留 `registry add-source`，但只用于“把搜索结果背后的 Git/source 加入长期 source 管理”。公开 registry 搜到单个 Skill 时，用户不应被迫先 add-source 再 source sync 再 install。
+P9 继续保留 `registry add-source`，但只用于“把搜索结果背后的 Git/source 加入长期 source 管理”。公开 registry 搜到单个 Skill 时，用户不再需要先 add-source 再 source sync 再 install。当前 P9 实现 generic JSON catalog；真实 skills.sh / SkillsMP / SkillsLLM adapter、archive download/extract、签名和信任策略后置。
 
 ### 3.5 Lock
 
@@ -1115,7 +1118,7 @@ v0 增强重构完成后，应满足：
 
 ## 13. 下一步建议
 
-Phase 1/2/3/4/5/6/7/8 已经完成：profile 最小闭环、当前项目 status/update check、基于 `gookit/cliui` 的交互式选择、`skillc web` 本地管理查看、当前项目 profile apply / update 确认执行闭环、当前项目 Web source/profile/uninstall/history 管理补齐、project registry / `update --all-projects` / Web 跨项目更新闭环，以及 source UX cleanup / JSON source catalog 子集 / 精确 drift metadata 都已落地。
+Phase 1/2/3/4/5/6/7/8/9 已经完成：profile 最小闭环、当前项目 status/update check、基于 `gookit/cliui` 的交互式选择、`skillc web` 本地管理查看、当前项目 profile apply / update 确认执行闭环、当前项目 Web source/profile/uninstall/history 管理补齐、project registry / `update --all-projects` / Web 跨项目更新闭环、source UX cleanup / JSON source catalog 子集 / 精确 drift metadata，以及 generic JSON Registry skill search/install、lock provenance 和 registry record restore/status/update 都已落地。
 
 Phase 5 实施计划见：`docs/superpowers/plans/2026-06-15-skillc-v0-phase5-web-execution.md`
 
@@ -1127,11 +1130,11 @@ Phase 8 实施计划见：`docs/superpowers/plans/2026-06-16-skillc-v0-phase8-re
 
 Phase 9 实施计划见：`docs/superpowers/plans/2026-06-16-skillc-v0-phase9-registry-skill-search-install.md`
 
-下一步建议先做 Phase 9 Registry 修正，再转向协作与治理能力：
+下一步建议转向协作与治理能力：
 
-- Registry skill search/install：补回 PRD 主场景，支持 JSON skill catalog、registry skill cache、`registry install` 和 lock provenance。
 - Project manifest / profile export-import：设计 `skillc.profile.yaml` 或 profile export/import，解决团队共享 profile 的落点。
 - Registry 信任模型：catalog entry 签名、checksum、来源 allow/deny policy 和远程 registry 安全边界。
+- Registry adapters：接入 skills.sh、SkillsMP、SkillsLLM 等公开站点搜索 API。
 - Web Registry 页面：浏览 registry skill/source result、registry install plan/run、add-source plan/run 和 registry sync 状态可视化。
 - Remote Web：远程访问、多用户权限和安全审计单独设计，不复用当前本地 JSONL history 作为安全审计系统。
 

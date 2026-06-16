@@ -1768,11 +1768,11 @@ func TestRegistryCommandAddSyncSearchAndAddSource(t *testing.T) {
 	syncOutput := runAppInDirWithStdout(t, baseDir, []string{"registry", "sync", "local"})
 	assert.Contains(t, syncOutput, "registry synced: local")
 
-	searchOutput := runAppInDirWithStdout(t, baseDir, []string{"registry", "search", "go"})
+	searchOutput := runAppInDirWithStdout(t, baseDir, []string{"registry", "search", "go", "--kind", "source"})
 	assert.Contains(t, searchOutput, "gstack")
 	assert.Contains(t, searchOutput, "GStack Skills")
 
-	sourceOutput := runAppInDirWithStdout(t, baseDir, []string{"registry", "add-source", "gstack"})
+	sourceOutput := runAppInDirWithStdout(t, baseDir, []string{"registry", "add-source", "local/gstack"})
 	assert.Contains(t, sourceOutput, "source added: gstack")
 }
 
@@ -1793,6 +1793,41 @@ func TestRegistryCommandInstallInstallsSkillWithoutAddingSource(t *testing.T) {
 	config, err := configstore.NewYAMLStore().Load(filepath.Join(baseDir, "skillc.yaml"), baseDir)
 	xassert.NoErr(t, err)
 	xassert.Len(t, config.Sources, 0)
+}
+
+func TestRegistryCommandSearchDefaultsToSkills(t *testing.T) {
+	baseDir := t.TempDir()
+	catalogPath := filepath.Join(baseDir, "registry.json")
+	xassert.NoErr(t, os.WriteFile(catalogPath, []byte(`{
+		"skills":[{"id":"go-pro","name":"Go Pro","version":"1.0.0","source_url":"https://example.com/skills.git","install_entry":"skills/go-pro","tags":["go"]}],
+		"sources":[{"id":"gstack","name":"GStack Skills","type":"git","url":"https://example.com/gstack.git","tags":["go"]}]
+	}`), 0o644))
+	runAppInDirWithStdout(t, baseDir, []string{"registry", "add", "--id", "team", "--name", "Team", catalogPath})
+	runAppInDirWithStdout(t, baseDir, []string{"registry", "sync", "team"})
+
+	output := runAppInDirWithStdout(t, baseDir, []string{"registry", "search", "go"})
+
+	xassert.Contains(t, output, "go-pro")
+	xassert.Contains(t, output, "Go Pro")
+	xassert.NotContains(t, output, "gstack")
+}
+
+func TestRegistryCommandSearchKindSourceStillShowsSourceCatalog(t *testing.T) {
+	baseDir := t.TempDir()
+	catalogPath := filepath.Join(baseDir, "registry.json")
+	xassert.NoErr(t, os.WriteFile(catalogPath, []byte(`{
+		"skills":[{"id":"go-pro","name":"Go Pro","version":"1.0.0","source_url":"https://example.com/skills.git","install_entry":"skills/go-pro","tags":["go"]}],
+		"sources":[{"id":"gstack","name":"GStack Skills","type":"git","url":"https://example.com/gstack.git","tags":["go"]}]
+	}`), 0o644))
+	runAppInDirWithStdout(t, baseDir, []string{"registry", "add", "--id", "team", "--name", "Team", catalogPath})
+	runAppInDirWithStdout(t, baseDir, []string{"registry", "sync", "team"})
+
+	output := runAppInDirWithStdout(t, baseDir, []string{"registry", "search", "gstack", "--kind", "source"})
+
+	xassert.Contains(t, output, "gstack")
+	xassert.Contains(t, output, "GStack Skills")
+	xassert.Contains(t, output, "git")
+	xassert.NotContains(t, output, "go-pro")
 }
 
 func findCommandByName(app *gcli.App, name string) *gcli.Command {

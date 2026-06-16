@@ -30,9 +30,9 @@
   - 八期计划：`docs/superpowers/plans/2026-06-16-skillc-v0-phase8-registry-source-drift.md`
   - 八期状态：已落地本机/HTTP JSON source catalog 的 `registry list/add/remove/sync/search/info/add-source`，`registry add-source` 只注册 source，不安装 Skill 或写 lock。
   - 复核说明：这是内部分享 source 的便利子集，不等于 PRD 中从 skills.sh / skillsmp / skillsllm 等 Registry 搜索并安装单个 Skill 的完整能力。
-- [ ] 修正 Registry 为 Skill 搜索/安装入口
+- [x] 修正 Registry 为 Skill 搜索/安装入口
   - 九期计划：`docs/superpowers/plans/2026-06-16-skillc-v0-phase9-registry-skill-search-install.md`
-  - 九期目标：支持 Registry provider 搜索 Skill 级结果，`registry install <registry>/<skill>` 直接下载到本地 cache 并安装；`registry add-source` 保留为把结果背后的 source 加入长期管理的可选入口。
+  - 九期状态：已支持 generic JSON catalog 的 Skill 级搜索、`registry install <registry>/<skill>` 直接安装、registry lock provenance、restore/status/update 对 registry record 的处理；`registry add-source` 保留为把 source 结果加入长期管理的可选入口。skills.sh / SkillsMP / SkillsLLM 真实 adapter 后置。
 - [x] 支持 Git resolved ref / local checksum 的精确 drift 判断
   - 八期计划：`docs/superpowers/plans/2026-06-16-skillc-v0-phase8-registry-source-drift.md`
   - 八期状态：index/lock/status/Web 已记录并展示 checksum/ref drift，版本相同时也能通过 `status` / `update --check` 标记 outdated。
@@ -57,7 +57,7 @@
 八期计划：`docs/superpowers/plans/2026-06-16-skillc-v0-phase8-registry-source-drift.md`
 八期状态：已完成 source UX cleanup、JSON source catalog 子集和精确 drift metadata；完整 Registry skill search/install 修正进入九期。
 九期计划：`docs/superpowers/plans/2026-06-16-skillc-v0-phase9-registry-skill-search-install.md`
-九期目标：补回 PRD 的第三方 Registry 搜索/安装主链路。
+九期状态：已补回 generic JSON Registry skill 搜索/安装主链路；公开 Registry 站点 adapter、信任模型和 Web Registry 页面后置。
 
 cli 优先，这样可以方便的进入任何目录进行操作
 skillc 技能场景 - 自由选择多个技能配置为一个场景(eg: go-dev, flutter-dev)

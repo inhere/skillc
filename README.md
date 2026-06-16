@@ -99,19 +99,21 @@ skillc source remove <id>             # remove a source
 > New generated source IDs no longer receive forced `local-` / `git-` prefixes. Existing configured IDs are left unchanged.
 > `source sync` and `source info` support **partial ID matching** — e.g. `skillc source sync edge` matches `golang-edge-skills`.
 
-### `registry` — Discover source catalogs
+### `registry` — Discover and install registry Skills
 
 ```bash
 skillc registry list
 skillc registry add <path-or-url> --id official --name "Official Registry"
 skillc registry sync <id>
 skillc registry sync --all
-skillc registry search go
-skillc registry info <entry-id>
-skillc registry add-source <entry-id> [--id <id>] [--name <name>] [--sync]
+skillc registry search go                         # search Skill results by default
+skillc registry info official/go-pro              # show a registry Skill result
+skillc registry install official/go-pro --agent codex --scope project --yes
+skillc registry search gstack --kind source       # inspect source catalog entries
+skillc registry add-source official/gstack [--id <id>] [--name <name>] [--sync]
 ```
 
-Registry catalogs discover reusable source entries. `registry search` only reads catalog metadata, and `registry add-source` only registers a source; it does not install Skills or write lock records.
+Registry providers discover Skill-level results from a generic JSON catalog. `registry install` materializes one Skill into the local registry cache and then uses the normal install/lock flow with `source_type=registry` provenance. `registry add-source` is optional and only turns a source result into a long-lived source subscription. Public site adapters such as skills.sh, SkillsMP, and SkillsLLM are planned after the generic JSON path.
 
 ### `profile` — Saved Skill sets
 

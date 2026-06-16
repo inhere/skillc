@@ -128,42 +128,186 @@ func buildRegistrySyncCommand() *gcli.Command {
 }
 
 func buildRegistrySearchCommand() *gcli.Command {
+	var kind string
+	var registryID string
 	return &gcli.Command{
 		Name: "search",
-		Desc: "Search registry catalog entries",
+		Desc: "Search registry catalog skills or sources",
 		Config: func(c *gcli.Command) {
+			c.StrOpt(&kind, "kind", "", "skill", "search result kind: skill, source")
+			c.StrOpt(&registryID, "registry", "r", "", "filter by registry id")
 			c.AddArg("keyword", "search keyword")
 		},
-		Func: func(c *gcli.Command, _ []string) error {
-			items, err := newRegistryService().Search(c.Arg("keyword").String())
-			if err != nil {
+		Func: func(c *gcli.Command, args []string) error {
+			if err := applyRegistryKindTrailingOptions(&kind, &registryID, args); err != nil {
 				return err
 			}
-			tb := table.New("Registry Search").SetHeads("Registry", "ID", "Name", "Type", "Tags", "Location")
-			for _, item := range items {
-				tb.AddRow(item.RegistryID, item.ID, item.Name, item.Type, strings.Join(item.Tags, ","), entryLocation(item))
+			switch normalizeRegistryResultKind(kind) {
+			case "skill":
+				items, err := newRegistryService().SearchSkills(registryapp.SearchReq{
+					Keyword:    c.Arg("keyword").String(),
+					RegistryID: registryID,
+				})
+				if err != nil {
+					return err
+				}
+				tb := table.New("Registry Skill Search").SetHeads("Registry", "ID", "Name", "Version", "Agents", "Tags", "Source")
+				for _, item := range items {
+					tb.AddRow(item.RegistryID, item.ID, item.Name, item.Version, strings.Join(item.SupportedAgents, ","), strings.Join(item.Tags, ","), firstNonEmpty(item.SourceURL, item.DownloadURL))
+				}
+				_, err = fmt.Fprint(os.Stdout, tb.Render())
+				return err
+			case "source":
+				items, err := newRegistryService().Search(c.Arg("keyword").String())
+				if err != nil {
+					return err
+				}
+				tb := table.New("Registry Source Search").SetHeads("Registry", "ID", "Name", "Type", "Tags", "Location")
+				for _, item := range filterRegistryEntries(items, registryID) {
+					tb.AddRow(item.RegistryID, item.ID, item.Name, item.Type, strings.Join(item.Tags, ","), entryLocation(item))
+				}
+				_, err = fmt.Fprint(os.Stdout, tb.Render())
+				return err
+			default:
+				return fmt.Errorf("invalid --kind %q, allowed: skill, source", kind)
 			}
-			_, err = fmt.Fprint(os.Stdout, tb.Render())
-			return err
 		},
 	}
 }
 
 func buildRegistryInfoCommand() *gcli.Command {
+	var kind string
 	return &gcli.Command{
 		Name: "info",
-		Desc: "Show registry entry details",
+		Desc: "Show registry skill or source details",
 		Config: func(c *gcli.Command) {
+			c.StrOpt(&kind, "kind", "", "skill", "result kind: skill, source")
 			c.AddArg("entry", "entry id or registry/entry id", true)
 		},
-		Func: func(c *gcli.Command, _ []string) error {
-			item, err := newRegistryService().Info(c.Arg("entry").String())
-			if err != nil {
+		Func: func(c *gcli.Command, args []string) error {
+			if err := applyRegistryKindTrailingOptions(&kind, nil, args); err != nil {
 				return err
 			}
-			return printRegistryEntryInfo(item)
+			target := c.Arg("entry").String()
+			switch normalizeRegistryResultKind(kind) {
+			case "skill":
+				item, err := newRegistryService().InfoSkill(target)
+				if err == nil {
+					return printRegistrySkillInfo(item)
+				}
+				if !strings.Contains(err.Error(), "not found") {
+					return err
+				}
+				sourceItem, sourceErr := newRegistryService().Info(target)
+				if sourceErr != nil {
+					return err
+				}
+				ccolor.Infof("source result found; use `registry add-source %s` to register it\n", target)
+				return printRegistryEntryInfo(sourceItem)
+			case "source":
+				item, err := newRegistryService().Info(target)
+				if err != nil {
+					return err
+				}
+				return printRegistryEntryInfo(item)
+			default:
+				return fmt.Errorf("invalid --kind %q, allowed: skill, source", kind)
+			}
 		},
 	}
+}
+
+func applyRegistryKindTrailingOptions(kind *string, registryID *string, args []string) error {
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		name, value, hasValue := strings.Cut(arg, "=")
+		switch name {
+		case "--kind":
+			if !hasValue {
+				i++
+				if i >= len(args) {
+					return fmt.Errorf("%s requires a value", name)
+				}
+				value = args[i]
+			}
+			*kind = value
+		case "--registry", "-r":
+			if registryID == nil {
+				return fmt.Errorf("unknown registry argument: %s", arg)
+			}
+			if !hasValue {
+				i++
+				if i >= len(args) {
+					return fmt.Errorf("%s requires a value", name)
+				}
+				value = args[i]
+			}
+			*registryID = value
+		default:
+			return fmt.Errorf("unknown registry argument: %s", arg)
+		}
+	}
+	return nil
+}
+
+func normalizeRegistryResultKind(kind string) string {
+	kind = strings.ToLower(strings.TrimSpace(kind))
+	if kind == "" {
+		return "skill"
+	}
+	return kind
+}
+
+func filterRegistryEntries(items []registry.Entry, registryID string) []registry.Entry {
+	registryID = strings.ToLower(strings.TrimSpace(registryID))
+	if registryID == "" {
+		return items
+	}
+	out := make([]registry.Entry, 0, len(items))
+	for _, item := range items {
+		if strings.ToLower(item.RegistryID) == registryID {
+			out = append(out, item)
+		}
+	}
+	return out
+}
+
+func printRegistrySkillInfo(item registry.SkillEntry) error {
+	tb := table.New("Registry Skill").SetHeads("Field", "Value")
+	tb.AddRow("Registry", item.RegistryID)
+	tb.AddRow("ID", item.ID)
+	tb.AddRow("Name", item.Name)
+	tb.AddRow("Description", item.Description)
+	tb.AddRow("Version", item.Version)
+	if len(item.SupportedAgents) > 0 {
+		tb.AddRow("Supported Agents", strings.Join(item.SupportedAgents, ","))
+	}
+	if item.SourceURL != "" {
+		tb.AddRow("Source URL", item.SourceURL)
+	}
+	if item.SourceRef != "" {
+		tb.AddRow("Source Ref", item.SourceRef)
+	}
+	if item.DownloadURL != "" {
+		tb.AddRow("Download URL", item.DownloadURL)
+	}
+	if item.InstallEntry != "" {
+		tb.AddRow("Install Entry", item.InstallEntry)
+	}
+	if item.Checksum != "" {
+		tb.AddRow("Checksum", item.Checksum)
+	}
+	if len(item.Tags) > 0 {
+		tb.AddRow("Tags", strings.Join(item.Tags, ","))
+	}
+	if item.Homepage != "" {
+		tb.AddRow("Homepage", item.Homepage)
+	}
+	if item.RegistryURL != "" {
+		tb.AddRow("Registry URL", item.RegistryURL)
+	}
+	_, err := fmt.Fprint(os.Stdout, tb.Render())
+	return err
 }
 
 func buildRegistryAddSourceCommand() *gcli.Command {

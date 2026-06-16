@@ -1212,7 +1212,7 @@ git commit -m "feat(skillc): restore and update registry skills"
 - Modify: `docs/design/skillc-v0-enhance-design.md`
 - Modify: `docs/superpowers/plans/2026-06-16-skillc-v0-phase9-registry-skill-search-install.md`
 
-- [ ] **Step 1: Write failing CLI UX tests**
+- [x] **Step 1: Write failing CLI UX tests**
 
 Add to `internal/cli/app_test.go`:
 
@@ -1253,7 +1253,7 @@ func TestRegistryCommandSearchKindSourceStillShowsSourceCatalog(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run CLI UX tests to verify they fail**
+- [x] **Step 2: Run CLI UX tests to verify they fail**
 
 Run:
 
@@ -1263,7 +1263,7 @@ go test ./internal/cli -run 'TestRegistryCommandSearch(Default|KindSource)' -v
 
 Expected: FAIL because `registry search` currently only shows source entries and has no `--kind`.
 
-- [ ] **Step 3: Update registry CLI UX**
+- [x] **Step 3: Update registry CLI UX**
 
 Modify `registry search`:
 
@@ -1289,7 +1289,7 @@ Default kind is `skill`; if no skill match exists, try source match and print a 
 source result found; use `registry add-source <target>` to register it
 ```
 
-- [ ] **Step 4: Update README and design docs**
+- [x] **Step 4: Update README and design docs**
 
 Document:
 
@@ -1307,7 +1307,7 @@ Clarify:
 - `registry add-source` is optional and intended for long-lived source subscription.
 - P9 implements generic JSON skill catalog; public site adapters are next.
 
-- [ ] **Step 5: Run docs/CLI focused tests**
+- [x] **Step 5: Run docs/CLI focused tests**
 
 Run:
 
@@ -1317,7 +1317,7 @@ go test ./internal/domain/registry ./internal/infra/registrystore ./internal/app
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 Run:
 

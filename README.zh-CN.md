@@ -101,19 +101,21 @@ skillc source remove <id>                      # 删除来源
 > 新生成的 source ID 不再强制添加 `local-` / `git-` 前缀；已有配置中的旧 ID 不会被自动改写。
 > `source sync` 和 `source info` 支持 **部分 ID 匹配**，例如 `skillc source sync edge` 可匹配 `golang-edge-skills`。
 
-### `registry` — 发现来源目录
+### `registry` — 发现并安装 Registry Skills
 
 ```bash
 skillc registry list
 skillc registry add <path-or-url> --id official --name "Official Registry"
 skillc registry sync <id>
 skillc registry sync --all
-skillc registry search go
-skillc registry info <entry-id>
-skillc registry add-source <entry-id> [--id <id>] [--name <name>] [--sync]
+skillc registry search go                         # 默认搜索 Skill 结果
+skillc registry info official/go-pro              # 查看 Registry Skill 详情
+skillc registry install official/go-pro --agent codex --scope project --yes
+skillc registry search gstack --kind source       # 查看 source catalog 结果
+skillc registry add-source official/gstack [--id <id>] [--name <name>] [--sync]
 ```
 
-Registry 用于发现可复用的 source entry。`registry search` 只读取 catalog 元数据，`registry add-source` 只注册 source，不会安装 Skill，也不会写 lock 记录。
+Registry 用于从 generic JSON catalog 发现 Skill 级结果。`registry install` 会先把单个 Skill materialize 到本地 registry cache，再复用普通 install/lock 流程，并在 lock 中记录 `source_type=registry` provenance。`registry add-source` 是可选入口，只用于把 source 结果转成长期订阅的 source。skills.sh、SkillsMP、SkillsLLM 等公开站点 adapter 后续再实现。
 
 ### `profile` — Skill 组合
 

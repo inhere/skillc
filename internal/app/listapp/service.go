@@ -22,6 +22,7 @@ type Item struct {
 	Version             string
 	SourceID            string
 	SourceType          string
+	SourceResolvedRef   string
 	Profile             string
 	InstalledPath       string
 	Checksum            string
@@ -123,6 +124,7 @@ func (s *Service) toItem(scopeKey string, scope agent.Scope, record lockpkg.Reco
 		Version:             record.Version,
 		SourceID:            record.SourceID,
 		SourceType:          record.SourceType,
+		SourceResolvedRef:   record.SourceResolvedRef,
 		Profile:             record.Profile,
 		InstalledPath:       installedPath,
 		Checksum:            record.Checksum,

@@ -45,18 +45,22 @@ type Result struct {
 }
 
 type Item struct {
-	SkillID             string
-	QualifiedName       string
-	SourceQualifiedName string
-	SourceID            string
-	Agent               string
-	Scope               string
-	Profile             string
-	Status              string
-	CurrentVersion      string
-	LatestVersion       string
-	InstalledPath       string
-	Reason              string
+	SkillID                  string
+	QualifiedName            string
+	SourceQualifiedName      string
+	SourceID                 string
+	Agent                    string
+	Scope                    string
+	Profile                  string
+	Status                   string
+	CurrentVersion           string
+	LatestVersion            string
+	CurrentChecksum          string
+	LatestChecksum           string
+	CurrentSourceResolvedRef string
+	LatestSourceResolvedRef  string
+	InstalledPath            string
+	Reason                   string
 }
 
 type Summary struct {
@@ -182,15 +186,17 @@ func (s *Service) syncSources(sources []sourcepkg.Source) []SourceSyncError {
 
 func classifyListItem(current listapp.Item, indexItems []skill.Skill, syncFailed map[string]string, sourceIDs map[string]string) Item {
 	item := Item{
-		SkillID:             current.SkillID,
-		QualifiedName:       current.QualifiedName,
-		SourceQualifiedName: current.SourceQualifiedName,
-		SourceID:            current.SourceID,
-		Agent:               current.Agent,
-		Scope:               current.Scope,
-		Profile:             current.Profile,
-		CurrentVersion:      current.Version,
-		InstalledPath:       current.InstalledPath,
+		SkillID:                  current.SkillID,
+		QualifiedName:            current.QualifiedName,
+		SourceQualifiedName:      current.SourceQualifiedName,
+		SourceID:                 current.SourceID,
+		Agent:                    current.Agent,
+		Scope:                    current.Scope,
+		Profile:                  current.Profile,
+		CurrentVersion:           current.Version,
+		CurrentChecksum:          current.Checksum,
+		CurrentSourceResolvedRef: current.SourceResolvedRef,
+		InstalledPath:            current.InstalledPath,
 	}
 	if reason, ok := syncFailed[current.SourceID]; ok {
 		item.Status = StatusSourceError
@@ -224,6 +230,8 @@ func classifyListItem(current listapp.Item, indexItems []skill.Skill, syncFailed
 		item.SourceQualifiedName = latest.SourceQualifiedName
 	}
 	item.LatestVersion = latest.Version
+	item.LatestChecksum = latest.Checksum
+	item.LatestSourceResolvedRef = latest.SourceResolvedRef
 	if current.Status == StatusMissing {
 		item.Status = StatusMissing
 		item.Reason = "installed path is missing"
@@ -232,6 +240,16 @@ func classifyListItem(current listapp.Item, indexItems []skill.Skill, syncFailed
 	if current.Version != "" && latest.Version != "" && current.Version != latest.Version {
 		item.Status = StatusOutdated
 		item.Reason = fmt.Sprintf("version %s -> %s", current.Version, latest.Version)
+		return item
+	}
+	if current.SourceResolvedRef != "" && latest.SourceResolvedRef != "" && current.SourceResolvedRef != latest.SourceResolvedRef {
+		item.Status = StatusOutdated
+		item.Reason = fmt.Sprintf("git ref %s -> %s", shortSignal(current.SourceResolvedRef), shortSignal(latest.SourceResolvedRef))
+		return item
+	}
+	if current.Checksum != "" && latest.Checksum != "" && current.Checksum != latest.Checksum {
+		item.Status = StatusOutdated
+		item.Reason = fmt.Sprintf("checksum %s -> %s", shortSignal(current.Checksum), shortSignal(latest.Checksum))
 		return item
 	}
 	item.Status = StatusInstalled
@@ -354,4 +372,11 @@ func defaultString(value string, fallback string) string {
 		return fallback
 	}
 	return value
+}
+
+func shortSignal(value string) string {
+	if len(value) <= 8 {
+		return value
+	}
+	return value[:8]
 }

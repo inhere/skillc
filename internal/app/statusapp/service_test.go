@@ -537,6 +537,66 @@ func TestService_RunReportsSourceSyncErrorsWithoutUpdatingLock(t *testing.T) {
 	assert.Eq(t, originalLock, gotLock)
 }
 
+func TestService_RunMarksOutdatedWhenGitResolvedRefChanges(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile, config := writeStatusDriftFixture(t, baseDir)
+	projectKey := baseDir
+	assert.NoErr(t, os.MkdirAll(filepath.Join(baseDir, ".agents", "skills", "go-pro"), 0o755))
+	assert.NoErr(t, lockstore.NewStore().Save(config.LockFile, lockpkg.File{
+		projectKey: {{
+			SkillID: "go-pro", SourceID: "gstack", SourceType: "git", Version: "1.0.0",
+			SourceResolvedRef: "oldcommit", Agents: []string{"universal"},
+		}},
+	}))
+	assert.NoErr(t, repoindex.NewStore().Save(config.IndexFile, []skill.Skill{{
+		ID: "go-pro", SourceID: "gstack", SourceType: sourcepkg.TypeGit, Version: "1.0.0",
+		SourceResolvedRef: "newcommit", Path: filepath.Join(baseDir, "source", "go-pro"),
+	}}))
+
+	result, err := NewService(configFile, baseDir).Run(Req{Agent: "universal", Scope: "project", WorkDir: baseDir})
+
+	assert.NoErr(t, err)
+	assert.Eq(t, StatusOutdated, result.Items[0].Status)
+	assert.Contains(t, result.Items[0].Reason, "git ref")
+}
+
+func TestService_RunMarksOutdatedWhenLocalChecksumChanges(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile, config := writeStatusDriftFixture(t, baseDir)
+	projectKey := baseDir
+	assert.NoErr(t, os.MkdirAll(filepath.Join(baseDir, ".agents", "skills", "rules"), 0o755))
+	assert.NoErr(t, lockstore.NewStore().Save(config.LockFile, lockpkg.File{
+		projectKey: {{
+			SkillID: "rules", SourceID: "local", SourceType: "local", Version: "1.0.0",
+			Checksum: "oldsum", Agents: []string{"universal"},
+		}},
+	}))
+	assert.NoErr(t, repoindex.NewStore().Save(config.IndexFile, []skill.Skill{{
+		ID: "rules", SourceID: "local", SourceType: sourcepkg.TypeLocal, Version: "1.0.0",
+		Checksum: "newsum", Path: filepath.Join(baseDir, "source", "rules"),
+	}}))
+
+	result, err := NewService(configFile, baseDir).Run(Req{Agent: "universal", Scope: "project", WorkDir: baseDir})
+
+	assert.NoErr(t, err)
+	assert.Eq(t, StatusOutdated, result.Items[0].Status)
+	assert.Contains(t, result.Items[0].Reason, "checksum")
+}
+
+func writeStatusDriftFixture(t *testing.T, baseDir string) (string, cfg.Config) {
+	t.Helper()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	lockFile := filepath.Join(baseDir, "skillc.lock.json")
+	indexFile := filepath.Join(baseDir, "index.json")
+
+	config := cfg.DefaultConfig()
+	config.LockFile = lockFile
+	config.IndexFile = indexFile
+	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, ".agents")}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config, baseDir))
+	return configFile, config
+}
+
 func statusBySkill(items []Item) map[string]string {
 	out := map[string]string{}
 	for _, item := range items {

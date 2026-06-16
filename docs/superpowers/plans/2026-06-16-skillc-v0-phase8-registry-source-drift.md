@@ -1366,7 +1366,7 @@ git commit -m "feat(skillc): add registry cli"
 - Modify: `internal/app/statusapp/service.go`
 - Modify: `internal/app/statusapp/service_test.go`
 
-- [ ] **Step 1: Write failing skill parser metadata tests**
+- [x] **Step 1: Write failing skill parser metadata tests**
 
 Add to `internal/domain/skill/parser_test.go`:
 
@@ -1383,7 +1383,7 @@ func TestParseSkillMarkdownCarriesChecksumAndSourceResolvedRef(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run parser test to verify it fails**
+- [x] **Step 2: Run parser test to verify it fails**
 
 Run:
 
@@ -1393,7 +1393,7 @@ go test ./internal/domain/skill -run TestParseSkillMarkdownCarriesChecksumAndSou
 
 Expected: FAIL because `Skill.Checksum` and `Skill.SourceResolvedRef` do not exist.
 
-- [ ] **Step 3: Implement skill metadata**
+- [x] **Step 3: Implement skill metadata**
 
 Modify:
 
@@ -1411,7 +1411,7 @@ func SumDir(root string) (string, error) {
 - `internal/infra/repoindex/scanner.go`: after parsing `SKILL.md`, compute `hashx.SumDir(filepath.Join(skillDir, parsed.InstallEntry))` and assign it to `parsed.Checksum`.
 - `internal/infra/repoindex/scanner_test.go`: add a test that changes a non-`SKILL.md` file under the install entry and proves the indexed checksum changes.
 
-- [ ] **Step 4: Write failing install/status drift tests**
+- [x] **Step 4: Write failing install/status drift tests**
 
 Add to `internal/app/installapp/service_test.go`:
 
@@ -1502,7 +1502,7 @@ func writeStatusDriftFixture(t *testing.T, baseDir string) (string, cfg.Config) 
 }
 ```
 
-- [ ] **Step 5: Run drift tests to verify they fail**
+- [x] **Step 5: Run drift tests to verify they fail**
 
 Run:
 
@@ -1512,7 +1512,7 @@ go test ./internal/app/installapp ./internal/app/statusapp -run 'TestService_(In
 
 Expected: FAIL because lock/status metadata is not wired.
 
-- [ ] **Step 6: Implement install/list/status metadata wiring**
+- [x] **Step 6: Implement install/list/status metadata wiring**
 
 Modify:
 
@@ -1535,7 +1535,7 @@ Modify:
     - `git ref <old> -> <new>`
     - `checksum <old8> -> <new8>`
 
-- [ ] **Step 7: Run focused drift tests**
+- [x] **Step 7: Run focused drift tests**
 
 Run:
 
@@ -1545,7 +1545,7 @@ go test ./internal/domain/skill ./internal/infra/repoindex ./internal/app/instal
 
 Expected: PASS.
 
-- [ ] **Step 8: Commit drift metadata core**
+- [x] **Step 8: Commit drift metadata core**
 
 Run:
 

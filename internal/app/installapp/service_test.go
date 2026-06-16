@@ -298,6 +298,26 @@ func TestService_InstallRejectsSameIDFromDifferentSources(t *testing.T) {
 	assert.Eq(t, "repo-a/shared/ship", locks[projectKey][0].SourceQualifiedName)
 }
 
+func TestService_InstallWritesDriftMetadataToLock(t *testing.T) {
+	baseDir := t.TempDir()
+	lockFile := filepath.Join(baseDir, "skillc.lock.json")
+	targetRoot := filepath.Join(baseDir, "target")
+	sourceDir := filepath.Join(baseDir, "source", "go-pro")
+	assert.NoErr(t, os.MkdirAll(sourceDir, 0o755))
+	assert.NoErr(t, os.WriteFile(filepath.Join(sourceDir, "SKILL.md"), []byte("content"), 0o644))
+
+	svc := NewService(lockFile)
+	_, err := svc.Install(skill.Skill{
+		ID: "go-pro", Version: "1.0.0", SourceID: "gstack", SourceType: sourcepkg.TypeGit,
+		SourceResolvedRef: "deadbeefcafebabe", Checksum: "abc123", InstallEntry: ".", Path: sourceDir,
+	}, "universal", agent.ScopeProject, baseDir, targetRoot)
+
+	assert.NoErr(t, err)
+	locks := mustLoadLockFile(t, svc, lockFile)
+	assert.Eq(t, "abc123", locks[baseDir][0].Checksum)
+	assert.Eq(t, "deadbeefcafebabe", locks[baseDir][0].SourceResolvedRef)
+}
+
 func TestService_UninstallRemovesOnlyTargetAgentAndKeepsGroupedRecord(t *testing.T) {
 	baseDir := t.TempDir()
 	lockFile := filepath.Join(baseDir, "skillc-install.lock")

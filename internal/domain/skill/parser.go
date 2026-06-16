@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"strings"
 
-	sourcepkg "github.com/inhere/skillc/internal/domain/source"
-	"github.com/inhere/skillc/internal/infra/hashx"
 	gkconfig "github.com/gookit/config/v2"
 	gkyaml "github.com/gookit/config/v2/yaml"
+	sourcepkg "github.com/inhere/skillc/internal/domain/source"
+	"github.com/inhere/skillc/internal/infra/hashx"
 )
 
 type frontMatter struct {
@@ -52,16 +52,18 @@ func ParseSkillMarkdown(content string, src sourcepkg.Source) (Skill, error) {
 	}
 
 	return Skill{
-		ID:              meta.ID,
-		Name:            meta.Name,
-		Description:     meta.Description,
-		Version:         meta.Version,
-		SupportedAgents: meta.SupportedAgents,
-		SourceID:        src.ID,
-		SourceName:      src.Name,
-		SourceType:      src.Type,
-		InstallEntry:    meta.InstallEntry,
-		Path:            src.Path,
+		ID:                meta.ID,
+		Name:              meta.Name,
+		Description:       meta.Description,
+		Version:           meta.Version,
+		SupportedAgents:   meta.SupportedAgents,
+		SourceID:          src.ID,
+		SourceName:        src.Name,
+		SourceType:        src.Type,
+		InstallEntry:      meta.InstallEntry,
+		Path:              src.Path,
+		Checksum:          hashx.SumString(content),
+		SourceResolvedRef: src.ResolvedRef,
 	}, nil
 }
 

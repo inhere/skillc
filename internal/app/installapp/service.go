@@ -248,9 +248,11 @@ func (s *Service) installInto(item skill.Skill, agentName string, scope agent.Sc
 		Version:             item.Version,
 		SourceID:            item.SourceID,
 		SourceType:          string(item.SourceType),
+		SourceResolvedRef:   item.SourceResolvedRef,
 		Profile:             profileName,
 		InstallEntry:        item.InstallEntry,
 		Agents:              []string{agentName},
+		Checksum:            item.Checksum,
 		InstalledAt:         now,
 		UpdatedAt:           now,
 	}
@@ -291,8 +293,10 @@ func (s *Service) ReinstallAtPath(item skill.Skill, agentName string, scope agen
 		Version:             item.Version,
 		SourceID:            item.SourceID,
 		SourceType:          string(item.SourceType),
+		SourceResolvedRef:   item.SourceResolvedRef,
 		InstallEntry:        item.InstallEntry,
 		Agents:              []string{agentName},
+		Checksum:            item.Checksum,
 		InstalledAt:         now,
 		UpdatedAt:           now,
 	}

@@ -70,3 +70,14 @@ description: Design frontend interfaces
 	assert.Eq(t, "frontend-design", got.ID)
 	assert.Eq(t, "frontend-design", got.Name)
 }
+
+func TestParseSkillMarkdownCarriesChecksumAndSourceResolvedRef(t *testing.T) {
+	content := "---\nid: go-pro\nname: Go Pro\nversion: 1.0.0\n---\n# Go Pro\n"
+	src := source.Source{ID: "gstack", Type: source.TypeGit, Path: "/tmp/go-pro", ResolvedRef: "deadbeefcafebabe"}
+
+	got, err := ParseSkillMarkdown(content, src)
+
+	assert.NoErr(t, err)
+	assert.NotEmpty(t, got.Checksum)
+	assert.Eq(t, "deadbeefcafebabe", got.SourceResolvedRef)
+}

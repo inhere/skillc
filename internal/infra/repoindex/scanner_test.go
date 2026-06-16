@@ -104,3 +104,29 @@ name: Skill A
 	assert.Eq(t, "productivity", items[1].Collection)
 	assert.Eq(t, "productivity/skill-a", items[1].QualifiedName)
 }
+
+func TestScanner_ScanUsesInstallEntryDirectoryChecksum(t *testing.T) {
+	root := t.TempDir()
+	skillDir := filepath.Join(root, "skill-a")
+	commandsDir := filepath.Join(skillDir, "commands")
+	assert.NoErr(t, os.MkdirAll(commandsDir, 0o755))
+	assert.NoErr(t, os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(`---
+id: skill-a
+name: Skill A
+install_entry: commands
+---`), 0o644))
+	commandFile := filepath.Join(commandsDir, "run.md")
+	assert.NoErr(t, os.WriteFile(commandFile, []byte("first"), 0o644))
+
+	first, err := NewScanner().Scan(source.Source{ID: "local-demo", Name: "workflow-repo", Type: source.TypeLocal, Path: root})
+	assert.NoErr(t, err)
+	assert.Len(t, first, 1)
+	assert.NotEmpty(t, first[0].Checksum)
+
+	assert.NoErr(t, os.WriteFile(commandFile, []byte("second"), 0o644))
+	second, err := NewScanner().Scan(source.Source{ID: "local-demo", Name: "workflow-repo", Type: source.TypeLocal, Path: root})
+
+	assert.NoErr(t, err)
+	assert.Len(t, second, 1)
+	assert.NotEq(t, first[0].Checksum, second[0].Checksum)
+}

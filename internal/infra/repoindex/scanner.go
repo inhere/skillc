@@ -7,6 +7,7 @@ import (
 
 	"github.com/inhere/skillc/internal/domain/skill"
 	sourcepkg "github.com/inhere/skillc/internal/domain/source"
+	"github.com/inhere/skillc/internal/infra/hashx"
 )
 
 type Scanner struct{}
@@ -50,6 +51,9 @@ func (s *Scanner) Scan(src sourcepkg.Source) ([]skill.Skill, error) {
 				continue
 			}
 			parsed.Path = skillDir
+			if checksum, err := hashx.SumDir(filepath.Join(skillDir, parsed.InstallEntry)); err == nil {
+				parsed.Checksum = checksum
+			}
 			parsed.Collection = group.Collection
 			parsed.SourceName = src.Name
 			parsed.QualifiedName = qualifiedName(group.Collection, parsed.ID)

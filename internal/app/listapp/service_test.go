@@ -78,6 +78,29 @@ func TestService_ListIncludesProfileName(t *testing.T) {
 	assert.Eq(t, "go-dev", items[0].Profile)
 }
 
+func TestService_ListCarriesDriftMetadata(t *testing.T) {
+	baseDir := t.TempDir()
+	lockFile := filepath.Join(baseDir, "skillc-install.lock")
+	conf := config.DefaultConfig()
+	conf.AgentTools["universal"] = config.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, ".agents")}
+	installedPath := filepath.Join(baseDir, ".agents", "skills", "go-pro")
+	assert.NoErr(t, os.MkdirAll(installedPath, 0o755))
+
+	assert.NoErr(t, lockstore.NewStore().Save(lockFile, lockpkg.File{
+		filepath.Clean(baseDir): {{
+			SkillID: "go-pro", SourceID: "gstack", Agents: []string{"universal"},
+			Checksum: "abc123", SourceResolvedRef: "deadbeefcafebabe",
+		}},
+	}))
+
+	items, err := NewService(lockFile).WithRuntime(conf, baseDir).List("universal", "project")
+
+	assert.NoErr(t, err)
+	assert.Len(t, items, 1)
+	assert.Eq(t, "abc123", items[0].Checksum)
+	assert.Eq(t, "deadbeefcafebabe", items[0].SourceResolvedRef)
+}
+
 func TestService_ScanUnrecordedFiltersByRequestedAgent(t *testing.T) {
 	baseDir := t.TempDir()
 	lockFile := filepath.Join(baseDir, "skillc-install.lock")

@@ -11,6 +11,7 @@ import (
 
 	"github.com/gookit/goutil/testutil/assert"
 	"github.com/inhere/skillc/internal/domain/profile"
+	"github.com/inhere/skillc/internal/domain/project"
 	"github.com/inhere/skillc/internal/domain/skill"
 	sourcepkg "github.com/inhere/skillc/internal/domain/source"
 	"github.com/inhere/skillc/internal/infra/configstore"
@@ -306,6 +307,49 @@ func TestManagerServerRunEndpointRecordsHistory(t *testing.T) {
 	assert.Eq(t, "ok", items[0].Status)
 }
 
+func TestManagerServerProjectsEndpoint(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile, config := writeWebManagerFixture(t, baseDir)
+	config.Projects = []project.Project{{ID: "skillc", Name: "Skillc", Path: baseDir}}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config, baseDir))
+	server := NewManagerServer(configFile, baseDir)
+
+	rec := performManagerRequest(server, http.MethodGet, "/api/projects")
+
+	assert.Eq(t, http.StatusOK, rec.Code)
+	assert.Contains(t, rec.Body.String(), `"id":"skillc"`)
+	assert.Contains(t, rec.Body.String(), `"name":"Skillc"`)
+}
+
+func TestManagerServerUpdateAllPlanEndpoint(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile, config := writeWebManagerFixture(t, baseDir)
+	assert.NoErr(t, os.MkdirAll(filepath.Join(baseDir, "source", "go-pro"), 0o755))
+	assert.NoErr(t, os.WriteFile(filepath.Join(baseDir, "source", "go-pro", "SKILL.md"), []byte("---\nid: go-pro\nname: Go Pro\nversion: 2.0.0\n---\n# Go Pro\n"), 0o644))
+	config.Projects = []project.Project{{ID: "skillc", Name: "Skillc", Path: baseDir}}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config, baseDir))
+	server := NewManagerServer(configFile, baseDir)
+
+	rec := performManagerRequestWithBody(server, http.MethodPost, "/api/update/all/plan?agent=universal&scope=project", strings.NewReader(`{"project_ids":["skillc"],"target":"go-pro"}`))
+
+	assert.Eq(t, http.StatusOK, rec.Code)
+	assert.Contains(t, rec.Body.String(), `"candidate_count":1`)
+	assert.Contains(t, rec.Body.String(), `"project_id":"skillc"`)
+}
+
+func TestManagerServerUpdateAllRunRequiresConfirmation(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile, config := writeWebManagerFixture(t, baseDir)
+	config.Projects = []project.Project{{ID: "skillc", Name: "Skillc", Path: baseDir}}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config, baseDir))
+	server := NewManagerServer(configFile, baseDir)
+
+	rec := performManagerRequestWithBody(server, http.MethodPost, "/api/update/all/run", strings.NewReader(`{"project_ids":["skillc"]}`))
+
+	assert.Eq(t, http.StatusBadRequest, rec.Code)
+	assert.Contains(t, rec.Body.String(), `"confirmation required"`)
+}
+
 func TestManagerServerRejectsInvalidProfileActionPath(t *testing.T) {
 	baseDir := t.TempDir()
 	configFile := writeWebActionFixture(t, baseDir)
@@ -460,6 +504,21 @@ func TestManagerServerStaticPageContainsHistoryView(t *testing.T) {
 	assert.Contains(t, body, `data-view="history"`)
 	assert.Contains(t, body, "/api/history")
 	assert.Contains(t, body, `id="history-table"`)
+}
+
+func TestManagerServerStaticPageContainsAllProjectsUpdateControls(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile, _ := writeWebManagerFixture(t, baseDir)
+	server := NewManagerServer(configFile, baseDir)
+
+	rec := performManagerRequest(server, http.MethodGet, "/")
+	body := rec.Body.String()
+
+	assert.Eq(t, http.StatusOK, rec.Code)
+	assert.Contains(t, body, "/api/projects")
+	assert.Contains(t, body, "/api/update/all/plan")
+	assert.Contains(t, body, "/api/update/all/run")
+	assert.Contains(t, body, `id="run-update-all-btn"`)
 }
 
 func TestManagerServerStaticPageDoesNotUseExternalAssets(t *testing.T) {

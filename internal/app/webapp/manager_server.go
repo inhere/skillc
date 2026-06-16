@@ -62,6 +62,7 @@ func (s *ManagerServer) Handler() http.Handler {
 	mux.HandleFunc("/api/collections", s.handleCollections)
 	mux.HandleFunc("/api/skills", s.handleSkills)
 	mux.HandleFunc("/api/profiles", s.handleProfiles)
+	mux.HandleFunc("/api/projects", s.handleProjects)
 	mux.HandleFunc("/api/status", s.handleStatus)
 	mux.HandleFunc("/api/install-map", s.handleInstallMap)
 	mux.HandleFunc("/api/version-drift", s.handleVersionDrift)
@@ -77,6 +78,8 @@ func (s *ManagerServer) Handler() http.Handler {
 	mux.HandleFunc("/api/uninstall/run", s.handleUninstallRun)
 	mux.HandleFunc("/api/update/plan", s.handleUpdatePlan)
 	mux.HandleFunc("/api/update/run", s.handleUpdateRun)
+	mux.HandleFunc("/api/update/all/plan", s.handleUpdateAllPlan)
+	mux.HandleFunc("/api/update/all/run", s.handleUpdateAllRun)
 	mux.HandleFunc("/api/sources/add/plan", s.handleSourceAddPlan)
 	mux.HandleFunc("/api/sources/add/run", s.handleSourceAddRun)
 	mux.HandleFunc("/api/sources/sync/plan", s.handleSourceSyncPlan)
@@ -144,6 +147,14 @@ func (s *ManagerServer) handleProfiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	result, err := s.manager.Profiles()
+	writeResult(w, result, err)
+}
+
+func (s *ManagerServer) handleProjects(w http.ResponseWriter, r *http.Request) {
+	if !allowMethod(w, r, http.MethodGet) {
+		return
+	}
+	result, err := s.manager.Projects()
 	writeResult(w, result, err)
 }
 
@@ -233,6 +244,33 @@ func (s *ManagerServer) handleUpdateRun(w http.ResponseWriter, r *http.Request) 
 	req := managerReqFromQuery(r)
 	result, err := s.manager.RunUpdate(WebUpdateReq{ManagerReq: req, Target: body.Target})
 	s.recordHistory(r, "update.run", WebUpdateReq{ManagerReq: req, Target: body.Target}, result, err)
+	writeResult(w, result, err)
+}
+
+func (s *ManagerServer) handleUpdateAllPlan(w http.ResponseWriter, r *http.Request) {
+	if !allowMethod(w, r, http.MethodPost) {
+		return
+	}
+	body, ok := readJSONReq[updateAllProjectsReq](w, r)
+	if !ok {
+		return
+	}
+	req := managerReqFromQuery(r)
+	result, err := s.manager.PlanAllProjectsUpdate(WebUpdateAllReq{ManagerReq: req, Target: body.Target, ProjectIDs: body.ProjectIDs})
+	writeResult(w, result, err)
+}
+
+func (s *ManagerServer) handleUpdateAllRun(w http.ResponseWriter, r *http.Request) {
+	if !allowMethod(w, r, http.MethodPost) {
+		return
+	}
+	body, ok := requireConfirmedUpdateAllReq(w, r)
+	if !ok {
+		return
+	}
+	req := managerReqFromQuery(r)
+	result, err := s.manager.RunAllProjectsUpdate(WebUpdateAllReq{ManagerReq: req, Target: body.Target, ProjectIDs: body.ProjectIDs})
+	s.recordHistory(r, "update.all_projects", WebUpdateAllReq{ManagerReq: req, Target: body.Target, ProjectIDs: body.ProjectIDs}, result, err)
 	writeResult(w, result, err)
 }
 
@@ -447,6 +485,8 @@ func resultErrorMessage(result any) string {
 		return item.Error
 	case updateRunActionResult:
 		return item.Error
+	case updateAllProjectsActionResult:
+		return item.Error
 	case sourceActionResult:
 		return item.Error
 	case profileSaveResult:
@@ -589,6 +629,18 @@ func requireConfirmedUninstallReq(w http.ResponseWriter, r *http.Request) (unins
 	if !req.Confirm {
 		writeJSON(w, http.StatusBadRequest, errorResp{Error: "confirmation required"})
 		return uninstallActionReq{}, false
+	}
+	return req, true
+}
+
+func requireConfirmedUpdateAllReq(w http.ResponseWriter, r *http.Request) (updateAllProjectsReq, bool) {
+	req, ok := readJSONReq[updateAllProjectsReq](w, r)
+	if !ok {
+		return updateAllProjectsReq{}, false
+	}
+	if !req.Confirm {
+		writeJSON(w, http.StatusBadRequest, errorResp{Error: "confirmation required"})
+		return updateAllProjectsReq{}, false
 	}
 	return req, true
 }

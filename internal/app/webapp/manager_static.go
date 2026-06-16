@@ -278,6 +278,15 @@ td.wrap { overflow-wrap: anywhere; }
 
       <section id="view-projects" class="view">
         <div class="section-head"><h3>Projects / Install Map</h3><span class="hint">Derived from lock records</span></div>
+        <div class="section-head"><h3>Registered Projects</h3><span class="hint">Explicit update allowlist</span></div>
+        <div id="registered-projects-table"></div>
+        <div class="toolbar-row">
+          <input id="update-all-target-input" placeholder="optional skill target" autocomplete="off">
+          <button id="plan-update-all-btn">Plan all-projects update</button>
+          <button class="danger" id="run-update-all-btn" disabled>Run all-projects update</button>
+        </div>
+        <pre id="update-all-plan-output" class="plan">No cross-project update plan requested.</pre>
+        <div class="section-head"><h3>Install Map</h3><span class="hint">Agent-attributed install records</span></div>
         <div id="install-map-table"></div>
       </section>
 
@@ -313,11 +322,13 @@ td.wrap { overflow-wrap: anywhere; }
     summary: null,
     sources: [],
     profiles: [],
+    projects: [],
     status: { items: [], summary: {} },
     installs: [],
     drift: [],
     skills: [],
     history: [],
+    updateAllPlan: null,
     pendingAction: null
   };
 
@@ -466,6 +477,15 @@ td.wrap { overflow-wrap: anywhere; }
       btn.addEventListener('click', function () { planUninstall(Number(btn.getAttribute('data-uninstall-idx'))); });
     });
   }
+  function renderRegisteredProjects() {
+    var rows = state.projects.map(function (item) {
+      var id = item.id || item.ID;
+      return '<tr><td><input type="checkbox" class="project-select" value="' + esc(id) + '" checked></td><td>' +
+        esc(id) + '</td><td>' + esc(item.name || item.Name || '') +
+        '</td><td class="wrap mono">' + esc(item.path || item.Path || '') + '</td></tr>';
+    });
+    byId('registered-projects-table').innerHTML = table(['', 'ID', 'Name', 'Path'], rows, 'No registered projects.');
+  }
   function renderDrift() {
     var rows = state.drift.map(function (group, idx) {
       var versions = (group.versions || []).map(function (bucket) {
@@ -494,6 +514,7 @@ td.wrap { overflow-wrap: anywhere; }
     renderSources();
     renderProfiles();
     renderSkills();
+    renderRegisteredProjects();
     renderInstalls();
     renderDrift();
     renderHistory();
@@ -504,6 +525,7 @@ td.wrap { overflow-wrap: anywhere; }
       api('/api/summary'),
       api('/api/sources'),
       api('/api/profiles'),
+      api('/api/projects'),
       api('/api/status'),
       api('/api/install-map'),
       api('/api/version-drift'),
@@ -513,11 +535,12 @@ td.wrap { overflow-wrap: anywhere; }
       state.summary = all[0];
       state.sources = all[1] || [];
       state.profiles = all[2] || [];
-      state.status = all[3] || { items: [], summary: {} };
-      state.installs = all[4] || [];
-      state.drift = all[5] || [];
-      state.skills = all[6] || [];
-      state.history = all[7] || [];
+      state.projects = all[3] || [];
+      state.status = all[4] || { items: [], summary: {} };
+      state.installs = all[5] || [];
+      state.drift = all[6] || [];
+      state.skills = all[7] || [];
+      state.history = all[8] || [];
       renderAll();
     }).catch(showError);
   }
@@ -546,6 +569,42 @@ td.wrap { overflow-wrap: anywhere; }
       .then(function (plan) {
         setPendingAction({ type: 'update' });
         byId('plan-output').textContent = JSON.stringify(plan, null, 2);
+      })
+      .catch(showError);
+  }
+  function selectedProjectIDs() {
+    return Array.prototype.slice.call(document.querySelectorAll('.project-select:checked')).map(function (el) {
+      return el.value;
+    });
+  }
+  function planUpdateAll() {
+    clearError();
+    var payload = {
+      project_ids: selectedProjectIDs(),
+      target: byId('update-all-target-input').value.trim()
+    };
+    postJSON('/api/update/all/plan', payload)
+      .then(function (plan) {
+        state.updateAllPlan = plan;
+        byId('update-all-plan-output').textContent = JSON.stringify(plan, null, 2);
+        byId('run-update-all-btn').disabled = !plan.candidate_count;
+      })
+      .catch(showError);
+  }
+  function runUpdateAll() {
+    if (!state.updateAllPlan) return;
+    if (!window.confirm('Run update for selected registered projects?')) return;
+    var payload = {
+      confirm: true,
+      project_ids: selectedProjectIDs(),
+      target: byId('update-all-target-input').value.trim()
+    };
+    postJSON('/api/update/all/run', payload)
+      .then(function (result) {
+        byId('update-all-plan-output').textContent = JSON.stringify(result, null, 2);
+        state.updateAllPlan = null;
+        byId('run-update-all-btn').disabled = true;
+        loadAll();
       })
       .catch(showError);
   }
@@ -742,12 +801,14 @@ td.wrap { overflow-wrap: anywhere; }
     if (event.key === 'Enter') searchSkills();
   });
   byId('plan-update-btn').addEventListener('click', planUpdate);
+  byId('plan-update-all-btn').addEventListener('click', planUpdateAll);
   byId('plan-source-add-btn').addEventListener('click', planSourceAdd);
   byId('plan-profile-save-btn').addEventListener('click', planProfileSave);
   byId('plan-profile-installed-btn').addEventListener('click', planProfileFromInstalled);
   byId('plan-profile-collection-btn').addEventListener('click', planProfileFromCollection);
   byId('apply-profile-btn').addEventListener('click', applyProfile);
   byId('run-update-btn').addEventListener('click', runUpdate);
+  byId('run-update-all-btn').addEventListener('click', runUpdateAll);
   byId('run-source-action-btn').addEventListener('click', runSourceAction);
   byId('run-profile-action-btn').addEventListener('click', runProfileAction);
   byId('run-uninstall-btn').addEventListener('click', runUninstall);

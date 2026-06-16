@@ -6,12 +6,15 @@ import (
 
 	"github.com/inhere/skillc/internal/app/configapp"
 	"github.com/inhere/skillc/internal/app/profileapp"
+	"github.com/inhere/skillc/internal/app/projectapp"
+	"github.com/inhere/skillc/internal/app/projectupdateapp"
 	"github.com/inhere/skillc/internal/app/searchapp"
 	"github.com/inhere/skillc/internal/app/sourceapp"
 	"github.com/inhere/skillc/internal/app/statusapp"
 	cfg "github.com/inhere/skillc/internal/domain/config"
 	lockpkg "github.com/inhere/skillc/internal/domain/lock"
 	"github.com/inhere/skillc/internal/domain/profile"
+	projectpkg "github.com/inhere/skillc/internal/domain/project"
 	"github.com/inhere/skillc/internal/domain/skill"
 	sourcepkg "github.com/inhere/skillc/internal/domain/source"
 	"github.com/inhere/skillc/internal/infra/lockstore"
@@ -101,6 +104,10 @@ func (m *Manager) Profiles() ([]profile.NamedProfile, error) {
 	return profileapp.NewService(m.configFile, m.baseDir).List()
 }
 
+func (m *Manager) Projects() ([]projectpkg.Project, error) {
+	return projectapp.NewService(m.configFile, m.baseDir).List()
+}
+
 func (m *Manager) Status(req ManagerReq) (statusapp.Result, error) {
 	return statusapp.NewService(m.configFile, m.baseDir).Run(statusapp.Req{
 		Agent:   req.Agent,
@@ -143,6 +150,36 @@ func (m *Manager) PlanProfileApply(name string, req ManagerReq) (profile.ApplyPl
 		Scope:   req.Scope,
 		WorkDir: req.WorkDir,
 	})
+}
+
+func (m *Manager) PlanAllProjectsUpdate(req WebUpdateAllReq) (projectupdateapp.Plan, error) {
+	return projectupdateapp.NewService(m.configFile, m.baseDir).Plan(projectupdateapp.Req{
+		Agent:      req.Agent,
+		Scope:      req.Scope,
+		Target:     req.Target,
+		ProjectIDs: req.ProjectIDs,
+		Sync:       true,
+	})
+}
+
+func (m *Manager) RunAllProjectsUpdate(req WebUpdateAllReq) (updateAllProjectsActionResult, error) {
+	result, err := projectupdateapp.NewService(m.configFile, m.baseDir).Run(projectupdateapp.Req{
+		Agent:      req.Agent,
+		Scope:      req.Scope,
+		Target:     req.Target,
+		ProjectIDs: req.ProjectIDs,
+		Sync:       true,
+		Confirm:    true,
+	})
+	out := toUpdateAllProjectsActionResult(result)
+	if err != nil {
+		if out.Plan.Agent != "" || len(out.Results) > 0 {
+			out.Error = err.Error()
+			return out, nil
+		}
+		return out, err
+	}
+	return out, nil
 }
 
 func (m *Manager) History(limit int) ([]HistoryRecord, error) {

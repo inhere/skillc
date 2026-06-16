@@ -303,7 +303,7 @@ type projectUpdateResult struct {
 - Modify: `internal/infra/configstore/yaml_store.go`
 - Modify: `internal/infra/configstore/yaml_store_test.go`
 
-- [ ] **Step 1: Write failing project domain tests**
+- [x] **Step 1: Write failing project domain tests**
 
 Create `internal/domain/project/model_test.go`:
 
@@ -342,7 +342,7 @@ func TestNewProjectRejectsEmptyPath(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run domain tests to verify they fail**
+- [x] **Step 2: Run domain tests to verify they fail**
 
 Run:
 
@@ -352,7 +352,7 @@ go test ./internal/domain/project -v
 
 Expected: FAIL because package `internal/domain/project` does not exist.
 
-- [ ] **Step 3: Implement project domain model**
+- [x] **Step 3: Implement project domain model**
 
 Create `internal/domain/project/model.go`:
 
@@ -419,7 +419,7 @@ func NormalizeID(value string) string {
 }
 ```
 
-- [ ] **Step 4: Add config model fields and failing YAML tests**
+- [x] **Step 4: Add config model fields and failing YAML tests**
 
 Modify `internal/domain/config/model.go`:
 
@@ -489,7 +489,7 @@ func TestYAMLStore_SaveDefaultConfigOmitsEmptyProjects(t *testing.T) {
 
 Add `github.com/inhere/skillc/internal/domain/project` to the test imports.
 
-- [ ] **Step 5: Run config tests to verify they fail**
+- [x] **Step 5: Run config tests to verify they fail**
 
 Run:
 
@@ -499,7 +499,7 @@ go test ./internal/infra/configstore -run 'TestYAMLStore_(LoadSaveProjects|SaveD
 
 Expected: FAIL because `YAMLStore` does not read/write `projects`.
 
-- [ ] **Step 6: Implement YAML projects persistence**
+- [x] **Step 6: Implement YAML projects persistence**
 
 Modify `internal/infra/configstore/yaml_store.go` imports:
 
@@ -630,7 +630,7 @@ Add to `fromRawConfig`:
 Projects: fromProjectRecords(raw.Projects),
 ```
 
-- [ ] **Step 7: Run domain and config tests**
+- [x] **Step 7: Run domain and config tests**
 
 Run:
 
@@ -640,7 +640,7 @@ go test ./internal/domain/project ./internal/infra/configstore
 
 Expected: PASS.
 
-- [ ] **Step 8: Commit project config model**
+- [x] **Step 8: Commit project config model**
 
 Run:
 
@@ -655,7 +655,7 @@ git commit -m "feat(skillc): add project registry config"
 - Create: `internal/app/projectapp/service.go`
 - Create: `internal/app/projectapp/service_test.go`
 
-- [ ] **Step 1: Write failing projectapp tests**
+- [x] **Step 1: Write failing projectapp tests**
 
 Create `internal/app/projectapp/service_test.go`:
 
@@ -755,7 +755,7 @@ func TestService_ImportFromLockRegistersExistingProjectKeys(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run:
 
@@ -765,7 +765,7 @@ go test ./internal/app/projectapp -v
 
 Expected: FAIL because package `internal/app/projectapp` does not exist.
 
-- [ ] **Step 3: Implement projectapp service**
+- [x] **Step 3: Implement projectapp service**
 
 Create `internal/app/projectapp/service.go`:
 
@@ -980,7 +980,7 @@ func containsPath(projects []project.Project, path string) bool {
 }
 ```
 
-- [ ] **Step 4: Run projectapp tests**
+- [x] **Step 4: Run projectapp tests**
 
 Run:
 
@@ -990,7 +990,7 @@ go test ./internal/app/projectapp -v
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit projectapp service**
+- [x] **Step 5: Commit projectapp service**
 
 Run:
 
@@ -1006,7 +1006,7 @@ git commit -m "feat(skillc): add project registry service"
 - Modify: `internal/cli/app.go`
 - Modify: `internal/cli/app_test.go`
 
-- [ ] **Step 1: Write failing CLI tests**
+- [x] **Step 1: Write failing CLI tests**
 
 Add tests to `internal/cli/app_test.go`:
 
@@ -1050,7 +1050,7 @@ func TestProjectCommand_ImportLock(t *testing.T) {
 
 Add `lockpkg` and `lockstore` imports if missing.
 
-- [ ] **Step 2: Run CLI tests to verify they fail**
+- [x] **Step 2: Run CLI tests to verify they fail**
 
 Run:
 
@@ -1060,7 +1060,7 @@ go test ./internal/cli -run 'TestProjectCommand' -v
 
 Expected: FAIL because `project` command is not registered.
 
-- [ ] **Step 3: Implement project CLI**
+- [x] **Step 3: Implement project CLI**
 
 Create `internal/cli/project_cmd.go`:
 
@@ -1191,7 +1191,7 @@ app.Add(buildProjectCommand())
 
 Place it after `buildProfileCommand()` or before `buildWebCommand()` so concept commands stay grouped.
 
-- [ ] **Step 4: Run CLI project tests**
+- [x] **Step 4: Run CLI project tests**
 
 Run:
 
@@ -1201,7 +1201,7 @@ go test ./internal/cli -run 'TestProjectCommand' -v
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit project CLI**
+- [x] **Step 5: Commit project CLI**
 
 Run:
 
@@ -1216,7 +1216,7 @@ git commit -m "feat(skillc): add project cli"
 - Modify: `internal/app/updateapp/service.go`
 - Modify: `internal/app/updateapp/service_test.go`
 
-- [ ] **Step 1: Write failing update boundary tests**
+- [x] **Step 1: Write failing update boundary tests**
 
 Add tests to `internal/app/updateapp/service_test.go`:
 
@@ -1302,7 +1302,7 @@ func TestService_RunProjectScopeAllUsesExplicitProjectPaths(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run tests to verify current bug**
+- [x] **Step 2: Run tests to verify current bug**
 
 Run:
 
@@ -1312,7 +1312,7 @@ go test ./internal/app/updateapp -run 'TestService_RunProjectScope(Default|All)'
 
 Expected: FAIL. The first test updates both project records before the boundary fix, and `ProjectPaths` is not yet defined.
 
-- [ ] **Step 3: Add project path allowlist to UpdateReq**
+- [x] **Step 3: Add project path allowlist to UpdateReq**
 
 Modify `internal/app/updateapp/service.go`:
 
@@ -1408,7 +1408,7 @@ if recordScope == agent.ScopeProject && allowedProjectKeys != nil && !allowedPro
 
 Update existing updateapp tests that intentionally expect multi-project behavior by passing `All: true` or explicit `ProjectPaths`. Do not change tests that should represent current-project behavior.
 
-- [ ] **Step 4: Run updateapp tests**
+- [x] **Step 4: Run updateapp tests**
 
 Run:
 
@@ -1418,7 +1418,7 @@ go test ./internal/app/updateapp -v
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit update boundary fix**
+- [x] **Step 5: Commit update boundary fix**
 
 Run:
 
@@ -1433,7 +1433,7 @@ git commit -m "fix(skillc): scope project updates to current project"
 - Create: `internal/app/projectupdateapp/service.go`
 - Create: `internal/app/projectupdateapp/service_test.go`
 
-- [ ] **Step 1: Write failing projectupdateapp tests**
+- [x] **Step 1: Write failing projectupdateapp tests**
 
 Create `internal/app/projectupdateapp/service_test.go`:
 
@@ -1525,7 +1525,7 @@ func writeProjectUpdateFixture(t *testing.T, baseDir string) (string, cfg.Config
 }
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run:
 
@@ -1535,7 +1535,7 @@ go test ./internal/app/projectupdateapp -v
 
 Expected: FAIL because package `projectupdateapp` does not exist.
 
-- [ ] **Step 3: Implement projectupdateapp plan/run**
+- [x] **Step 3: Implement projectupdateapp plan/run**
 
 Create `internal/app/projectupdateapp/service.go`:
 
@@ -1735,7 +1735,7 @@ func defaultString(value string, fallback string) string {
 }
 ```
 
-- [ ] **Step 4: Add focused run test for confirmed execution**
+- [x] **Step 4: Add focused run test for confirmed execution**
 
 Append to `internal/app/projectupdateapp/service_test.go`:
 
@@ -1768,7 +1768,7 @@ assert.NoErr(t, os.MkdirAll(filepath.Join(baseDir, "source", "review"), 0o755))
 assert.NoErr(t, os.WriteFile(filepath.Join(baseDir, "source", "review", "SKILL.md"), []byte("# Review\n"), 0o644))
 ```
 
-- [ ] **Step 5: Run projectupdateapp tests**
+- [x] **Step 5: Run projectupdateapp tests**
 
 Run:
 
@@ -1778,7 +1778,7 @@ go test ./internal/app/projectupdateapp -v
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit cross-project update app service**
+- [x] **Step 6: Commit cross-project update app service**
 
 Run:
 
@@ -1793,7 +1793,7 @@ git commit -m "feat(skillc): add cross-project update service"
 - Modify: `internal/cli/manage_cmd.go`
 - Modify: `internal/cli/app_test.go`
 
-- [ ] **Step 1: Write failing CLI tests**
+- [x] **Step 1: Write failing CLI tests**
 
 Add helper interface and tests to `internal/cli/app_test.go` after existing update command tests:
 
@@ -1899,7 +1899,7 @@ func TestUpdateCommand_AllProjectsYesRuns(t *testing.T) {
 
 Add imports: `projectupdateapp` and `statusapp` if missing.
 
-- [ ] **Step 2: Run CLI tests to verify they fail**
+- [x] **Step 2: Run CLI tests to verify they fail**
 
 Run:
 
@@ -1909,7 +1909,7 @@ go test ./internal/cli -run 'TestUpdateCommand_AllProjects' -v
 
 Expected: FAIL because `newProjectUpdateService`, `projectUpdateRunner`, and flags are missing.
 
-- [ ] **Step 3: Add all-projects runner wiring and flags**
+- [x] **Step 3: Add all-projects runner wiring and flags**
 
 Modify `internal/cli/manage_cmd.go` imports:
 
@@ -2061,7 +2061,7 @@ func printCrossProjectUpdateResult(result projectupdateapp.Result) error {
 }
 ```
 
-- [ ] **Step 4: Run CLI all-project tests**
+- [x] **Step 4: Run CLI all-project tests**
 
 Run:
 
@@ -2071,7 +2071,7 @@ go test ./internal/cli -run 'TestUpdateCommand_AllProjects' -v
 
 Expected: PASS.
 
-- [ ] **Step 5: Run focused CLI update tests**
+- [x] **Step 5: Run focused CLI update tests**
 
 Run:
 
@@ -2081,7 +2081,7 @@ go test ./internal/cli -run 'TestUpdateCommand|TestProjectCommand' -v
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit all-project CLI**
+- [x] **Step 6: Commit all-project CLI**
 
 Run:
 
@@ -2099,7 +2099,7 @@ git commit -m "feat(skillc): add all-projects update cli"
 - Modify: `internal/app/webapp/manager_server_test.go`
 - Modify: `internal/app/webapp/manager_static.go`
 
-- [ ] **Step 1: Write failing Web API tests**
+- [x] **Step 1: Write failing Web API tests**
 
 Add tests to `internal/app/webapp/manager_server_test.go`:
 
@@ -2148,7 +2148,7 @@ func TestManagerServerUpdateAllRunRequiresConfirmation(t *testing.T) {
 
 Add `project` import.
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run:
 
@@ -2158,7 +2158,7 @@ go test ./internal/app/webapp -run 'TestManagerServer(Projects|UpdateAll)' -v
 
 Expected: FAIL because routes and manager methods do not exist.
 
-- [ ] **Step 3: Add manager methods and action models**
+- [x] **Step 3: Add manager methods and action models**
 
 Modify `internal/app/webapp/manager.go` imports:
 
@@ -2253,7 +2253,7 @@ func toUpdateAllProjectsActionResult(result projectupdateapp.Result) updateAllPr
 
 Add `projectupdateapp` import to `manager_actions.go`.
 
-- [ ] **Step 4: Add routes and confirm guard**
+- [x] **Step 4: Add routes and confirm guard**
 
 Modify `ManagerServer.Handler()`:
 
@@ -2321,7 +2321,7 @@ case updateAllProjectsActionResult:
 	return item.Error
 ```
 
-- [ ] **Step 5: Run Web API tests**
+- [x] **Step 5: Run Web API tests**
 
 Run:
 
@@ -2331,7 +2331,7 @@ go test ./internal/app/webapp -run 'TestManagerServer(Projects|UpdateAll)' -v
 
 Expected: PASS.
 
-- [ ] **Step 6: Add static UI tests and minimal UI**
+- [x] **Step 6: Add static UI tests and minimal UI**
 
 Append to `manager_server_test.go`:
 
@@ -2419,7 +2419,7 @@ byId('run-update-all-btn').addEventListener('click', runUpdateAll);
 
 - Call `renderRegisteredProjects()` from `renderAll()`.
 
-- [ ] **Step 7: Run Web static tests**
+- [x] **Step 7: Run Web static tests**
 
 Run:
 
@@ -2429,7 +2429,7 @@ go test ./internal/app/webapp -run 'TestManagerServerStaticPageContainsAllProjec
 
 Expected: PASS.
 
-- [ ] **Step 8: Commit Web cross-project update**
+- [x] **Step 8: Commit Web cross-project update**
 
 Run:
 

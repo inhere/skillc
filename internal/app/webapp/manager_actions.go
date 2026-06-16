@@ -3,6 +3,7 @@ package webapp
 import (
 	"github.com/inhere/skillc/internal/app/installapp"
 	"github.com/inhere/skillc/internal/app/profileapp"
+	"github.com/inhere/skillc/internal/app/projectupdateapp"
 	"github.com/inhere/skillc/internal/app/updateapp"
 	"github.com/inhere/skillc/internal/domain/profile"
 )
@@ -10,6 +11,18 @@ import (
 type WebUpdateReq struct {
 	ManagerReq
 	Target string
+}
+
+type WebUpdateAllReq struct {
+	ManagerReq
+	Target     string
+	ProjectIDs []string
+}
+
+type updateAllProjectsReq struct {
+	Confirm    bool     `json:"confirm,omitempty"`
+	Target     string   `json:"target,omitempty"`
+	ProjectIDs []string `json:"project_ids,omitempty"`
 }
 
 type actionRuntimeRecord struct {
@@ -45,6 +58,23 @@ type updateRunActionResult struct {
 	Failed        []actionErrorItem       `json:"failed,omitempty"`
 	SyncFailed    []actionSourceErrorItem `json:"sync_failed,omitempty"`
 	CleanupFailed []actionErrorItem       `json:"cleanup_failed,omitempty"`
+}
+
+type updateAllProjectsActionResult struct {
+	Error   string                `json:"error,omitempty"`
+	Plan    projectupdateapp.Plan `json:"plan"`
+	Results []projectUpdateResult `json:"results,omitempty"`
+}
+
+type projectUpdateResult struct {
+	ProjectID     string                  `json:"project_id"`
+	Path          string                  `json:"path"`
+	Updated       []actionRuntimeRecord   `json:"updated,omitempty"`
+	Skipped       []actionErrorItem       `json:"skipped,omitempty"`
+	Failed        []actionErrorItem       `json:"failed,omitempty"`
+	SyncFailed    []actionSourceErrorItem `json:"sync_failed,omitempty"`
+	CleanupFailed []actionErrorItem       `json:"cleanup_failed,omitempty"`
+	Error         string                  `json:"error,omitempty"`
 }
 
 func (m *Manager) ApplyProfile(name string, req ManagerReq) (profileApplyActionResult, error) {
@@ -102,6 +132,20 @@ func hasUpdateRunActionPayload(result updateRunActionResult) bool {
 		len(result.Failed) > 0 ||
 		len(result.SyncFailed) > 0 ||
 		len(result.CleanupFailed) > 0
+}
+
+func toUpdateAllProjectsActionResult(result projectupdateapp.Result) updateAllProjectsActionResult {
+	out := updateAllProjectsActionResult{Plan: result.Plan}
+	for _, item := range result.Results {
+		converted := projectUpdateResult{ProjectID: item.ProjectID, Path: item.Path, Error: item.Error}
+		converted.Updated = append(converted.Updated, runtimeRecords(item.Updated)...)
+		converted.Skipped = append(converted.Skipped, skippedErrors(item.Skipped)...)
+		converted.Failed = append(converted.Failed, failedErrors(item.Failed)...)
+		converted.SyncFailed = append(converted.SyncFailed, sourceSyncErrors(item.SyncFailed)...)
+		converted.CleanupFailed = append(converted.CleanupFailed, failedErrors(item.CleanupFailed)...)
+		out.Results = append(out.Results, converted)
+	}
+	return out
 }
 
 func runtimeRecords(records []installapp.RuntimeRecord) []actionRuntimeRecord {

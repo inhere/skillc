@@ -10,6 +10,7 @@ import (
 	"github.com/inhere/skillc/internal/app/apputil"
 	"github.com/inhere/skillc/internal/app/configapp"
 	"github.com/inhere/skillc/internal/app/doctorapp"
+	"github.com/inhere/skillc/internal/app/registryapp"
 	"github.com/inhere/skillc/internal/app/searchapp"
 	"github.com/inhere/skillc/internal/app/sourceapp"
 	"github.com/inhere/skillc/internal/domain/agent"
@@ -25,6 +26,7 @@ func NewApp(version, gitHash, buildTime string) *gcli.App {
 	app.Version = fmt.Sprintf("%s (Git Hash: %s, Build Time: %s)", version, gitHash, buildTime)
 	app.Add(buildConfigCommand())
 	app.Add(buildSourceCommand())
+	app.Add(buildRegistryCommand())
 	app.Add(buildProfileCommand())
 	app.Add(buildProjectCommand())
 	app.Add(buildSearchCommand())
@@ -68,6 +70,11 @@ func newSourceService() *sourceapp.Service {
 func newLocalSourceService() *sourceapp.Service {
 	cwd := getWorkdir()
 	return sourceapp.NewService(filepath.Join(cwd, "skillc.yaml"), cwd)
+}
+
+func newRegistryService() *registryapp.Service {
+	cwd := getWorkdir()
+	return registryapp.NewService(filepath.Join(cwd, "skillc.yaml"), cwd)
 }
 
 func newDoctorService() *doctorapp.Service {

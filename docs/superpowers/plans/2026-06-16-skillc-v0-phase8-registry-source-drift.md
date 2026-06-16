@@ -1233,7 +1233,7 @@ git commit -m "feat(skillc): add registry discovery service"
 - Modify: `README.md`
 - Modify: `README.zh-CN.md`
 
-- [ ] **Step 1: Write failing registry CLI tests**
+- [x] **Step 1: Write failing registry CLI tests**
 
 Add tests to `internal/cli/app_test.go`:
 
@@ -1267,7 +1267,7 @@ func TestRegistryCommandAddSyncSearchAndAddSource(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run registry CLI tests to verify they fail**
+- [x] **Step 2: Run registry CLI tests to verify they fail**
 
 Run:
 
@@ -1277,7 +1277,7 @@ go test ./internal/cli -run 'Test(NewApp_RegistersRegistryCommand|RegistryComman
 
 Expected: FAIL because registry command is not registered.
 
-- [ ] **Step 3: Implement registry CLI**
+- [x] **Step 3: Implement registry CLI**
 
 Create `internal/cli/registry_cmd.go` with commands:
 
@@ -1304,7 +1304,7 @@ Output:
 - `registry info`: key/value table with description/ref/tags.
 - `registry add-source`: prints `source added: <id>`.
 
-- [ ] **Step 4: Run registry CLI tests**
+- [x] **Step 4: Run registry CLI tests**
 
 Run:
 
@@ -1314,7 +1314,7 @@ go test ./internal/cli -run 'Test(NewApp_RegistersRegistryCommand|RegistryComman
 
 Expected: PASS.
 
-- [ ] **Step 5: Update README registry command docs**
+- [x] **Step 5: Update README registry command docs**
 
 Add command sections:
 
@@ -1330,7 +1330,7 @@ skillc registry add-source gstack --sync
 
 Explain that Registry discovers source entries and never writes lock records directly.
 
-- [ ] **Step 6: Run registry focused tests**
+- [x] **Step 6: Run registry focused tests**
 
 Run:
 
@@ -1340,7 +1340,7 @@ go test ./internal/domain/registry ./internal/infra/registrystore ./internal/app
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit registry CLI**
+- [x] **Step 7: Commit registry CLI**
 
 Run:
 

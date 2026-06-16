@@ -99,6 +99,20 @@ skillc source remove <id>             # remove a source
 > New generated source IDs no longer receive forced `local-` / `git-` prefixes. Existing configured IDs are left unchanged.
 > `source sync` and `source info` support **partial ID matching** — e.g. `skillc source sync edge` matches `golang-edge-skills`.
 
+### `registry` — Discover source catalogs
+
+```bash
+skillc registry list
+skillc registry add <path-or-url> --id official --name "Official Registry"
+skillc registry sync <id>
+skillc registry sync --all
+skillc registry search go
+skillc registry info <entry-id>
+skillc registry add-source <entry-id> [--id <id>] [--name <name>] [--sync]
+```
+
+Registry catalogs discover reusable source entries. `registry search` only reads catalog metadata, and `registry add-source` only registers a source; it does not install Skills or write lock records.
+
 ### `profile` — Saved Skill sets
 
 ```bash

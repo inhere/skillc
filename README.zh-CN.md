@@ -101,6 +101,20 @@ skillc source remove <id>                      # 删除来源
 > 新生成的 source ID 不再强制添加 `local-` / `git-` 前缀；已有配置中的旧 ID 不会被自动改写。
 > `source sync` 和 `source info` 支持 **部分 ID 匹配**，例如 `skillc source sync edge` 可匹配 `golang-edge-skills`。
 
+### `registry` — 发现来源目录
+
+```bash
+skillc registry list
+skillc registry add <path-or-url> --id official --name "Official Registry"
+skillc registry sync <id>
+skillc registry sync --all
+skillc registry search go
+skillc registry info <entry-id>
+skillc registry add-source <entry-id> [--id <id>] [--name <name>] [--sync]
+```
+
+Registry 用于发现可复用的 source entry。`registry search` 只读取 catalog 元数据，`registry add-source` 只注册 source，不会安装 Skill，也不会写 lock 记录。
+
 ### `profile` — Skill 组合
 
 ```bash

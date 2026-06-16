@@ -114,6 +114,18 @@ func TestNewApp_RegistersStatusCommand(t *testing.T) {
 	assert.Eq(t, "Show skill status", status.Desc)
 }
 
+func TestNewApp_RegistersRegistryCommand(t *testing.T) {
+	app := newTestApp()
+
+	cmd := findCommandByName(app, "registry")
+
+	assert.NotNil(t, cmd)
+	if cmd == nil {
+		return
+	}
+	assert.Eq(t, "Manage Skillc registries", cmd.Desc)
+}
+
 func TestNewApp_RegistersProfileCommand(t *testing.T) {
 	app := newTestApp()
 
@@ -1717,6 +1729,25 @@ func TestProjectCommand_ImportLock(t *testing.T) {
 	output := runAppInDirWithStdout(t, baseDir, []string{"project", "import-lock"})
 
 	assert.Contains(t, output, "imported project-a")
+}
+
+func TestRegistryCommandAddSyncSearchAndAddSource(t *testing.T) {
+	baseDir := t.TempDir()
+	catalogPath := filepath.Join(baseDir, "registry.json")
+	assert.NoErr(t, os.WriteFile(catalogPath, []byte(`{"sources":[{"id":"gstack","name":"GStack Skills","description":"Go workflow","type":"git","url":"https://example.com/gstack.git","ref":"main","tags":["go"]}]}`), 0o644))
+
+	addOutput := runAppInDirWithStdout(t, baseDir, []string{"registry", "add", "--id", "local", "--name", "Local Registry", catalogPath})
+	assert.Contains(t, addOutput, "registry added: local")
+
+	syncOutput := runAppInDirWithStdout(t, baseDir, []string{"registry", "sync", "local"})
+	assert.Contains(t, syncOutput, "registry synced: local")
+
+	searchOutput := runAppInDirWithStdout(t, baseDir, []string{"registry", "search", "go"})
+	assert.Contains(t, searchOutput, "gstack")
+	assert.Contains(t, searchOutput, "GStack Skills")
+
+	sourceOutput := runAppInDirWithStdout(t, baseDir, []string{"registry", "add-source", "gstack"})
+	assert.Contains(t, sourceOutput, "source added: gstack")
 }
 
 func findCommandByName(app *gcli.App, name string) *gcli.Command {

@@ -332,8 +332,8 @@ gitx.SyncOptions{
 - 修改：`internal/infra/gitx/client_test.go`
 - 可选修改：`internal/cli/app.go`
 - 可选修改：`internal/cli/app_test.go`
-- 修改：`arch.md`
-- 修改：`plan.md`
+- 修改：`mvp-arch.md`
+- 修改：`mvp-plan.md`
 
 ## 与现有架构的一致性
 
@@ -351,7 +351,7 @@ gitx.SyncOptions{
 
 实现阶段需要同步更新：
 
-- `arch.md`：补充 `gitx.Sync` 使用 `SyncOptions`，以及 Git source sync 的默认进度行为
-- `plan.md`：补充本任务对 `SyncOptions` 和 clone 进度输出的实现说明与阶段状态
+- `mvp-arch.md`：补充 `gitx.Sync` 使用 `SyncOptions`，以及 Git source sync 的默认进度行为
+- `mvp-plan.md`：补充本任务对 `SyncOptions` 和 clone 进度输出的实现说明与阶段状态
 
 本设计文档仅定义行为和分层边界，不在此阶段提交实现代码。

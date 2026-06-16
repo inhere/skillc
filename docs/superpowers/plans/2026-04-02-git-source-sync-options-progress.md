@@ -6,7 +6,7 @@
 
 **Architecture:** Keep sync policy in `internal/app/sourceapp`: it reads `config.ProxyURL`, decides whether the process is interactive, and constructs `gitx.SyncOptions`. Keep command execution details in `internal/infra/gitx`: `git clone` gets proxy env vars plus optional progress output and `--progress`, while local commands like `rev-parse` stay silent and unproxied.
 
-**Tech Stack:** Go, `os/exec`, `io`, `os`, `golang.org/x/term`, Go table-style unit tests with `gookit/goutil/testutil/assert`, markdown docs in `arch.md` and `plan.md`
+**Tech Stack:** Go, `os/exec`, `io`, `os`, `golang.org/x/term`, Go table-style unit tests with `gookit/goutil/testutil/assert`, markdown docs in `mvp-arch.md` and `mvp-plan.md`
 
 ---
 
@@ -15,8 +15,8 @@
 ### Documents to consult
 - `docs/superpowers/specs/2026-04-01-git-source-sync-proxy-design.md` — approved behavior for `SyncOptions`, TTY-only progress, and stderr output
 - `AGENTS.md` — app/infra layering, doc sync requirements, and `go test ./...` completion gate
-- `arch.md` — architecture notes for source sync behavior
-- `plan.md` — project task ledger that must be updated to reflect the new work
+- `mvp-arch.md` — architecture notes for source sync behavior
+- `mvp-plan.md` — project task ledger that must be updated to reflect the new work
 
 ### Files to modify
 
@@ -29,8 +29,8 @@
 - Modify: `internal/app/sourceapp/service_test.go` — assert `ProxyURL`, `Progress`, and non-TTY behavior through the runner stub
 
 **Project docs**
-- Modify: `arch.md` — document `SyncOptions`, TTY-only clone progress, and stderr output boundary
-- Modify: `plan.md` — add/update the task note for `SyncOptions` + progress behavior and mark the phase state accurately
+- Modify: `mvp-arch.md` — document `SyncOptions`, TTY-only clone progress, and stderr output boundary
+- Modify: `mvp-plan.md` — add/update the task note for `SyncOptions` + progress behavior and mark the phase state accurately
 
 ---
 
@@ -364,18 +364,18 @@ git commit -m "feat(sourceapp): build git sync options from tty state"
 ### Task 3: Update architecture and task ledger docs
 
 **Files:**
-- Modify: `arch.md`
-- Modify: `plan.md`
+- Modify: `mvp-arch.md`
+- Modify: `mvp-plan.md`
 
 - [ ] **Step 1: Write the failing documentation assertions**
 
-Before editing, decide the exact lines to add. Update the existing proxy note in `arch.md` section `9.2 集成测试重点` so it states the new output behavior too:
+Before editing, decide the exact lines to add. Update the existing proxy note in `mvp-arch.md` section `9.2 集成测试重点` so it states the new output behavior too:
 
 ```md
 - 对于 git source：若配置了 `proxy_url`，仅在 `skillc` 发起的网络型 Git 命令（当前为 `git clone`）上注入代理；`gitx.Sync` 通过 `SyncOptions` 接收代理和输出控制；交互终端下 `git clone --progress` 实时输出到 `stderr`，非交互场景不显示进度；不会写入任何 git config，本地命令如 `rev-parse` 不使用代理也不显示进度
 ```
 
-Replace the old Task 26 block in `plan.md` with the expanded note:
+Replace the old Task 26 block in `mvp-plan.md` with the expanded note:
 
 ```md
 ### Task 26: Add SyncOptions and TTY-only progress for git source sync
@@ -385,8 +385,8 @@ Replace the old Task 26 block in `plan.md` with the expanded note:
 - Modify: `internal/app/sourceapp/service_test.go`
 - Modify: `internal/infra/gitx/client.go`
 - Modify: `internal/infra/gitx/client_test.go`
-- Modify: `arch.md`
-- Modify: `plan.md`
+- Modify: `mvp-arch.md`
+- Modify: `mvp-plan.md`
 
 **Design note (2026-04-02):** `gitx.Sync` now moves from a positional `proxyURL` argument to `SyncOptions`, so Git sync can carry `ProxyURL`, `Progress`, `Quiet`, and `Verbose` without growing the signature again. `source sync` should show live `git clone --progress` output on `stderr` only when running in an interactive terminal.
 
@@ -395,13 +395,13 @@ Replace the old Task 26 block in `plan.md` with the expanded note:
 
 - [ ] **Step 2: Update the docs**
 
-Apply the edits above exactly in `arch.md` and `plan.md`.
+Apply the edits above exactly in `mvp-arch.md` and `mvp-plan.md`.
 
 - [ ] **Step 3: Verify the docs read cleanly**
 
 Read these sections back and confirm:
-- `arch.md` mentions `SyncOptions`, TTY-only progress, and `stderr`
-- `plan.md` task title and notes match the approved spec date and behavior
+- `mvp-arch.md` mentions `SyncOptions`, TTY-only progress, and `stderr`
+- `mvp-plan.md` task title and notes match the approved spec date and behavior
 - there are no old references claiming only `proxyURL string`
 
 Expected: both files describe the same behavior without contradiction.
@@ -409,14 +409,14 @@ Expected: both files describe the same behavior without contradiction.
 - [ ] **Step 4: Commit**
 
 ```bash
-git add arch.md plan.md
+git add mvp-arch.md mvp-plan.md
 git commit -m "docs: describe git sync options and tty progress"
 ```
 
 ### Task 4: Run the full regression suite and update the task ledger status
 
 **Files:**
-- Modify: `plan.md`
+- Modify: `mvp-plan.md`
 
 - [ ] **Step 1: Run focused regression tests**
 
@@ -430,7 +430,7 @@ Expected: PASS
 
 - [ ] **Step 3: Mark the plan ledger steps complete**
 
-Update the Task 26 checklist in `plan.md` so it reflects reality after the tests:
+Update the Task 26 checklist in `mvp-plan.md` so it reflects reality after the tests:
 
 ```md
 - [x] **Step 1: Write the failing tests**
@@ -450,7 +450,7 @@ If you created the three commits above, change the last line to:
 - [ ] **Step 4: Commit**
 
 ```bash
-git add plan.md
+git add mvp-plan.md
 git commit -m "test: verify git sync options regression coverage"
 ```
 
@@ -463,7 +463,7 @@ git commit -m "test: verify git sync options regression coverage"
 - TTY-only progress and `stderr` output are covered in Task 1 command wiring and Task 2 service option construction.
 - Keeping proxy/progress off local commands like `rev-parse` is covered in Task 1 tests and implementation.
 - `Quiet` / `Verbose` being present but not fully used is covered by the `SyncOptions` struct in Task 1.
-- `arch.md` / `plan.md` synchronization is covered in Task 3 and Task 4.
+- `mvp-arch.md` / `mvp-plan.md` synchronization is covered in Task 3 and Task 4.
 
 ### Placeholder scan
 - No `TODO`, `TBD`, or “similar to” shortcuts remain.

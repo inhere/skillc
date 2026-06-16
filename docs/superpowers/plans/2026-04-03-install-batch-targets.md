@@ -4,7 +4,7 @@
 
 **Goal:** Add batch install target parsing to `skillc install`, including comma-separated targets, explicit collection mode, `skill.ID` prefix expansion, confirmation skipping with `-y`, and partial-success execution.
 
-**Architecture:** Keep command-line parsing and user interaction in `internal/cli/manage_cmd.go`, move batch target resolution into `internal/app/searchapp/service.go`, and extend `internal/app/installapp/service.go` to aggregate install failures instead of aborting on the first one. Preserve existing restore behavior when no `skill-id` is provided, and update `arch.md` and `plan.md` so the documented install semantics match the implementation.
+**Architecture:** Keep command-line parsing and user interaction in `internal/cli/manage_cmd.go`, move batch target resolution into `internal/app/searchapp/service.go`, and extend `internal/app/installapp/service.go` to aggregate install failures instead of aborting on the first one. Preserve existing restore behavior when no `skill-id` is provided, and update `mvp-arch.md` and `mvp-plan.md` so the documented install semantics match the implementation.
 
 **Tech Stack:** Go, gookit/gcli, standard library, existing `repoindex` search resolution, Go testing package
 
@@ -14,8 +14,8 @@
 
 ### Documents to consult
 - `docs/superpowers/specs/2026-04-03-install-batch-targets-design.md` — approved behavior for `-c`, `-y`, mixed targets, prefix matching, and partial success
-- `arch.md` — update CLI/app/install responsibilities and install semantics
-- `plan.md` — add a completed follow-up task for batch install targets and confirmation semantics
+- `mvp-arch.md` — update CLI/app/install responsibilities and install semantics
+- `mvp-plan.md` — add a completed follow-up task for batch install targets and confirmation semantics
 
 ### Planned files
 
@@ -33,8 +33,8 @@
 - Modify: `internal/app/installapp/service_test.go` — cover continuing past failed installs and lock-file writes for successful items only
 
 **Docs**
-- Modify: `arch.md` — record explicit collection install mode, prefix matching by `skill.ID`, and partial-success install semantics
-- Modify: `plan.md` — add this follow-up task and mark it complete when done
+- Modify: `mvp-arch.md` — record explicit collection install mode, prefix matching by `skill.ID`, and partial-success install semantics
+- Modify: `mvp-plan.md` — add this follow-up task and mark it complete when done
 
 ---
 
@@ -533,14 +533,14 @@ git commit -m "feat(cli): support batch install targets"
 ### Task 4: Update architecture and project plan docs for new install semantics
 
 **Files:**
-- Modify: `arch.md`
-- Modify: `plan.md`
+- Modify: `mvp-arch.md`
+- Modify: `mvp-plan.md`
 
 - [ ] **Step 1: Write the failing doc regression check**
 
-Before editing, inspect the existing install sections and add a new follow-up task entry in `plan.md` for this feature. The change should explicitly cover `-c`, `-y`, comma-separated targets, `prefix-*`, and partial-success install execution.
+Before editing, inspect the existing install sections and add a new follow-up task entry in `mvp-plan.md` for this feature. The change should explicitly cover `-c`, `-y`, comma-separated targets, `prefix-*`, and partial-success install execution.
 
-Planned `arch.md` replacement content:
+Planned `mvp-arch.md` replacement content:
 
 ```md
 ### 2.5 人机双模式
@@ -569,7 +569,7 @@ Planned install-module update:
 
 - [ ] **Step 2: Apply the documentation updates**
 
-Add a completed follow-up task to `plan.md` using the existing style near Tasks 25-27.
+Add a completed follow-up task to `mvp-plan.md` using the existing style near Tasks 25-27.
 
 ```md
 ### Task 28: Add batch install target parsing and partial-success execution ✅ Completed
@@ -581,8 +581,8 @@ Add a completed follow-up task to `plan.md` using the existing style near Tasks 
 - Modify: `internal/app/installapp/service_test.go`
 - Modify: `internal/cli/manage_cmd.go`
 - Modify: `internal/cli/app_test.go`
-- Modify: `arch.md`
-- Modify: `plan.md`
+- Modify: `mvp-arch.md`
+- Modify: `mvp-plan.md`
 
 **Design note (2026-04-03):** `skillc install` now accepts comma-separated targets, explicit collection mode via `-c/--collection`, and `prefix-*` expansion only against `skill.ID`. Without `-c`, collection-like targets are not auto-expanded. `-y/--yes` skips confirmation, and both target-resolution failures and per-skill install failures are reported and skipped so the batch can partially succeed.
 
@@ -610,7 +610,7 @@ Expected: PASS per project instruction for MVP-path changes.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add arch.md plan.md
+git add mvp-arch.md mvp-plan.md
 git commit -m "docs: record batch install target semantics"
 ```
 
@@ -625,7 +625,7 @@ git commit -m "docs: record batch install target semantics"
 - `prefix-*` matches only `skill.ID`: covered in Task 1
 - no implicit collection expansion without `-c`: covered in Task 1
 - partial success for resolve failures and install failures: covered in Tasks 1-3
-- docs sync in `arch.md` and `plan.md`: covered in Task 4
+- docs sync in `mvp-arch.md` and `mvp-plan.md`: covered in Task 4
 
 ### Placeholder scan
 - No `TODO` / `TBD`

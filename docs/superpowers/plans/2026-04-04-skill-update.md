@@ -14,8 +14,8 @@
 
 ### Documents to consult
 - `docs/superpowers/specs/2026-04-03-skill-update-design.md` — approved design for v1 update behavior
-- `arch.md` — project architecture; must be updated when implementation changes documented capability boundaries
-- `plan.md` — project task ledger; must mark the new update work accurately per repo instructions
+- `mvp-arch.md` — project architecture; must be updated when implementation changes documented capability boundaries
+- `mvp-plan.md` — project task ledger; must mark the new update work accurately per repo instructions
 
 ### Planned files
 
@@ -33,8 +33,8 @@
 - Modify: `internal/app/installapp/service_test.go` — prove explicit-path reinstall updates the lock correctly
 
 **Docs / tracking**
-- Modify: `arch.md` — document `skillc update` as implemented with lock-first + scan-fallback behavior for v1
-- Modify: `plan.md` — add/update the task note for `skillc update` and mark phase progress accurately
+- Modify: `mvp-arch.md` — document `skillc update` as implemented with lock-first + scan-fallback behavior for v1
+- Modify: `mvp-plan.md` — add/update the task note for `skillc update` and mark phase progress accurately
 
 ---
 
@@ -899,11 +899,11 @@ git commit -m "feat(cli): wire update command"
 ### Task 6: Update docs, ledger, and run the full regression suite
 
 **Files:**
-- Modify: `arch.md`
-- Modify: `plan.md`
+- Modify: `mvp-arch.md`
+- Modify: `mvp-plan.md`
 - Optionally modify: `docs/superpowers/specs/2026-04-03-skill-update-design.md` only if implementation diverged and the spec needs correction
 
-- [x] **Step 1: Update `arch.md` to reflect the implemented update behavior**
+- [x] **Step 1: Update `mvp-arch.md` to reflect the implemented update behavior**
 
 In the section that lists or describes CLI/manage capabilities, add/update the `skillc update` behavior so it states that v1:
 
@@ -916,7 +916,7 @@ In the section that lists or describes CLI/manage capabilities, add/update the `
   - 当前版本不做版本比较，仅执行“同步来源 + 原位重装”
 ```
 
-- [x] **Step 2: Update `plan.md` to mark the update work accurately**
+- [x] **Step 2: Update `mvp-plan.md` to mark the update work accurately**
 
 Add a new task note or update the current ledger entry so it records that `skillc update` has been implemented with:
 
@@ -924,7 +924,7 @@ Add a new task note or update the current ledger entry so it records that `skill
 - 新增 `skillc update`：lock 优先、缺失时扫描已安装目录、先同步来源再原位重装。
 ```
 
-If `plan.md` uses checkbox/task-state style, mark the relevant phase complete exactly where the file currently tracks feature delivery.
+If `mvp-plan.md` uses checkbox/task-state style, mark the relevant phase complete exactly where the file currently tracks feature delivery.
 
 - [x] **Step 3: Run the focused package tests**
 
@@ -949,7 +949,7 @@ Expected: PASS for the full repository.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add arch.md plan.md internal/app/installapp/service.go internal/app/installapp/service_test.go internal/app/updateapp/service.go internal/app/updateapp/service_test.go internal/cli/app.go internal/cli/manage_cmd.go internal/cli/app_test.go
+git add mvp-arch.md mvp-plan.md internal/app/installapp/service.go internal/app/installapp/service_test.go internal/app/updateapp/service.go internal/app/updateapp/service_test.go internal/cli/app.go internal/cli/manage_cmd.go internal/cli/app_test.go
 git commit -m "feat(update): add installed skill update flow"
 ```
 
@@ -965,7 +965,7 @@ git commit -m "feat(update): add installed skill update flow"
 - Installed-directory scan fallback: covered by Task 4.
 - Thin CLI wiring and result output: covered by Tasks 1 and 5.
 - Reuse install behavior without duplicating copy logic: covered by Task 2.
-- `arch.md` / `plan.md` synchronization required by repo instructions: covered by Task 6.
+- `mvp-arch.md` / `mvp-plan.md` synchronization required by repo instructions: covered by Task 6.
 
 ### Placeholder scan
 - No `TBD`, `TODO`, or “implement later” placeholders remain.

@@ -21,6 +21,7 @@
 | 2026-06-16 | v0.17 | Codex | 记录 Phase 7 已落地 project registry、`update --all-projects` 和 Web 跨项目更新闭环 |
 | 2026-06-16 | v0.18 | Codex | 增加 Phase 8 Registry 发现、source UX cleanup 和精确 drift 实施计划链接 |
 | 2026-06-16 | v0.19 | Codex | 记录 Phase 8 已落地 Registry MVP、source UX cleanup 和精确 drift metadata |
+| 2026-06-16 | v0.20 | Codex | 复核 PRD 后修正 Registry 定位：P8 为 JSON source catalog 子集，Phase 9 回到 Skill registry 搜索/安装 |
 
 状态：Draft
 
@@ -36,9 +37,10 @@
 - `docs/superpowers/plans/2026-06-15-skillc-v0-phase6-web-current-project-management.md`
 - `docs/superpowers/plans/2026-06-16-skillc-v0-phase7-cross-project-update.md`
 - `docs/superpowers/plans/2026-06-16-skillc-v0-phase8-registry-source-drift.md`
+- `docs/superpowers/plans/2026-06-16-skillc-v0-phase9-registry-skill-search-install.md`
 - `docs/prd.md`
-- `docs/arch.md`
-- `docs/plan.md`
+- `docs/mvp-arch.md`
+- `docs/mvp-plan.md`
 - `docs/superpowers/specs/2026-04-03-skill-update-design.md`
 - `docs/superpowers/specs/2026-04-01-collection-command-design.md`
 
@@ -74,7 +76,11 @@
 
 八期目标：将 Registry 发现能力、source UX cleanup 和精确 drift 判断拆成三个可独立提交的 slice。P8 先补 `source add <path-or-url> --id/--name`、去掉新 source ID 的 `local-` / `git-` 强前缀并新增 `source info <id>`；再落地本机 registry catalog 的 list/add/remove/sync/search/info/add-source；最后将 Git resolved ref 和 local checksum 写入 index/lock/status/Web，用于同版本内容漂移判断。P8 不做 Registry 信任模型、Web Registry 页面、profile 推荐、旧 source ID 自动迁移或 project manifest。
 
-八期状态：已完成 source UX cleanup、Registry 本机/HTTP JSON catalog MVP，以及基于 Git resolved ref / local directory checksum 的精确 drift metadata。`registry add-source` 只注册 source，不直接安装 Skill 或写 lock；Web Version Drift 已显示 version/checksum/git ref signals。
+八期状态：已完成 source UX cleanup、本机/HTTP JSON source catalog 子集，以及基于 Git resolved ref / local directory checksum 的精确 drift metadata。复核 `docs/prd.md` 后确认：P8 Registry 实现只覆盖“内部分享 source catalog”的便利场景，尚未覆盖原 PRD 中“从 skills.sh / skillsmp / skillsllm 等公开站点搜索并安装单个 Skill”的 Registry 主场景。
+
+九期开发计划：`docs/superpowers/plans/2026-06-16-skillc-v0-phase9-registry-skill-search-install.md`
+
+九期目标：修正 Registry 回到 PRD 定位。Registry provider 用于搜索第三方 Skill 收集站点或团队 JSON catalog；`registry search` 返回 Skill 级结果；`registry install <registry>/<skill>` 可直接把单个 registry skill 下载到本地 cache 并安装，lock 记录 `source_type=registry` 和 registry provenance。已有 `registry add-source` 保留为可选入口，用于把结果背后的 Git/source 加入长期 source 管理。
 
 ## 1. 设计结论
 
@@ -106,7 +112,7 @@
 - `install --source`：支持一条命令注册 source、同步并安装。
 - 安装方式：已支持 copy/symlink/junction，并在 Windows 做回退。
 - Web：目前 `show --web` 是单个 skill 文件查看器，不是管理后台。
-- Registry：旧 PRD 中已有 registry/source 统一模型的设想，但当前实现尚未落地。
+- Registry：P8 已落地本机/HTTP JSON source catalog 子集；P9 需要补回原 PRD 的公开 Registry skill search/install 主链路。
 
 当前不顺的地方：
 
@@ -234,15 +240,16 @@ skillc install --collection go
 
 ### 3.4 Registry
 
-Registry 是旧设计中已经出现的远程技能发现来源。Phase 8 已先落地 MVP，用于发现可复用的 source entry，并保持“发现归 registry，安装仍进入 source/index/install/profile/lock”的边界。
+Registry 是旧 PRD 中已经出现的第三方 Skill 搜索来源，目标是从 skills.sh、skillsmp、skillsllm 这类公开收集站点或团队内部 catalog 搜索 Skill，筛选后安装到本地试用。Phase 8 已落地的是一个更窄的 JSON source catalog 子集，用于发现可复用的 source entry；它有价值，但不等于完整 Registry。
 
 定位：
 
 - Source 管理“我已经知道的本地路径或 Git 仓库”。
-- Registry 管理“我还不知道具体仓库时，去哪里搜索发现 skill/profile/source”。
-- Registry 的搜索结果最终仍应落成 source 或缓存快照，再进入统一 index/install/profile 流程。
+- Registry 管理“我还不知道具体仓库或 Skill 时，去哪里搜索发现 skill/source/profile”。
+- Registry 的 Skill 结果可以直接下载到本地 registry skill cache 后安装，lock 记录 registry provenance。
+- Registry 的 Source 结果可以通过 `registry add-source` 转成长期 source 管理；这是可选入口，不是安装单个 Skill 的必经步骤。
 
-已落地命令：
+P8 已落地命令：
 
 ```bash
 skillc registry list
@@ -254,7 +261,18 @@ skillc registry info <entry-id>
 skillc registry add-source <entry-id> [--id <id>] [--name <name>] [--sync]
 ```
 
-P8 只支持本机/HTTP JSON catalog，不做账号、token、签名校验、信任策略、profile 推荐或 Web Registry 页面。`registry search` 只读 catalog cache，`registry add-source` 只写 source 配置；安装仍由 source sync/search/install/update 主链路处理。
+P8 限制：只支持本机/HTTP JSON catalog 的 `sources` 部分，不支持 `skills` 部分，不做 registry skill install。`registry search` 当前只读 source catalog cache，`registry add-source` 只写 source 配置；安装仍由 source sync/search/install/update 主链路处理。
+
+P9 目标命令：
+
+```bash
+skillc registry search <keyword> [--registry <id>] [--sync]
+skillc registry info <registry>/<skill>
+skillc registry install <registry>/<skill> --agent codex --scope project
+skillc registry install <registry>/<skill> --yes
+```
+
+P9 继续保留 `registry add-source`，但只用于“把搜索结果背后的 Git/source 加入长期 source 管理”。公开 registry 搜到单个 Skill 时，用户不应被迫先 add-source 再 source sync 再 install。
 
 ### 3.5 Lock
 
@@ -798,7 +816,7 @@ Profile apply 不应直接边解析边安装，应先生成 plan：
 
 ### 8.3 Registry 扩展模型
 
-Registry 后期可以作为独立配置块加入：
+Registry 作为独立配置块加入。P8 已实现 `registries` 配置和 JSON source catalog cache；P9 需要扩展 provider 类型和 skill 级搜索结果。
 
 ```go
 type Config struct {
@@ -807,14 +825,31 @@ type Config struct {
 }
 
 type Registry struct {
-    ID     string `yaml:"id"`
-    Name   string `yaml:"name,omitempty"`
-    URL    string `yaml:"url"`
-    Status string `yaml:"status,omitempty"`
+    ID      string `yaml:"id"`
+    Name    string `yaml:"name,omitempty"`
+    Type    string `yaml:"type,omitempty"`    // json | api | site
+    Adapter string `yaml:"adapter,omitempty"` // generic-json | skills-sh | skillsmp | skillsllm
+    URL     string `yaml:"url"`
+    Status  string `yaml:"status,omitempty"`
+}
+
+type RegistrySkill struct {
+    RegistryID      string   `json:"registry_id"`
+    ID              string   `json:"id"`
+    Name            string   `json:"name,omitempty"`
+    Description     string   `json:"description,omitempty"`
+    Version         string   `json:"version,omitempty"`
+    SupportedAgents []string `json:"supported_agents,omitempty"`
+    DownloadURL     string   `json:"download_url,omitempty"`
+    SourceURL       string   `json:"source_url,omitempty"`
+    SourceRef       string   `json:"source_ref,omitempty"`
+    InstallEntry    string   `json:"install_entry,omitempty"`
+    Checksum         string   `json:"checksum,omitempty"`
+    Tags            []string `json:"tags,omitempty"`
 }
 ```
 
-Registry search 的结果不直接写 lock。安装前应解析为可缓存的 source/skill 快照，并进入统一的 index/install/profile 流程。
+Registry search 的结果不直接写 lock。安装前应解析为可缓存的 skill snapshot 或 source snapshot，再进入统一 install/profile/lock 流程。单个 registry skill 不需要先注册为 source；只有用户想长期订阅结果背后的仓库时，才使用 `registry add-source`。
 
 ## 9. 分层落点
 
@@ -1051,14 +1086,16 @@ internal/infra/termselect/
 - 本地监听默认 `127.0.0.1`。
 - 不默认开放远程访问。
 
-### 11.5 Registry MVP 边界
+### 11.5 Registry 边界修正
 
-风险：Registry 如果直接做成安装入口，会绕过 source/index/install/lock/profile 主链路，并引入信任、安全和权限模型。
+风险：P8 把 Registry 限定为 source catalog，虽然避免了绕过 source/index/install/lock/profile 主链路，但偏离了 `docs/prd.md` 中“从第三方 Registry 搜索并安装 Skill”的主场景。P9 需要补回 skill 级 Registry，同时继续避免把远程结果直接写入 lock。
 
 处理：
 
-- Phase 8 只实现本机/HTTP JSON catalog 发现闭环。
-- `registry add-source` 只注册 source，不安装 Skill、不写 lock。
+- Phase 8 保留为本机/HTTP JSON source catalog 子集，服务内部分享 source 的场景。
+- Phase 9 增加 registry skill result、skill cache snapshot 和 `registry install`。
+- `registry install` 必须先下载/解析到本地 cache，再复用 install service 写 lock；lock 记录 `source_type=registry` 和 registry provenance。
+- `registry add-source` 继续只注册 source，不安装 Skill、不写 lock，定位为长期订阅 source 的可选入口。
 - Registry 信任模型、Web Registry 页面、profile 推荐和签名校验继续后置。
 
 ## 12. 成功标准
@@ -1074,11 +1111,11 @@ v0 增强重构完成后，应满足：
 - 用户能登记允许管理的本机项目，并对这些项目执行跨项目 update plan/run。
 - Web 能查看 source、collection、profile、安装分布和版本差异，并对 registered projects 执行确认后的跨项目更新。
 - CLI 仍能完成核心写操作；Web 是关系查看和批量管理入口。
-- Registry MVP 能发现 source catalog，并保持安装仍进入 source/index/install/profile/lock 主链路。
+- Registry 能从至少一个 JSON skill catalog 搜索并安装 Skill；P8 的 source catalog 能力保留为内部分享入口，单个 registry skill 不要求先 add-source。
 
 ## 13. 下一步建议
 
-Phase 1/2/3/4/5/6/7/8 已经完成：profile 最小闭环、当前项目 status/update check、基于 `gookit/cliui` 的交互式选择、`skillc web` 本地管理查看、当前项目 profile apply / update 确认执行闭环、当前项目 Web source/profile/uninstall/history 管理补齐、project registry / `update --all-projects` / Web 跨项目更新闭环，以及 Registry MVP / source UX cleanup / 精确 drift metadata 都已落地。
+Phase 1/2/3/4/5/6/7/8 已经完成：profile 最小闭环、当前项目 status/update check、基于 `gookit/cliui` 的交互式选择、`skillc web` 本地管理查看、当前项目 profile apply / update 确认执行闭环、当前项目 Web source/profile/uninstall/history 管理补齐、project registry / `update --all-projects` / Web 跨项目更新闭环，以及 source UX cleanup / JSON source catalog 子集 / 精确 drift metadata 都已落地。
 
 Phase 5 实施计划见：`docs/superpowers/plans/2026-06-15-skillc-v0-phase5-web-execution.md`
 
@@ -1088,11 +1125,14 @@ Phase 7 实施计划见：`docs/superpowers/plans/2026-06-16-skillc-v0-phase7-cr
 
 Phase 8 实施计划见：`docs/superpowers/plans/2026-06-16-skillc-v0-phase8-registry-source-drift.md`
 
-下一步建议转向 Phase 9 级别的协作与治理能力，不再扩大 P8 的 Registry MVP 边界：
+Phase 9 实施计划见：`docs/superpowers/plans/2026-06-16-skillc-v0-phase9-registry-skill-search-install.md`
 
+下一步建议先做 Phase 9 Registry 修正，再转向协作与治理能力：
+
+- Registry skill search/install：补回 PRD 主场景，支持 JSON skill catalog、registry skill cache、`registry install` 和 lock provenance。
 - Project manifest / profile export-import：设计 `skillc.profile.yaml` 或 profile export/import，解决团队共享 profile 的落点。
 - Registry 信任模型：catalog entry 签名、checksum、来源 allow/deny policy 和远程 registry 安全边界。
-- Web Registry 页面：浏览 catalog、add-source plan/run 和 registry sync 状态可视化，但仍不直接绕过 source/index/install/lock 主链路。
+- Web Registry 页面：浏览 registry skill/source result、registry install plan/run、add-source plan/run 和 registry sync 状态可视化。
 - Remote Web：远程访问、多用户权限和安全审计单独设计，不复用当前本地 JSONL history 作为安全审计系统。
 
 Phase 7 已经把跨项目更新收敛到 registered projects allowlist。后续继续坚持当前安全边界：先 plan、后确认、handler 保持薄层、执行复用 app service。

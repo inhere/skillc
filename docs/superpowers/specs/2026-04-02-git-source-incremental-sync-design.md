@@ -237,8 +237,8 @@ Tests should assert behavior at the `gitx.Client` boundary rather than duplicati
 ## Docs Impact
 
 Implementation must update:
-- `arch.md` — reflect “prefer incremental sync, fallback to re-clone” behavior for Git sources
-- `plan.md` — record this optimization task and mark phase state accurately
+- `mvp-arch.md` — reflect “prefer incremental sync, fallback to re-clone” behavior for Git sources
+- `mvp-plan.md` — record this optimization task and mark phase state accurately
 
 This keeps architecture and task tracking aligned with the code change, per project instructions.
 

@@ -24,8 +24,8 @@
 - `internal/app/listapp/service_test.go` — list behavior for grouped lock entries and missing/install status
 - `internal/cli/manage_cmd.go` — print restored agents from `Agents []string` and keep install output working from runtime paths
 - `tests/e2e/install_restore_test.go` — verify install/list/uninstall/restore with grouped lockfile JSON
-- `arch.md` — update lock design section to reflect project-key grouping and `agents []string`
-- `plan.md` — mark the relevant task/checklist items for this lockfile redesign
+- `mvp-arch.md` — update lock design section to reflect project-key grouping and `agents []string`
+- `mvp-plan.md` — mark the relevant task/checklist items for this lockfile redesign
 
 ### Existing files to consult while implementing
 - `docs/superpowers/specs/2026-04-06-lockfile-project-key-design.md`
@@ -672,8 +672,8 @@ git commit -m "refactor(update): expand grouped lock entries per agent"
 
 **Files:**
 - Modify: `internal/cli/manage_cmd.go`
-- Modify: `arch.md`
-- Modify: `plan.md`
+- Modify: `mvp-arch.md`
+- Modify: `mvp-plan.md`
 - Test: `internal/cli/app_test.go`
 
 - [ ] **Step 1: Write the failing CLI test for restore output from grouped records**
@@ -712,7 +712,7 @@ for _, restored := range result.Restored {
 
 - [ ] **Step 4: Update architecture and task tracking docs**
 
-Add to `arch.md` lock section:
+Add to `mvp-arch.md` lock section:
 
 ```md
 - lock file 顶层改为按 scope key 分组：project 使用绝对项目路径，global 使用 `__global__`
@@ -720,7 +720,7 @@ Add to `arch.md` lock section:
 - `InstalledPath` 不再落盘；restore/update/list 在运行时重新解析目标路径
 ```
 
-Update the relevant task in `plan.md` from pending wording to completed wording for this redesign, for example:
+Update the relevant task in `mvp-plan.md` from pending wording to completed wording for this redesign, for example:
 
 ```md
 ### Task 16: Redesign lockfile grouping for project keys ✅ Completed
@@ -741,7 +741,7 @@ Expected: PASS.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add internal/cli/manage_cmd.go internal/cli/app_test.go arch.md plan.md
+git add internal/cli/manage_cmd.go internal/cli/app_test.go mvp-arch.md mvp-plan.md
 git commit -m "docs(cli): align output and docs with grouped lockfile"
 ```
 
@@ -770,12 +770,12 @@ Checklist:
 
 - [ ] **Step 3: Review git diff for unintended churn**
 
-Run: `git diff -- internal/domain/lock/model.go internal/infra/lockstore/json_store.go internal/app/installapp/service.go internal/app/updateapp/service.go internal/app/listapp/service.go internal/cli/manage_cmd.go arch.md plan.md tests/e2e/install_restore_test.go`
+Run: `git diff -- internal/domain/lock/model.go internal/infra/lockstore/json_store.go internal/app/installapp/service.go internal/app/updateapp/service.go internal/app/listapp/service.go internal/cli/manage_cmd.go mvp-arch.md mvp-plan.md tests/e2e/install_restore_test.go`
 Expected: only the planned lockfile redesign and doc updates appear.
 
 - [ ] **Step 4: Commit final verification touch-ups if needed**
 
 ```bash
-git add internal/domain/lock/model.go internal/infra/lockstore/json_store.go internal/app/installapp/service.go internal/app/updateapp/service.go internal/app/listapp/service.go internal/cli/manage_cmd.go arch.md plan.md tests/e2e/install_restore_test.go
+git add internal/domain/lock/model.go internal/infra/lockstore/json_store.go internal/app/installapp/service.go internal/app/updateapp/service.go internal/app/listapp/service.go internal/cli/manage_cmd.go mvp-arch.md mvp-plan.md tests/e2e/install_restore_test.go
 git commit -m "test(lock): verify grouped lockfile workflow"
 ```

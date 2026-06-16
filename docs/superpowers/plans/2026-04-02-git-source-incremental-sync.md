@@ -6,7 +6,7 @@
 
 **Architecture:** Keep sync orchestration in `internal/app/sourceapp/service.go` and move all repository reuse, validation, incremental fetch/reset/clean logic, and fallback re-clone behavior into `internal/infra/gitx/client.go`. Preserve the current `sourceapp -> gitx.Sync -> ResolvedRef` contract so status updates, timestamps, indexing, proxy behavior, and TTY progress remain stable from the user’s perspective.
 
-**Tech Stack:** Go, `os/exec`, filesystem operations from the standard library, Git CLI, `github.com/gookit/goutil/testutil/assert`, existing `go test` suite, markdown docs in `arch.md` and `plan.md`
+**Tech Stack:** Go, `os/exec`, filesystem operations from the standard library, Git CLI, `github.com/gookit/goutil/testutil/assert`, existing `go test` suite, markdown docs in `mvp-arch.md` and `mvp-plan.md`
 
 ---
 
@@ -15,8 +15,8 @@
 ### Documents to consult
 - `docs/superpowers/specs/2026-04-02-git-source-incremental-sync-design.md` — approved sync behavior, fallback rules, and testing scope
 - `AGENTS.md` — app/infra layering, doc sync requirements, and `go test ./...` completion gate
-- `arch.md` — source/cache architecture notes that must be updated after implementation
-- `plan.md` — task ledger that must reflect this optimization after implementation
+- `mvp-arch.md` — source/cache architecture notes that must be updated after implementation
+- `mvp-plan.md` — task ledger that must reflect this optimization after implementation
 
 ### Files to modify
 
@@ -29,8 +29,8 @@
 - Modify: `internal/app/sourceapp/service_test.go` — replace the old “service deletes cache dir” expectation with the new “service reuses the same cache path and still succeeds” expectation
 
 **Project docs**
-- Modify: `arch.md` — describe incremental Git source sync with fallback re-clone
-- Modify: `plan.md` — add/update the task entry for this incremental sync optimization and mark its status accurately
+- Modify: `mvp-arch.md` — describe incremental Git source sync with fallback re-clone
+- Modify: `mvp-plan.md` — add/update the task entry for this incremental sync optimization and mark its status accurately
 
 ---
 
@@ -465,14 +465,14 @@ git commit -m "refactor(source): move git cache reuse into gitx"
 ### Task 3: Update architecture/task docs and run full regression
 
 **Files:**
-- Modify: `arch.md`
-- Modify: `plan.md`
+- Modify: `mvp-arch.md`
+- Modify: `mvp-plan.md`
 
 - [ ] **Step 1: Write the failing doc-oriented verification checklist**
 
 Create the exact updates below.
 
-In `arch.md`, update the source/cache behavior section so it states:
+In `mvp-arch.md`, update the source/cache behavior section so it states:
 
 ```md
 - Git source sync 优先复用现有 repo cache
@@ -481,7 +481,7 @@ In `arch.md`, update the source/cache behavior section so it states:
 - local source 行为保持不变
 ```
 
-In `plan.md`, add a new completed item under the current source-sync related work:
+In `mvp-plan.md`, add a new completed item under the current source-sync related work:
 
 ```md
 - [x] 优化 Git source sync：缓存目录存在且可复用时执行增量同步；缓存损坏或 origin 不匹配时回退为重新 clone；保持 sync 后缓存目录干净
@@ -489,7 +489,7 @@ In `plan.md`, add a new completed item under the current source-sync related wor
 
 - [ ] **Step 2: Apply the doc changes**
 
-Edit `arch.md` and `plan.md` so the repository docs match the implemented behavior exactly.
+Edit `mvp-arch.md` and `mvp-plan.md` so the repository docs match the implemented behavior exactly.
 
 - [ ] **Step 3: Run targeted regression tests**
 
@@ -514,7 +514,7 @@ Expected: PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add arch.md plan.md internal/infra/gitx/client.go internal/infra/gitx/client_test.go internal/app/sourceapp/service.go internal/app/sourceapp/service_test.go
+git add mvp-arch.md mvp-plan.md internal/infra/gitx/client.go internal/infra/gitx/client_test.go internal/app/sourceapp/service.go internal/app/sourceapp/service_test.go
 git commit -m "feat(source): use incremental git sync for repo cache"
 ```
 
@@ -526,7 +526,7 @@ git commit -m "feat(source): use incremental git sync for repo cache"
 - Incremental sync on healthy cache: covered by Task 1
 - Fallback re-clone on invalid repo or wrong origin: covered by Task 1
 - App-layer orchestration remains stable: covered by Task 2
-- `arch.md` and `plan.md` sync requirements: covered by Task 3
+- `mvp-arch.md` and `mvp-plan.md` sync requirements: covered by Task 3
 - Regression proof including `go test ./...`: covered by Task 3
 
 ### Placeholder scan

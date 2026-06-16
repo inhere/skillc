@@ -6,7 +6,7 @@
 
 **Architecture:** Keep proxy policy in `internal/app/sourceapp` by reading `config.ProxyURL` and passing it explicitly into the Git infrastructure layer. Update `internal/infra/gitx` so only network Git commands (currently `git clone`) get per-process proxy environment variables, while local commands like `rev-parse` stay unchanged.
 
-**Tech Stack:** Go, `os/exec`, Go unit tests, existing `sourceapp` service, existing `gitx` client, markdown docs in `arch.md` and `plan.md`
+**Tech Stack:** Go, `os/exec`, Go unit tests, existing `sourceapp` service, existing `gitx` client, markdown docs in `mvp-arch.md` and `mvp-plan.md`
 
 ---
 
@@ -15,8 +15,8 @@
 ### Documents to consult
 - `docs/superpowers/specs/2026-04-01-git-source-sync-proxy-design.md` — approved behavior and scope
 - `AGENTS.md` — CLI/app layering, doc sync, and `go test ./...` requirement
-- `arch.md` — source sync flow and architectural rules
-- `plan.md` — task ledger that must be updated as work progresses
+- `mvp-arch.md` — source sync flow and architectural rules
+- `mvp-plan.md` — task ledger that must be updated as work progresses
 
 ### Files to create or modify
 
@@ -29,8 +29,8 @@
 - Modify: `internal/infra/gitx/client_test.go` — cover command construction / env behavior and keep the missing-binary test green
 
 **Project docs**
-- Modify: `arch.md` — document Git source sync proxy behavior
-- Modify: `plan.md` — add this task and mark each TDD phase as it completes
+- Modify: `mvp-arch.md` — document Git source sync proxy behavior
+- Modify: `mvp-plan.md` — add this task and mark each TDD phase as it completes
 
 ---
 
@@ -296,12 +296,12 @@ git commit -m "feat(gitx): proxy git clone during source sync"
 ### Task 3: Sync architecture and task ledger docs
 
 **Files:**
-- Modify: `arch.md`
-- Modify: `plan.md`
+- Modify: `mvp-arch.md`
+- Modify: `mvp-plan.md`
 
 - [ ] **Step 1: Write the failing doc expectations as assertions in your head and diff target text**
 
-Add this design note to `plan.md` under a new task section:
+Add this design note to `mvp-plan.md` under a new task section:
 
 ```md
 ### Task 26: Add proxy support for git source sync
@@ -311,8 +311,8 @@ Add this design note to `plan.md` under a new task section:
 - Modify: `internal/app/sourceapp/service_test.go`
 - Modify: `internal/infra/gitx/client.go`
 - Modify: `internal/infra/gitx/client_test.go`
-- Modify: `arch.md`
-- Modify: `plan.md`
+- Modify: `mvp-arch.md`
+- Modify: `mvp-plan.md`
 
 **Design note (2026-04-01):** When `source` type is `git` and config `proxy_url` is set, `source sync` must apply that proxy only to skillc-started network Git commands such as `git clone`. It must not write any Git config, and local Git commands such as `rev-parse` must continue to run without proxy injection.
 
@@ -324,26 +324,26 @@ Add this design note to `plan.md` under a new task section:
 - [ ] **Step 6: Commit**
 ```
 
-Add this bullet to the source-sync flow in `arch.md` near the `skillc source sync` / source workflow section:
+Add this bullet to the source-sync flow in `mvp-arch.md` near the `skillc source sync` / source workflow section:
 
 ```md
 - 对于 git source：若配置了 `proxy_url`，仅在 `skillc` 发起的网络型 Git 命令（当前为 `git clone`）上注入代理；不会写入任何 git config，本地命令如 `rev-parse` 不使用代理。
 ```
 
-At this step the docs are intentionally still unchecked in `plan.md`; they should only be marked complete after code and verification finish.
+At this step the docs are intentionally still unchecked in `mvp-plan.md`; they should only be marked complete after code and verification finish.
 
 - [ ] **Step 2: Apply the doc updates**
 
-Edit `arch.md` and `plan.md` with the exact text above.
+Edit `mvp-arch.md` and `mvp-plan.md` with the exact text above.
 
 - [ ] **Step 3: Run a focused diff review**
 
-Run: `git diff -- arch.md plan.md`
+Run: `git diff -- mvp-arch.md mvp-plan.md`
 Expected: only the new Git proxy behavior note and the new Task 26 ledger entry appear.
 
 - [ ] **Step 4: Mark the plan task complete after verification**
 
-After Task 4 succeeds, replace the unchecked checklist in `plan.md` with:
+After Task 4 succeeds, replace the unchecked checklist in `mvp-plan.md` with:
 
 ```md
 **Verification note (2026-04-01):** Git source sync now forwards config `proxy_url` into the Git client, injects proxy env vars only for `git clone`, keeps local `rev-parse` unproxied, and passes `go test ./...`.
@@ -359,14 +359,14 @@ After Task 4 succeeds, replace the unchecked checklist in `plan.md` with:
 - [ ] **Step 5: Commit**
 
 ```bash
-git add arch.md plan.md
+git add mvp-arch.md mvp-plan.md
 git commit -m "docs: record git source sync proxy behavior"
 ```
 
 ### Task 4: Run regression verification and finish the ledger
 
 **Files:**
-- Modify: `plan.md`
+- Modify: `mvp-plan.md`
 
 - [ ] **Step 1: Run focused regression tests**
 
@@ -378,7 +378,7 @@ Expected: PASS
 Run: `go test ./...`
 Expected: PASS
 
-- [ ] **Step 3: Update `plan.md` verification note and checkboxes**
+- [ ] **Step 3: Update `mvp-plan.md` verification note and checkboxes**
 
 Use this exact block from Task 3 Step 4:
 
@@ -396,7 +396,7 @@ Use this exact block from Task 3 Step 4:
 - [ ] **Step 4: Commit the verification update if needed**
 
 ```bash
-git add plan.md
+git add mvp-plan.md
 git commit -m "test: verify git source sync proxy support"
 ```
 
@@ -404,6 +404,6 @@ git commit -m "test: verify git source sync proxy support"
 
 ## Self-Review
 
-- **Spec coverage:** The plan covers explicit proxy forwarding in `sourceapp`, proxy injection only for network Git commands in `gitx`, unchanged local Git behavior, doc sync in `arch.md`, and task tracking in `plan.md`.
+- **Spec coverage:** The plan covers explicit proxy forwarding in `sourceapp`, proxy injection only for network Git commands in `gitx`, unchanged local Git behavior, doc sync in `mvp-arch.md`, and task tracking in `mvp-plan.md`.
 - **Placeholder scan:** No `TBD`, `TODO`, or "write tests later" placeholders remain.
 - **Type consistency:** All tasks use the same `Sync(url, dir, ref, proxyURL string)` signature and the same verification note text.

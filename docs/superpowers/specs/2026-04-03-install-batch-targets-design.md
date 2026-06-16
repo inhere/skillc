@@ -427,10 +427,10 @@ type InstallItemError struct {
 - 修改：`internal/app/searchapp/service_test.go`
 - 修改：`internal/app/installapp/service.go`
 - 修改：`internal/app/installapp/service_test.go`
-- 可能修改：`arch.md`
-- 可能修改：`plan.md`
+- 可能修改：`mvp-arch.md`
+- 可能修改：`mvp-plan.md`
 
-其中 `arch.md` / `plan.md` 需要在实现落地时同步更新 install 的批量解析、确认与部分成功语义，避免文档漂移。
+其中 `mvp-arch.md` / `mvp-plan.md` 需要在实现落地时同步更新 install 的批量解析、确认与部分成功语义，避免文档漂移。
 
 ## 与现有架构的一致性
 

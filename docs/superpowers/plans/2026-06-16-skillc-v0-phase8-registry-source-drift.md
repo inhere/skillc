@@ -15,12 +15,16 @@
 | 2026-06-16 | v0.1 | Codex | 输出 P8 Registry / source UX / precise drift 实施计划 |
 | 2026-06-16 | v0.2 | Codex | 复审后补强 URL 解析、Registry HTTP/歧义测试、目录级 checksum 和 status fixture |
 | 2026-06-16 | v0.3 | Codex | 记录 Phase 8 实施完成、最终验证和 e2e checksum 断言调整 |
+| 2026-06-16 | v0.4 | Codex | 复核 PRD 后标注 P8 Registry 为 JSON source catalog 子集，完整 skill registry 进入 Phase 9 |
 
 相关文档：
 
 - 设计文档：`docs/design/skillc-v0-enhance-design.md`
 - Phase 7 计划：`docs/superpowers/plans/2026-06-16-skillc-v0-phase7-cross-project-update.md`
+- Phase 9 计划：`docs/superpowers/plans/2026-06-16-skillc-v0-phase9-registry-skill-search-install.md`
 - 任务入口：`docs/TODO.md`
+
+> Registry correction note: 复核 `docs/prd.md`、`docs/prd.draft.md` 和 `docs/mvp-arch.md` 后确认，原始 Registry 设想是从 skills.sh / skillsmp / skillsllm 等第三方站点搜索并安装 Skill。P8 实际落地的是本机/HTTP JSON source catalog 子集，适合内部分享 source；完整 registry skill search/install 由 Phase 9 修正。
 
 ## Scope and Change Size
 
@@ -52,7 +56,7 @@ P8 采用 MVP 边界，可以同一期完成，但必须分批提交：
   - 新生成 source ID 不再强加 `local-` / `git-` 前缀；显式 ID 会 normalize 并校验重复。
   - 旧配置中的 `local-*` / `git-*` ID 保持不迁移、不重写。
   - 新增 `skillc source info <id>`，支持精确 ID 或现有 partial match。
-- Registry 最小发现闭环：
+- Registry JSON source catalog 子集：
   - Config 增加 `registries`。
   - 支持 local JSON catalog 和 HTTP JSON catalog。
   - `skillc registry list/add/remove/sync/search/info/add-source`。
@@ -72,6 +76,7 @@ P8 采用 MVP 边界，可以同一期完成，但必须分批提交：
 本期不做：
 
 - 不做 Registry 账号、token、签名校验、信任策略或远程权限模型。
+- 不做 Registry skill search/install；这项进入 Phase 9 修正。
 - 不做 Registry 中 profile 推荐、collection 推荐或一键安装 profile。
 - 不做 Web Registry 页面。
 - 不自动迁移旧 source ID，也不批量重写 lock/profile 中已有 source 引用。

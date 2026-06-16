@@ -361,8 +361,8 @@ go test ./...
 - 视实现需要修改：`internal/app/installapp/service.go`
 - 视实现需要修改：`internal/app/installapp/service_test.go`
 - 视实现需要修改：`internal/app/sourceapp/service.go`
-- 修改：`arch.md`
-- 修改：`plan.md`
+- 修改：`mvp-arch.md`
+- 修改：`mvp-plan.md`
 
 ## 与现有架构的一致性
 

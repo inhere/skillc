@@ -14,8 +14,8 @@
 
 ### Documents to consult
 - `docs/superpowers/specs/2026-04-01-collection-command-design.md` — approved behavior and scope
-- `arch.md` — layered boundaries (`cli` → `app` → `infra`)
-- `plan.md` — current MVP task ledger that should be updated when task status/design changes
+- `mvp-arch.md` — layered boundaries (`cli` → `app` → `infra`)
+- `mvp-plan.md` — current MVP task ledger that should be updated when task status/design changes
 
 ### Files to create or modify
 
@@ -33,8 +33,8 @@
 - Modify: `internal/cli/app_test.go` — command registration and CLI output tests
 
 **Project docs**
-- Modify: `arch.md` — add collection browsing to repo index / CLI capability descriptions
-- Modify: `plan.md` — add and then mark complete the collection-command task as work proceeds
+- Modify: `mvp-arch.md` — add collection browsing to repo index / CLI capability descriptions
+- Modify: `mvp-plan.md` — add and then mark complete the collection-command task as work proceeds
 
 ---
 
@@ -453,12 +453,12 @@ git commit -m "feat(cli): add collection browse commands"
 ### Task 4: Sync project docs and run regression tests
 
 **Files:**
-- Modify: `arch.md`
-- Modify: `plan.md`
+- Modify: `mvp-arch.md`
+- Modify: `mvp-plan.md`
 
 - [ ] **Step 1: Add the architecture note for collection browsing**
 
-Update the CLI/source/index portions of `arch.md` so they explicitly mention collection browsing. Add these bullets in the relevant sections:
+Update the CLI/source/index portions of `mvp-arch.md` so they explicitly mention collection browsing. Add these bullets in the relevant sections:
 
 ```md
 ### 4.3 repo index
@@ -478,9 +478,9 @@ And in the CLI-related description:
 - `skillc collection` 提供基于索引的集合浏览能力，不承担聚合规则本身
 ```
 
-- [ ] **Step 2: Update `plan.md` with the new completed task**
+- [ ] **Step 2: Update `mvp-plan.md` with the new completed task**
 
-Append this task block near the end of `plan.md`:
+Append this task block near the end of `mvp-plan.md`:
 
 ```md
 ### Task 18: Add collection browsing commands ✅ Completed
@@ -492,7 +492,7 @@ Append this task block near the end of `plan.md`:
 - Modify: `internal/cli/app.go`
 - Modify: `internal/cli/app_test.go`
 - Modify: `internal/app/searchapp/service_test.go`
-- Modify: `arch.md`
+- Modify: `mvp-arch.md`
 
 - [x] **Step 1: Write the failing tests**
 - [x] **Step 2: Run tests to verify they fail**
@@ -515,7 +515,7 @@ Expected: PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add arch.md plan.md
+git add mvp-arch.md mvp-plan.md
 git commit -m "docs: record collection command design updates"
 ```
 

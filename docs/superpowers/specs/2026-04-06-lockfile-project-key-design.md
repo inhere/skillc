@@ -238,8 +238,8 @@ update 从 lockfile 读取“聚合 skill record”，再按 agent 展开执行�
 
 文档：
 
-- `arch.md`
-- `plan.md`
+- `mvp-arch.md`
+- `mvp-plan.md`
 
 ## 6. 实现边界与约束
 
@@ -247,7 +247,7 @@ update 从 lockfile 读取“聚合 skill record”，再按 agent 展开执行�
 - lockfile 结构变化的业务编排优先放在 `internal/app/*`
 - restore 语义必须保持：基于 `SourceID + InstallEntry` 找到真实复制入口
 - 完成主链路改动后至少运行 `go test ./...`
-- 若实现过程中影响设计或任务状态，需要同步更新 `arch.md` 和 `plan.md`
+- 若实现过程中影响设计或任务状态，需要同步更新 `mvp-arch.md` 和 `mvp-plan.md`
 
 ## 7. 测试策略
 
@@ -335,7 +335,7 @@ update 从 lockfile 读取“聚合 skill record”，再按 agent 展开执行�
 3. 改造 restore 逻辑，移除 `InstalledPath` 依赖
 4. 改造 update 逻辑，按 `agents` 展开执行
 5. 更新 list / e2e / 单元测试
-6. 同步更新 `arch.md` 与 `plan.md`
+6. 同步更新 `mvp-arch.md` 与 `mvp-plan.md`
 7. 运行 `go test ./...`
 
 ## 10. 结论

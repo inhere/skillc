@@ -4,7 +4,7 @@
 
 **Goal:** Build the Skillc CLI MVP that can manage local/Git sources, index skills from `SKILL.md`, search them, install/uninstall them for multiple agents, and restore installations from a lock file.
 
-**Architecture:** Use the approved layered design from `arch.md`: `cmd/` for CLI wiring, `internal/app/` for use-case orchestration, `internal/domain/` for stable models and rules, and `internal/infra/` for filesystem, Git, config, lock, hashing, and indexing implementations. Deliver in vertical slices so each milestone leaves the repo in a runnable, testable state.
+**Architecture:** Use the approved layered design from `mvp-arch.md`: `cmd/` for CLI wiring, `internal/app/` for use-case orchestration, `internal/domain/` for stable models and rules, and `internal/infra/` for filesystem, Git, config, lock, hashing, and indexing implementations. Deliver in vertical slices so each milestone leaves the repo in a runnable, testable state.
 
 **Tech Stack:** Go, standard library, YAML config parsing, JSON lock file, Git CLI integration, filesystem-based cache, Go testing package
 
@@ -15,7 +15,7 @@
 ### Documents to consult
 - `prd.md` — product requirements and acceptance criteria
 - `prd-review.md` — clarified decisions and resolved blockers
-- `arch.md` — approved architecture and module boundaries
+- `mvp-arch.md` — approved architecture and module boundaries
 
 ### Planned files
 
@@ -387,8 +387,8 @@
 **Files:**
 - Modify: `internal/cli/app.go`
 - Test: `internal/cli/app_test.go`
-- Modify: `arch.md`
-- Modify: `plan.md`
+- Modify: `mvp-arch.md`
+- Modify: `mvp-plan.md`
 
 **Verification note (2026-03-31):** `source add local|git` now accepts `--sync`; when omitted, the CLI prints `next: skillc source sync <id>` so users know the required next step.
 
@@ -450,8 +450,8 @@
 **Files:**
 - Modify: `tests/e2e/source_search_test.go`
 - Modify: `tests/e2e/install_restore_test.go`
-- Modify: `arch.md`
-- Modify: `plan.md`
+- Modify: `mvp-arch.md`
+- Modify: `mvp-plan.md`
 
 **Design note (2026-04-01):** E2E coverage must prove top-level single-skill sources still work, collection sources can be searched and installed by collection-aware names, ambiguous names require source qualification, and restore continues to copy from the path derived by `SourceID + InstallEntry` even after qualified naming is introduced.
 
@@ -474,8 +474,8 @@
 - Modify: `internal/app/searchapp/service_test.go`
 - Modify: `internal/cli/app.go`
 - Modify: `internal/cli/app_test.go`
-- Modify: `arch.md`
-- Modify: `plan.md`
+- Modify: `mvp-arch.md`
+- Modify: `mvp-plan.md`
 
 ### Task 26: Add SyncOptions and TTY-only progress for git source sync
 
@@ -484,8 +484,8 @@
 - Modify: `internal/app/sourceapp/service_test.go`
 - Modify: `internal/infra/gitx/client.go`
 - Modify: `internal/infra/gitx/client_test.go`
-- Modify: `arch.md`
-- Modify: `plan.md`
+- Modify: `mvp-arch.md`
+- Modify: `mvp-plan.md`
 
 **Design note (2026-04-02):** `gitx.Sync` now moves from a positional `proxyURL` argument to `SyncOptions`, so Git sync can carry `ProxyURL`, `Progress`, `Quiet`, and `Verbose` without growing the signature again. `source sync` should show live `git clone --progress` output on `stderr` only when running in an interactive terminal.
 
@@ -505,8 +505,8 @@
 - Modify: `internal/app/sourceapp/service_test.go`
 - Modify: `internal/infra/gitx/client.go`
 - Modify: `internal/infra/gitx/client_test.go`
-- Modify: `arch.md`
-- Modify: `plan.md`
+- Modify: `mvp-arch.md`
+- Modify: `mvp-plan.md`
 
 **Design note (2026-04-02):** Git source sync should prefer reusing an existing repo cache when the cache directory is still a healthy clone of the same `origin`. Reused caches sync incrementally via `git fetch --prune origin`, `git reset --hard <target>`, and `git clean -fd`; missing or damaged caches, or caches whose `origin` no longer matches, must fall back to removing the cache dir and cloning again.
 
@@ -526,8 +526,8 @@
 - Modify: `internal/app/installapp/service_test.go`
 - Modify: `internal/cli/manage_cmd.go`
 - Modify: `internal/cli/app_test.go`
-- Modify: `arch.md`
-- Modify: `plan.md`
+- Modify: `mvp-arch.md`
+- Modify: `mvp-plan.md`
 
 **Design note (2026-04-03):** `skillc install` should accept comma-separated batch targets in a single `skill-id` argument, treat `prefix-*` as `skill.ID` prefix matching only, require explicit `--collection/-c` before expanding a collection selector, and support `--yes/-y` to skip confirmation. Batch execution must use partial-success semantics so resolve/install failures are reported and skipped without aborting other targets.
 
@@ -542,8 +542,8 @@
 - Modify: `internal/app/installapp/service_test.go`
 - Modify: `internal/cli/manage_cmd.go`
 - Modify: `internal/cli/app_test.go`
-- Modify: `arch.md`
-- Modify: `plan.md`
+- Modify: `mvp-arch.md`
+- Modify: `mvp-plan.md`
 
 **Design note (2026-04-06):** `skillc update` now uses a lock-first workflow. It selects installed skills from the grouped lock file when present, expands each grouped record into per-agent update work, falls back to scanning the installed agent directory when the lock is missing or empty, skips pinned or ambiguous entries, syncs each referenced source once, reloads the shared index, and recomputes target install paths at runtime from the lock key + agent + flat install-dir rule `skills/{skillID}` instead of persisting `InstalledPath` in the lock file. For upgrades from older versions, list / uninstall / update remain compatible with legacy source-scoped install directories and migrate them to the flat layout during update.
 
@@ -557,4 +557,3 @@
 - [x] **Step 4: Run tests to verify they pass**
 - [x] **Step 5: Run `go test ./...`**
 - [ ] **Step 6: Commit**
-

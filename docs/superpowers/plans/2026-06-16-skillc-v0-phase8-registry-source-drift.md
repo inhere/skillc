@@ -998,7 +998,7 @@ git commit -m "feat(skillc): add registry config model"
 - Create: `internal/app/registryapp/service.go`
 - Create: `internal/app/registryapp/service_test.go`
 
-- [ ] **Step 1: Write failing registry store tests**
+- [x] **Step 1: Write failing registry store tests**
 
 Create `internal/infra/registrystore/json_store_test.go`:
 
@@ -1028,7 +1028,7 @@ func TestStoreLoadSaveEntries(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run registry store tests to verify they fail**
+- [x] **Step 2: Run registry store tests to verify they fail**
 
 Run:
 
@@ -1038,7 +1038,7 @@ go test ./internal/infra/registrystore -v
 
 Expected: FAIL because package does not exist.
 
-- [ ] **Step 3: Implement registry JSON cache store**
+- [x] **Step 3: Implement registry JSON cache store**
 
 Create `internal/infra/registrystore/json_store.go`:
 
@@ -1060,7 +1060,7 @@ Behavior:
 - Save creates parent directory.
 - JSON is indented for inspectability.
 
-- [ ] **Step 4: Write failing registryapp tests**
+- [x] **Step 4: Write failing registryapp tests**
 
 Create `internal/app/registryapp/service_test.go`:
 
@@ -1143,7 +1143,7 @@ func TestService_InfoRejectsAmbiguousEntryID(t *testing.T) {
 }
 ```
 
-- [ ] **Step 5: Run registryapp tests to verify they fail**
+- [x] **Step 5: Run registryapp tests to verify they fail**
 
 Run:
 
@@ -1153,7 +1153,7 @@ go test ./internal/app/registryapp -v
 
 Expected: FAIL because package does not exist.
 
-- [ ] **Step 6: Implement registryapp service**
+- [x] **Step 6: Implement registryapp service**
 
 Create `internal/app/registryapp/service.go` with:
 
@@ -1205,7 +1205,7 @@ Important behavior:
 - HTTP catalog entries with `type:"local"` are rejected unless `path` is absolute; remote registries should normally publish git entries.
 - `Sync` updates registry `Status`, `ErrorMessage`, and `LastSyncAt` in config before saving cache entries.
 
-- [ ] **Step 7: Run registryapp tests**
+- [x] **Step 7: Run registryapp tests**
 
 Run:
 
@@ -1215,7 +1215,7 @@ go test ./internal/infra/registrystore ./internal/app/registryapp
 
 Expected: PASS.
 
-- [ ] **Step 8: Commit registry app service**
+- [x] **Step 8: Commit registry app service**
 
 Run:
 

@@ -14,6 +14,7 @@ import (
 	"github.com/gookit/slog"
 	"github.com/inhere/skillc/internal/app/installapp"
 	"github.com/inhere/skillc/internal/app/listapp"
+	"github.com/inhere/skillc/internal/app/projectupdateapp"
 	"github.com/inhere/skillc/internal/app/statusapp"
 	"github.com/inhere/skillc/internal/app/updateapp"
 	"github.com/inhere/skillc/internal/app/webapp"
@@ -98,6 +99,15 @@ type updateRunner interface {
 
 var newUpdateService = func(configFile string, baseDir string) updateRunner {
 	return updateapp.NewService(configFile, baseDir)
+}
+
+type projectUpdateRunner interface {
+	Plan(projectupdateapp.Req) (projectupdateapp.Plan, error)
+	Run(projectupdateapp.Req) (projectupdateapp.Result, error)
+}
+
+var newProjectUpdateService = func(configFile string, baseDir string) projectUpdateRunner {
+	return projectupdateapp.NewService(configFile, baseDir)
 }
 
 type ManageOptions struct {
@@ -358,6 +368,8 @@ func buildUpdateCommand() *gcli.Command {
 	var target string
 	var checkOnly bool
 	var interactive bool
+	var allProjects bool
+	var projectsRaw string
 	return &gcli.Command{
 		Name:    "update",
 		Desc:    "Update installed skills",
@@ -367,6 +379,9 @@ func buildUpdateCommand() *gcli.Command {
 			c.StrOpt(&target, "target", "t", "", "skill id to update (default: update all)")
 			c.BoolOpt(&checkOnly, "check", "", false, "check update candidates without installing")
 			c.BoolOpt(&interactive, "interactive", "i", false, "interactively select update candidates")
+			c.BoolOpt(&opts.Yes, "yes", "y", false, "skip confirmation prompt for cross-project update")
+			c.BoolOpt(&allProjects, "all-projects", "", false, "update registered projects")
+			c.StrOpt(&projectsRaw, "projects", "", "", "comma-separated project ids for --all-projects")
 			c.AddArg("skill", "skill id to update (same as --target)")
 		},
 		Func: func(c *gcli.Command, _ []string) error {
@@ -377,8 +392,48 @@ func buildUpdateCommand() *gcli.Command {
 			if target == "" {
 				target = c.Arg("skill").String()
 			}
-			if err := validateUpdateMode(checkOnly, interactive); err != nil {
+			if err := validateUpdateMode(checkOnly, interactive, allProjects); err != nil {
 				return err
+			}
+			if allProjects {
+				req := projectupdateapp.Req{
+					Agent:      opts.Agent,
+					Scope:      opts.Scope,
+					Target:     target,
+					ProjectIDs: splitProjectIDs(projectsRaw),
+					Sync:       true,
+				}
+				service := newProjectUpdateService(defaultConfigFile(cwd), cwd)
+				plan, err := service.Plan(req)
+				if err != nil {
+					return err
+				}
+				if checkOnly {
+					return printCrossProjectUpdatePlan(plan)
+				}
+				if err := printCrossProjectUpdatePlan(plan); err != nil {
+					return err
+				}
+				if plan.CandidateCount == 0 {
+					ccolor.Successln("no cross-project update candidates")
+					return nil
+				}
+				if !opts.Yes {
+					confirmed, err := confirmPrompt(os.Stdin, os.Stdout, fmt.Sprintf("Run cross-project update for %d project(s) and %d candidate(s)?", len(plan.Projects), plan.CandidateCount))
+					if err != nil {
+						return err
+					}
+					if !confirmed {
+						ccolor.Warnln("cross-project update cancelled")
+						return nil
+					}
+				}
+				req.Confirm = true
+				result, err := service.Run(req)
+				if err != nil {
+					return err
+				}
+				return printCrossProjectUpdateResult(result)
 			}
 			if checkOnly {
 				result, err := statusapp.NewService(defaultConfigFile(cwd), cwd).Run(statusapp.Req{
@@ -453,9 +508,57 @@ func buildUpdateCommand() *gcli.Command {
 	}
 }
 
-func validateUpdateMode(checkOnly bool, interactive bool) error {
+func validateUpdateMode(checkOnly bool, interactive bool, allProjects bool) error {
 	if checkOnly && interactive {
 		return fmt.Errorf("--check and --interactive are mutually exclusive")
+	}
+	if allProjects && interactive {
+		return fmt.Errorf("--all-projects and --interactive are mutually exclusive")
+	}
+	return nil
+}
+
+func splitProjectIDs(value string) []string {
+	parts := strings.Split(value, ",")
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			out = append(out, part)
+		}
+	}
+	return out
+}
+
+func printCrossProjectUpdatePlan(plan projectupdateapp.Plan) error {
+	tb := table.New("Cross-Project Update Check").SetHeads("Project", "Path", "Skill", "Agent", "Current", "Latest", "Status")
+	for _, projectPlan := range plan.Projects {
+		if projectPlan.Error != "" {
+			tb.AddRow(projectPlan.ProjectID, projectPlan.Path, "", "", "", "", "error: "+projectPlan.Error)
+			continue
+		}
+		for _, item := range projectPlan.Items {
+			tb.AddRow(projectPlan.ProjectID, projectPlan.Path, item.SkillID, item.Agent, item.CurrentVersion, item.LatestVersion, item.Status)
+		}
+	}
+	if _, err := fmt.Fprint(os.Stdout, tb.Render()); err != nil {
+		return err
+	}
+	ccolor.Infof("cross-project candidates: %d\n", plan.CandidateCount)
+	return nil
+}
+
+func printCrossProjectUpdateResult(result projectupdateapp.Result) error {
+	for _, projectResult := range result.Results {
+		if projectResult.Error != "" {
+			ccolor.Errorf("project update failed %s %s\n", projectResult.ProjectID, projectResult.Error)
+		}
+		for _, record := range projectResult.Updated {
+			ccolor.Infof("updated %s %s %s\n", projectResult.ProjectID, record.SkillID, record.Version)
+		}
+		for _, failed := range projectResult.Failed {
+			ccolor.Errorf("update failed %s %s %s\n", projectResult.ProjectID, failed.SkillID, failed.Reason)
+		}
 	}
 	return nil
 }

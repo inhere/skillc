@@ -12,6 +12,7 @@ import (
 	"github.com/gookit/goutil/testutil/assert"
 	"github.com/gookit/goutil/x/ccolor"
 	"github.com/inhere/skillc/internal/app/installapp"
+	"github.com/inhere/skillc/internal/app/projectupdateapp"
 	"github.com/inhere/skillc/internal/app/statusapp"
 	"github.com/inhere/skillc/internal/app/updateapp"
 	cfg "github.com/inhere/skillc/internal/domain/config"
@@ -36,6 +37,19 @@ type updateRunnerStub struct {
 }
 
 func (s updateRunnerStub) Run(req updateapp.Req) (updateapp.Result, error) {
+	return s.runFn(req)
+}
+
+type projectUpdateRunnerStub struct {
+	planFn func(projectupdateapp.Req) (projectupdateapp.Plan, error)
+	runFn  func(projectupdateapp.Req) (projectupdateapp.Result, error)
+}
+
+func (s projectUpdateRunnerStub) Plan(req projectupdateapp.Req) (projectupdateapp.Plan, error) {
+	return s.planFn(req)
+}
+
+func (s projectUpdateRunnerStub) Run(req projectupdateapp.Req) (projectupdateapp.Result, error) {
 	return s.runFn(req)
 }
 
@@ -530,7 +544,7 @@ func TestUpdateCommandInteractiveNoCandidatesDoesNotOpenSelector(t *testing.T) {
 }
 
 func TestUpdateCommandInteractiveRejectsCheckMode(t *testing.T) {
-	err := validateUpdateMode(true, true)
+	err := validateUpdateMode(true, true, false)
 
 	assert.Err(t, err)
 	assert.Contains(t, err.Error(), "--check and --interactive are mutually exclusive")
@@ -1540,6 +1554,91 @@ func TestUpdateCommand_PrintsCleanupFailuresWithoutDroppingSuccessfulUpdate(t *t
 
 	assert.Contains(t, output, "updated shared-skill "+cleanupInstalled)
 	assert.Contains(t, output, "cleanup failed shared-skill cleanup failed")
+}
+
+func TestUpdateCommand_AllProjectsCheckPrintsPlan(t *testing.T) {
+	baseDir := t.TempDir()
+	assert.NoErr(t, configstore.NewYAMLStore().Save(filepath.Join(baseDir, "skillc.yaml"), cfg.DefaultConfig(), baseDir))
+	prevFactory := newProjectUpdateService
+	newProjectUpdateService = func(configFile string, baseDir string) projectUpdateRunner {
+		return projectUpdateRunnerStub{
+			planFn: func(req projectupdateapp.Req) (projectupdateapp.Plan, error) {
+				assert.Eq(t, "go-pro", req.Target)
+				return projectupdateapp.Plan{
+					Agent: "universal", Scope: "project", Target: "go-pro", CandidateCount: 1,
+					Projects: []projectupdateapp.ProjectPlan{{
+						ProjectID: "skillc",
+						Path:      baseDir,
+						Items:     []statusapp.Item{{SkillID: "go-pro", Agent: "universal", Status: statusapp.StatusOutdated, CurrentVersion: "1.0.0", LatestVersion: "2.0.0"}},
+					}},
+				}, nil
+			},
+		}
+	}
+	defer func() { newProjectUpdateService = prevFactory }()
+
+	output := runAppInDirWithStdout(t, baseDir, []string{"update", "--all-projects", "--check", "--target", "go-pro"})
+
+	assert.Contains(t, output, "Cross-Project Update Check")
+	assert.Contains(t, output, "skillc")
+	assert.Contains(t, output, "go-pro")
+	assert.Contains(t, output, "2.0.0")
+}
+
+func TestUpdateCommand_AllProjectsRequiresConfirmation(t *testing.T) {
+	baseDir := t.TempDir()
+	assert.NoErr(t, configstore.NewYAMLStore().Save(filepath.Join(baseDir, "skillc.yaml"), cfg.DefaultConfig(), baseDir))
+	runCalled := false
+	prevFactory := newProjectUpdateService
+	newProjectUpdateService = func(configFile string, baseDir string) projectUpdateRunner {
+		return projectUpdateRunnerStub{
+			planFn: func(req projectupdateapp.Req) (projectupdateapp.Plan, error) {
+				return projectupdateapp.Plan{Agent: "universal", Scope: "project", CandidateCount: 1}, nil
+			},
+			runFn: func(req projectupdateapp.Req) (projectupdateapp.Result, error) {
+				runCalled = true
+				return projectupdateapp.Result{}, nil
+			},
+		}
+	}
+	defer func() { newProjectUpdateService = prevFactory }()
+
+	output := runAppInDirWithInput(t, baseDir, []string{"update", "--all-projects"}, "n\n")
+
+	assert.Contains(t, output, "cross-project update cancelled")
+	assert.Eq(t, false, runCalled)
+}
+
+func TestUpdateCommand_AllProjectsYesRuns(t *testing.T) {
+	baseDir := t.TempDir()
+	assert.NoErr(t, configstore.NewYAMLStore().Save(filepath.Join(baseDir, "skillc.yaml"), cfg.DefaultConfig(), baseDir))
+	runCalled := false
+	prevFactory := newProjectUpdateService
+	newProjectUpdateService = func(configFile string, baseDir string) projectUpdateRunner {
+		return projectUpdateRunnerStub{
+			planFn: func(req projectupdateapp.Req) (projectupdateapp.Plan, error) {
+				return projectupdateapp.Plan{Agent: "universal", Scope: "project", CandidateCount: 1}, nil
+			},
+			runFn: func(req projectupdateapp.Req) (projectupdateapp.Result, error) {
+				runCalled = true
+				assert.Eq(t, true, req.Confirm)
+				return projectupdateapp.Result{
+					Plan: projectupdateapp.Plan{Agent: "universal", Scope: "project", CandidateCount: 1},
+					Results: []projectupdateapp.ProjectResult{{
+						ProjectID: "skillc",
+						Path:      baseDir,
+						Updated:   []installapp.RuntimeRecord{{Record: lockpkg.Record{SkillID: "go-pro", Version: "2.0.0"}, Agent: "universal", Scope: "project"}},
+					}},
+				}, nil
+			},
+		}
+	}
+	defer func() { newProjectUpdateService = prevFactory }()
+
+	output := runAppInDirWithStdout(t, baseDir, []string{"update", "--all-projects", "--yes"})
+
+	assert.Eq(t, true, runCalled)
+	assert.Contains(t, output, "updated skillc go-pro")
 }
 
 func TestProjectCommand_AddListRemove(t *testing.T) {

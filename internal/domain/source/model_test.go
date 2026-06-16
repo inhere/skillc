@@ -44,6 +44,14 @@ func TestNewGitSourceGeneratesIDWithoutTypePrefix(t *testing.T) {
 	assert.Eq(t, "main", src.Ref)
 }
 
+func TestNewGitSourceGeneratesIDForSCPStyleURL(t *testing.T) {
+	src, err := NewGitSource("git@github.com:acme/skills.git", "main")
+
+	assert.NoErr(t, err)
+	assert.Eq(t, "acme-skills", src.ID)
+	assert.Eq(t, "acme-skills", src.Name)
+}
+
 func TestNewSourceWithExplicitIDAndName(t *testing.T) {
 	src, err := NewGitSourceWithOptions("https://github.com/acme/skills.git", "", SourceOptions{
 		ID:   "Acme Skills",

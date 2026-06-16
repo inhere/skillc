@@ -105,12 +105,16 @@ func sourceNameFromPath(path string) string {
 }
 
 func sourceNameFromGitURL(url string) string {
-	name := strings.TrimSuffix(pathpkg.Base(strings.TrimSpace(url)), ".git")
+	trimmed := strings.TrimSpace(url)
+	if before, after, ok := strings.Cut(trimmed, ":"); ok && strings.Contains(before, "@") && !strings.Contains(before, "/") {
+		trimmed = after
+	}
+	name := strings.TrimSuffix(pathpkg.Base(trimmed), ".git")
 	if name == "." || name == "/" || name == "" {
 		return ""
 	}
 	if name == "skills" || name == "skill" {
-		parent := pathpkg.Base(pathpkg.Dir(url))
+		parent := pathpkg.Base(pathpkg.Dir(trimmed))
 		if parent != "." && parent != "/" && parent != "" {
 			name = parent + "-" + name
 		}

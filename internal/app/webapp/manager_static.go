@@ -186,6 +186,7 @@ td.wrap { overflow-wrap: anywhere; }
       <button data-view="sources">Sources</button>
       <button data-view="profiles">Profiles</button>
       <button data-view="skills">Skills</button>
+      <button data-view="registry">Registry</button>
       <button data-view="projects">Projects</button>
       <button data-view="drift">Version Drift</button>
       <button data-view="history">History</button>
@@ -276,6 +277,23 @@ td.wrap { overflow-wrap: anywhere; }
         <div id="skills-table"></div>
       </section>
 
+      <section id="view-registry" class="view">
+        <div class="section-head"><h3>Registry</h3><span class="hint" id="registry-count">0 result(s)</span></div>
+        <div class="panel section">
+          <div class="toolbar-row">
+            <input id="registry-keyword" placeholder="Search registry skills or sources" autocomplete="off">
+            <select id="registry-filter"></select>
+            <select id="registry-kind">
+              <option value="skill">Skills</option>
+              <option value="source">Sources</option>
+            </select>
+            <button id="registry-search-btn">Search</button>
+            <button id="registry-sync-all-btn">Sync All</button>
+          </div>
+        </div>
+        <div id="registry-table"></div>
+      </section>
+
       <section id="view-projects" class="view">
         <div class="section-head"><h3>Projects / Install Map</h3><span class="hint">Derived from lock records</span></div>
         <div class="section-head"><h3>Registered Projects</h3><span class="hint">Explicit update allowlist</span></div>
@@ -309,6 +327,7 @@ td.wrap { overflow-wrap: anywhere; }
             <button class="danger" id="run-source-action-btn" disabled>Run source action</button>
             <button class="danger" id="run-profile-action-btn" disabled>Run profile action</button>
             <button class="danger" id="run-uninstall-btn" disabled>Run uninstall</button>
+            <button class="danger" id="run-registry-action-btn" disabled>Run registry action</button>
           </div>
         </div>
         <pre id="plan-output" class="plan">No plan requested.</pre>
@@ -323,6 +342,9 @@ td.wrap { overflow-wrap: anywhere; }
     sources: [],
     profiles: [],
     projects: [],
+    registries: [],
+    registrySkills: [],
+    registrySources: [],
     status: { items: [], summary: {} },
     installs: [],
     drift: [],
@@ -373,6 +395,7 @@ td.wrap { overflow-wrap: anywhere; }
     byId('run-source-action-btn').disabled = !(action && action.type.indexOf('source-') === 0);
     byId('run-profile-action-btn').disabled = !(action && action.type.indexOf('profile-') === 0);
     byId('run-uninstall-btn').disabled = !(action && action.type === 'uninstall');
+    byId('run-registry-action-btn').disabled = !(action && action.type.indexOf('registry-') === 0);
   }
   function showError(err) {
     byId('errors').innerHTML = '<div class="error">' + esc(err.message || err) + '</div>';
@@ -463,6 +486,50 @@ td.wrap { overflow-wrap: anywhere; }
     });
     byId('skills-table').innerHTML = table(['Skill', 'Source', 'Collection', 'Version', 'Description'], rows, 'Search or refresh to load indexed skills.');
   }
+  function registrySelector(entry) {
+    return (entry.registry_id || entry.RegistryID || '') + '/' + (entry.id || entry.ID || '');
+  }
+  function renderRegistryFilter() {
+    var current = byId('registry-filter').value || '';
+    byId('registry-filter').innerHTML = '<option value="">All registries</option>' + state.registries.map(function (r) {
+      var id = r.id || r.ID;
+      return '<option value="' + esc(id) + '">' + esc(id) + '</option>';
+    }).join('');
+    byId('registry-filter').value = current;
+  }
+  function renderRegistry() {
+    renderRegistryFilter();
+    var kind = byId('registry-kind').value || 'skill';
+    var rows;
+    if (kind === 'source') {
+      rows = state.registrySources.map(function (item) {
+        var selector = registrySelector(item);
+        return '<tr><td>' + esc(item.registry_id || item.RegistryID || '') + '</td><td>' + esc(item.id || item.ID) +
+          '</td><td>' + esc(item.name || item.Name || '') + '</td><td>' + esc(item.type || item.Type || '') +
+          '</td><td class="wrap mono">' + esc(item.url || item.URL || item.path || item.Path || '') +
+          '</td><td><button data-registry-add-source="' + esc(selector) + '">Add Source</button></td></tr>';
+      });
+      byId('registry-count').textContent = rows.length + ' source result(s)';
+      byId('registry-table').innerHTML = table(['Registry', 'ID', 'Name', 'Type', 'Location', ''], rows, 'No registry source results.');
+      byId('registry-table').querySelectorAll('button[data-registry-add-source]').forEach(function (btn) {
+        btn.addEventListener('click', function () { planRegistryAddSource(btn.getAttribute('data-registry-add-source')); });
+      });
+      return;
+    }
+    rows = state.registrySkills.map(function (item) {
+      var selector = registrySelector(item);
+      return '<tr><td>' + esc(item.registry_id || item.RegistryID || '') + '</td><td>' + esc(item.id || item.ID) +
+        '</td><td>' + esc(item.name || item.Name || '') + '</td><td>' + esc(item.version || item.Version || '') +
+        '</td><td>' + esc((item.supported_agents || item.SupportedAgents || []).join(',')) +
+        '</td><td class="wrap mono">' + esc(item.source_url || item.SourceURL || item.download_url || item.DownloadURL || '') +
+        '</td><td><button data-registry-install="' + esc(selector) + '">Install</button></td></tr>';
+    });
+    byId('registry-count').textContent = rows.length + ' skill result(s)';
+    byId('registry-table').innerHTML = table(['Registry', 'ID', 'Name', 'Version', 'Agents', 'Source', ''], rows, 'No registry skill results.');
+    byId('registry-table').querySelectorAll('button[data-registry-install]').forEach(function (btn) {
+      btn.addEventListener('click', function () { planRegistryInstall(btn.getAttribute('data-registry-install')); });
+    });
+  }
   function renderInstalls() {
     var rows = state.installs.map(function (item, idx) {
       var target = item.source_qualified_name || item.qualified_name || item.skill_id;
@@ -515,6 +582,7 @@ td.wrap { overflow-wrap: anywhere; }
     renderSources();
     renderProfiles();
     renderSkills();
+    renderRegistry();
     renderRegisteredProjects();
     renderInstalls();
     renderDrift();
@@ -531,6 +599,9 @@ td.wrap { overflow-wrap: anywhere; }
       api('/api/install-map'),
       api('/api/version-drift'),
       api('/api/skills'),
+      api('/api/registries'),
+      api('/api/registry/skills'),
+      api('/api/registry/sources'),
       api('/api/history')
     ]).then(function (all) {
       state.summary = all[0];
@@ -541,7 +612,10 @@ td.wrap { overflow-wrap: anywhere; }
       state.installs = all[5] || [];
       state.drift = all[6] || [];
       state.skills = all[7] || [];
-      state.history = all[8] || [];
+      state.registries = all[8] || [];
+      state.registrySkills = all[9] || [];
+      state.registrySources = all[10] || [];
+      state.history = all[11] || [];
       renderAll();
     }).catch(showError);
   }
@@ -554,6 +628,49 @@ td.wrap { overflow-wrap: anywhere; }
       state.skills = items || [];
       renderSkills();
     }).catch(showError);
+  }
+  function searchRegistry() {
+    clearError();
+    var keyword = encodeURIComponent(byId('registry-keyword').value.trim());
+    var registry = encodeURIComponent(byId('registry-filter').value || '');
+    var qs = '?keyword=' + keyword + '&registry=' + registry;
+    Promise.all([api('/api/registry/skills' + qs), api('/api/registry/sources' + qs)])
+      .then(function (all) {
+        state.registrySkills = all[0] || [];
+        state.registrySources = all[1] || [];
+        renderRegistry();
+      })
+      .catch(showError);
+  }
+  function planRegistryInstall(target) {
+    clearError();
+    var payload = { target: target };
+    postJSON('/api/registry/install/plan', payload)
+      .then(function (plan) {
+        setPendingAction({ type: 'registry-install', payload: payload });
+        byId('plan-output').textContent = JSON.stringify(plan, null, 2);
+      })
+      .catch(showError);
+  }
+  function planRegistrySync(registryID) {
+    clearError();
+    var payload = { registry_id: registryID || '' };
+    postJSON('/api/registry/sync/plan', payload)
+      .then(function (plan) {
+        setPendingAction({ type: 'registry-sync', payload: payload });
+        byId('plan-output').textContent = JSON.stringify(plan, null, 2);
+      })
+      .catch(showError);
+  }
+  function planRegistryAddSource(entryID) {
+    clearError();
+    var payload = { entry_id: entryID, sync: true };
+    postJSON('/api/registry/add-source/plan', payload)
+      .then(function (plan) {
+        setPendingAction({ type: 'registry-add-source', payload: payload });
+        byId('plan-output').textContent = JSON.stringify(plan, null, 2);
+      })
+      .catch(showError);
   }
   function planProfile(name) {
     clearError();
@@ -787,6 +904,24 @@ td.wrap { overflow-wrap: anywhere; }
       })
       .catch(showError);
   }
+  function runRegistryAction() {
+    var action = state.pendingAction;
+    if (!action || action.type.indexOf('registry-') !== 0) return;
+    if (!window.confirm('Run this registry action for the current project?')) return;
+    var route = {
+      'registry-install': '/api/registry/install/run',
+      'registry-sync': '/api/registry/sync/run',
+      'registry-add-source': '/api/registry/add-source/run'
+    }[action.type];
+    var payload = Object.assign({ confirm: true }, action.payload || {});
+    postJSON(route, payload)
+      .then(function (result) {
+        byId('plan-output').textContent = JSON.stringify(result, null, 2);
+        setPendingAction(null);
+        loadAll();
+      })
+      .catch(showError);
+  }
   document.querySelectorAll('.nav button').forEach(function (btn) {
     btn.addEventListener('click', function () {
       document.querySelectorAll('.nav button').forEach(function (b) { b.classList.remove('active'); });
@@ -801,6 +936,12 @@ td.wrap { overflow-wrap: anywhere; }
   byId('skill-search').addEventListener('keydown', function (event) {
     if (event.key === 'Enter') searchSkills();
   });
+  byId('registry-search-btn').addEventListener('click', searchRegistry);
+  byId('registry-keyword').addEventListener('keydown', function (event) {
+    if (event.key === 'Enter') searchRegistry();
+  });
+  byId('registry-kind').addEventListener('change', renderRegistry);
+  byId('registry-sync-all-btn').addEventListener('click', function () { planRegistrySync(''); });
   byId('plan-update-btn').addEventListener('click', planUpdate);
   byId('plan-update-all-btn').addEventListener('click', planUpdateAll);
   byId('plan-source-add-btn').addEventListener('click', planSourceAdd);
@@ -813,6 +954,7 @@ td.wrap { overflow-wrap: anywhere; }
   byId('run-source-action-btn').addEventListener('click', runSourceAction);
   byId('run-profile-action-btn').addEventListener('click', runProfileAction);
   byId('run-uninstall-btn').addEventListener('click', runUninstall);
+  byId('run-registry-action-btn').addEventListener('click', runRegistryAction);
   setPendingAction(null);
   loadAll();
 })();

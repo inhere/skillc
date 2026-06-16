@@ -581,6 +581,20 @@ func TestManagerServerStaticPageContainsAllProjectsUpdateControls(t *testing.T) 
 	assert.Contains(t, body, `id="run-update-all-btn"`)
 }
 
+func TestManagerServerStaticPageContainsRegistryView(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile, _ := writeWebManagerFixture(t, baseDir)
+	server := NewManagerServer(configFile, baseDir)
+
+	rec := performManagerRequest(server, http.MethodGet, "/")
+	body := rec.Body.String()
+
+	assert.Eq(t, http.StatusOK, rec.Code)
+	assert.Contains(t, body, `data-view="registry"`)
+	assert.Contains(t, body, `/api/registry/skills`)
+	assert.Contains(t, body, `registry-install`)
+}
+
 func TestManagerServerStaticPageDoesNotUseExternalAssets(t *testing.T) {
 	baseDir := t.TempDir()
 	configFile, _ := writeWebManagerFixture(t, baseDir)

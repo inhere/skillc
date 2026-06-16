@@ -1080,7 +1080,7 @@ go test ./internal/app/webapp -count=1
 
 Expected: PASS.
 
-- [ ] **Step 9: Commit Web registry actions**
+- [x] **Step 9: Commit Web registry actions**
 
 ```bash
 git add internal/app/webapp/manager_registry_actions.go internal/app/webapp/manager_registry_actions_test.go internal/app/webapp/manager_server.go internal/app/webapp/manager_server_test.go docs/superpowers/plans/2026-06-16-skillc-v0-phase10-web-registry-archive.md
@@ -1093,7 +1093,7 @@ git commit -m "feat(skillc): add web registry actions"
 - Modify: `internal/app/webapp/manager_static.go`
 - Modify: `internal/app/webapp/manager_server_test.go`
 
-- [ ] **Step 1: Add static UI smoke test expectation**
+- [x] **Step 1: Add static UI smoke test expectation**
 
 In an existing index/static test, assert the HTML contains:
 
@@ -1103,7 +1103,7 @@ assert.Contains(t, body, `/api/registry/skills`)
 assert.Contains(t, body, `registry-install`)
 ```
 
-- [ ] **Step 2: Run focused static test and verify failure**
+- [x] **Step 2: Run focused static test and verify failure**
 
 Run:
 
@@ -1113,7 +1113,7 @@ go test ./internal/app/webapp -run TestManagerServer_Index -count=1
 
 Expected: FAIL because Registry UI is not present.
 
-- [ ] **Step 3: Add Registry nav and view skeleton**
+- [x] **Step 3: Add Registry nav and view skeleton**
 
 In `manager_static.go`, add sidebar button:
 
@@ -1142,7 +1142,7 @@ Add view section:
 
 Keep styling consistent with existing toolbar/table/button classes.
 
-- [ ] **Step 4: Extend frontend state and loading**
+- [x] **Step 4: Extend frontend state and loading**
 
 Add to state:
 
@@ -1155,7 +1155,7 @@ registryKind: 'skill'
 
 In `loadAll`, fetch `/api/registries`, `/api/registry/skills`, `/api/registry/sources`, then assign into state.
 
-- [ ] **Step 5: Render registry filter and result tables**
+- [x] **Step 5: Render registry filter and result tables**
 
 Add `renderRegistry()`:
 
@@ -1180,7 +1180,7 @@ Rows should include buttons:
 - Source: `Add Source`
 - Registry sync: per registry button can be added in table or registry list later; P10 must include `Sync All`.
 
-- [ ] **Step 6: Add search and action handlers**
+- [x] **Step 6: Add search and action handlers**
 
 Add:
 
@@ -1227,7 +1227,7 @@ Wire confirm route map:
 'registry-add-source': '/api/registry/add-source/run'
 ```
 
-- [ ] **Step 7: Run webapp tests**
+- [x] **Step 7: Run webapp tests**
 
 Run:
 
@@ -1237,7 +1237,7 @@ go test ./internal/app/webapp -count=1
 
 Expected: PASS.
 
-- [ ] **Step 8: Manual smoke test with local server**
+- [x] **Step 8: Manual smoke test with local server**
 
 Run:
 

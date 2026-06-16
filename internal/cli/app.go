@@ -26,6 +26,7 @@ func NewApp(version, gitHash, buildTime string) *gcli.App {
 	app.Add(buildConfigCommand())
 	app.Add(buildSourceCommand())
 	app.Add(buildProfileCommand())
+	app.Add(buildProjectCommand())
 	app.Add(buildSearchCommand())
 	app.Add(buildShowCommand())
 	app.Add(buildWebCommand())

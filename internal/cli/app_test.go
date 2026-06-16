@@ -1542,6 +1542,42 @@ func TestUpdateCommand_PrintsCleanupFailuresWithoutDroppingSuccessfulUpdate(t *t
 	assert.Contains(t, output, "cleanup failed shared-skill cleanup failed")
 }
 
+func TestProjectCommand_AddListRemove(t *testing.T) {
+	baseDir := t.TempDir()
+	projectDir := filepath.Join(baseDir, "demo")
+	assert.NoErr(t, os.MkdirAll(projectDir, 0o755))
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, cfg.DefaultConfig(), baseDir))
+
+	addOutput := runAppInDirWithStdout(t, baseDir, []string{"project", "add", "--id", "demo", "--name", "Demo", projectDir})
+	assert.Contains(t, addOutput, "project added: demo")
+
+	listOutput := runAppInDirWithStdout(t, baseDir, []string{"project", "list"})
+	assert.Contains(t, listOutput, "demo")
+	assert.Contains(t, listOutput, "Demo")
+
+	removeOutput := runAppInDirWithStdout(t, baseDir, []string{"project", "remove", "demo"})
+	assert.Contains(t, removeOutput, "project removed: demo")
+}
+
+func TestProjectCommand_ImportLock(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	lockFile := filepath.Join(baseDir, "skillc.lock.json")
+	projectDir := filepath.Join(baseDir, "project-a")
+	assert.NoErr(t, os.MkdirAll(projectDir, 0o755))
+	config := cfg.DefaultConfig()
+	config.LockFile = lockFile
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config, baseDir))
+	assert.NoErr(t, lockstore.NewStore().Save(lockFile, lockpkg.File{
+		projectDir: {{SkillID: "go-pro", Agents: []string{"universal"}}},
+	}))
+
+	output := runAppInDirWithStdout(t, baseDir, []string{"project", "import-lock"})
+
+	assert.Contains(t, output, "imported project-a")
+}
+
 func findCommandByName(app *gcli.App, name string) *gcli.Command {
 	for _, cmd := range app.Commands() {
 		if cmd.Name == name {

@@ -80,7 +80,7 @@ func TestService_RunExpandsGroupedLockRecordsPerAgentAndProjectScopePath(t *test
 		}}
 	}
 
-	result, err := service.Run(Req{Scope: "project", WorkDir: baseDir})
+	result, err := service.Run(Req{Scope: "project", WorkDir: baseDir, ProjectPaths: []string{projectKey}})
 	assert.NoErr(t, err)
 
 	claudeRoot, err := agent.ResolveInstallPath(config, projectKey, "claude-code", agent.ScopeProject)
@@ -144,7 +144,7 @@ func TestService_RunUsesSourceAwareCandidateMatchingForGroupedRecords(t *testing
 		}}
 	}
 
-	result, err := service.Run(Req{Target: "shared-skill", Scope: "project", WorkDir: baseDir})
+	result, err := service.Run(Req{Target: "shared-skill", Scope: "project", WorkDir: baseDir, ProjectPaths: []string{projectKey}})
 	assert.NoErr(t, err)
 
 	sort.Strings(installCalls)
@@ -242,7 +242,7 @@ func TestService_RunKeepsInstalledPathWhenQualifiedNameChanges(t *testing.T) {
 	service := NewService(configFile, baseDir)
 	service.syncer = sourceSyncerStub{syncFn: func(id string) error { return nil }}
 
-	result, err := service.Run(Req{Agent: "claude-code", Scope: "project", WorkDir: baseDir})
+	result, err := service.Run(Req{Agent: "claude-code", Scope: "project", WorkDir: baseDir, ProjectPaths: []string{projectKey}})
 	assert.NoErr(t, err)
 	assert.Len(t, result.Updated, 1)
 
@@ -306,7 +306,7 @@ func TestService_RunKeepsInstalledPathWhenReinstallFailsAfterQualifiedNameChange
 		}}
 	}
 
-	result, err := service.Run(Req{Agent: "claude-code", Scope: "project", WorkDir: baseDir})
+	result, err := service.Run(Req{Agent: "claude-code", Scope: "project", WorkDir: baseDir, ProjectPaths: []string{projectKey}})
 	assert.NoErr(t, err)
 	assert.Len(t, result.Updated, 0)
 	assert.Len(t, result.UpdateFailed, 1)
@@ -371,7 +371,7 @@ func TestService_RunReportsCleanupFailureWhenInstalledPathChanges(t *testing.T) 
 		return os.RemoveAll(path)
 	}
 
-	result, err := service.Run(Req{Agent: "claude-code", Scope: "project", WorkDir: baseDir})
+	result, err := service.Run(Req{Agent: "claude-code", Scope: "project", WorkDir: baseDir, ProjectPaths: []string{projectKey}})
 	assert.NoErr(t, err)
 	assert.Len(t, result.Updated, 1)
 	assert.Len(t, result.UpdateFailed, 0)
@@ -426,7 +426,7 @@ func TestService_RunSkipsPinnedGroupedRecordForRequestedAgent(t *testing.T) {
 		}}
 	}
 
-	result, err := service.Run(Req{Target: "pinned-skill", Agent: "claude-code", Scope: "project", WorkDir: baseDir})
+	result, err := service.Run(Req{Target: "pinned-skill", Agent: "claude-code", Scope: "project", WorkDir: baseDir, ProjectPaths: []string{projectKey}})
 	assert.NoErr(t, err)
 	assert.Len(t, result.Updated, 0)
 	assert.Len(t, result.Skipped, 1)
@@ -478,7 +478,7 @@ func TestService_RunAggregatesGroupedSyncAndReinstallFailures(t *testing.T) {
 		}}
 	}
 
-	result, err := service.Run(Req{Scope: "project", WorkDir: baseDir})
+	result, err := service.Run(Req{Scope: "project", WorkDir: baseDir, ProjectPaths: []string{projectKey}})
 	assert.NoErr(t, err)
 	assert.Eq(t, []string{"source-a", "source-b"}, syncCalls)
 	assert.Eq(t, []string{"hello-skill|claude-code", "world-skill|codex"}, installCalls)
@@ -490,6 +490,85 @@ func TestService_RunAggregatesGroupedSyncAndReinstallFailures(t *testing.T) {
 	assert.Eq(t, "world-skill", result.Failed[2].SkillID)
 }
 
+func TestService_RunProjectScopeDefaultsToCurrentWorkDirOnly(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	lockFile := filepath.Join(baseDir, "skillc-install.lock")
+	indexFile := filepath.Join(baseDir, "cache", "index.json")
+	projectA := filepath.Join(baseDir, "project-a")
+	projectB := filepath.Join(baseDir, "project-b")
+	assert.NoErr(t, os.MkdirAll(projectA, 0o755))
+	assert.NoErr(t, os.MkdirAll(projectB, 0o755))
+
+	config := cfg.DefaultConfig()
+	config.LockFile = lockFile
+	config.IndexFile = indexFile
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config, baseDir))
+	assert.NoErr(t, lockstore.NewStore().Save(lockFile, lockpkg.File{
+		projectA: {{SkillID: "go-pro", SourceID: "source-a", Agents: []string{"universal"}}},
+		projectB: {{SkillID: "review", SourceID: "source-a", Agents: []string{"universal"}}},
+	}))
+	assert.NoErr(t, repoindex.NewStore().Save(indexFile, []skill.Skill{
+		{ID: "go-pro", SourceID: "source-a", Version: "2.0.0", Path: createSkillSource(t, baseDir, filepath.Join("source", "go-pro"), "payload.txt", "go")},
+		{ID: "review", SourceID: "source-a", Version: "2.0.0", Path: createSkillSource(t, baseDir, filepath.Join("source", "review"), "payload.txt", "review")},
+	}))
+
+	service := NewService(configFile, baseDir)
+	service.syncer = sourceSyncerStub{syncFn: func(id string) error { return nil }}
+	updated := make([]string, 0)
+	service.newInstaller = func(path string, _ cfg.Config) reinstallService {
+		return reinstallServiceStub{reinstallFn: func(item skill.Skill, agentName string, scope agent.Scope, scopeKey string, targetPath string) (installapp.RuntimeRecord, error) {
+			updated = append(updated, scopeKey+"|"+item.ID)
+			return installapp.RuntimeRecord{Record: lockpkg.Record{SkillID: item.ID, Version: item.Version}, Agent: agentName, Scope: string(scope), InstalledPath: targetPath}, nil
+		}}
+	}
+
+	result, err := service.Run(Req{Scope: "project", WorkDir: projectA})
+
+	assert.NoErr(t, err)
+	assert.Len(t, result.Updated, 1)
+	assert.Eq(t, []string{projectA + "|go-pro"}, updated)
+}
+
+func TestService_RunProjectScopeAllUsesExplicitProjectPaths(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	lockFile := filepath.Join(baseDir, "skillc-install.lock")
+	indexFile := filepath.Join(baseDir, "cache", "index.json")
+	projectA := filepath.Join(baseDir, "project-a")
+	projectB := filepath.Join(baseDir, "project-b")
+	assert.NoErr(t, os.MkdirAll(projectA, 0o755))
+	assert.NoErr(t, os.MkdirAll(projectB, 0o755))
+
+	config := cfg.DefaultConfig()
+	config.LockFile = lockFile
+	config.IndexFile = indexFile
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config, baseDir))
+	assert.NoErr(t, lockstore.NewStore().Save(lockFile, lockpkg.File{
+		projectA: {{SkillID: "go-pro", SourceID: "source-a", Agents: []string{"universal"}}},
+		projectB: {{SkillID: "review", SourceID: "source-a", Agents: []string{"universal"}}},
+	}))
+	assert.NoErr(t, repoindex.NewStore().Save(indexFile, []skill.Skill{
+		{ID: "go-pro", SourceID: "source-a", Version: "2.0.0", Path: createSkillSource(t, baseDir, filepath.Join("source", "go-pro-2"), "payload.txt", "go")},
+		{ID: "review", SourceID: "source-a", Version: "2.0.0", Path: createSkillSource(t, baseDir, filepath.Join("source", "review-2"), "payload.txt", "review")},
+	}))
+
+	service := NewService(configFile, baseDir)
+	service.syncer = sourceSyncerStub{syncFn: func(id string) error { return nil }}
+	updated := make([]string, 0)
+	service.newInstaller = func(path string, _ cfg.Config) reinstallService {
+		return reinstallServiceStub{reinstallFn: func(item skill.Skill, agentName string, scope agent.Scope, scopeKey string, targetPath string) (installapp.RuntimeRecord, error) {
+			updated = append(updated, scopeKey+"|"+item.ID)
+			return installapp.RuntimeRecord{Record: lockpkg.Record{SkillID: item.ID, Version: item.Version}, Agent: agentName, Scope: string(scope), InstalledPath: targetPath}, nil
+		}}
+	}
+
+	result, err := service.Run(Req{Scope: "project", WorkDir: baseDir, All: true, ProjectPaths: []string{projectB}})
+
+	assert.NoErr(t, err)
+	assert.Len(t, result.Updated, 1)
+	assert.Eq(t, []string{projectB + "|review"}, updated)
+}
 
 func TestService_RunRejectsAmbiguousDuplicatePlainDirs(t *testing.T) {
 	baseDir := t.TempDir()

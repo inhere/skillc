@@ -27,11 +27,12 @@ type reinstallService interface {
 }
 
 type UpdateReq struct {
-	Target  string
-	Agent   string
-	Scope   string
-	All     bool
-	WorkDir string
+	Target       string
+	Agent        string
+	Scope        string
+	All          bool
+	WorkDir      string
+	ProjectPaths []string
 }
 
 type Req = UpdateReq
@@ -182,7 +183,7 @@ func (s *Service) collectSelected(config cfg.Config, req UpdateReq, scope agent.
 		return nil, nil, err
 	}
 	if len(records) > 0 {
-		return selectRecords(config, req.WorkDir, records, req.Target, req.Agent, string(scope), req.All)
+		return selectRecords(config, req.WorkDir, records, req.Target, req.Agent, string(scope), req.All, req.ProjectPaths)
 	}
 	return s.collectFromInstalledDirs(config, req.WorkDir, req.Agent, scope)
 }
@@ -198,12 +199,16 @@ func (s *Service) loadRecords(path string) (lockpkg.File, error) {
 	return nil, err
 }
 
-func selectRecords(config cfg.Config, workDir string, records lockpkg.File, target string, agentName string, scope string, all bool) ([]InstalledItem, []SkippedItem, error) {
+func selectRecords(config cfg.Config, workDir string, records lockpkg.File, target string, agentName string, scope string, all bool, projectPaths []string) ([]InstalledItem, []SkippedItem, error) {
 	selected := make([]InstalledItem, 0)
 	skipped := make([]SkippedItem, 0)
+	allowedProjectKeys := allowedProjectScopeKeys(workDir, projectPaths, all)
 	for _, scopeKey := range sortedScopeKeys(records) {
 		recordScope := scopeFromKey(scopeKey)
 		if scope != "" && string(recordScope) != scope {
+			continue
+		}
+		if recordScope == agent.ScopeProject && allowedProjectKeys != nil && !allowedProjectKeys[filepath.Clean(scopeKey)] {
 			continue
 		}
 		for _, record := range records[scopeKey] {
@@ -211,7 +216,7 @@ func selectRecords(config cfg.Config, workDir string, records lockpkg.File, targ
 			if len(filteredAgents) == 0 {
 				continue
 			}
-			if !all && target != "" && !matchesRecordTarget(record, target) {
+			if target != "" && !matchesRecordTarget(record, target) {
 				continue
 			}
 			if record.Pinned {
@@ -238,6 +243,20 @@ func selectRecords(config cfg.Config, workDir string, records lockpkg.File, targ
 		return nil, nil, fmt.Errorf("skill not found: %s", target)
 	}
 	return selected, skipped, nil
+}
+
+func allowedProjectScopeKeys(workDir string, projectPaths []string, all bool) map[string]bool {
+	if len(projectPaths) > 0 {
+		out := make(map[string]bool, len(projectPaths))
+		for _, path := range projectPaths {
+			out[filepath.Clean(path)] = true
+		}
+		return out
+	}
+	if all {
+		return nil
+	}
+	return map[string]bool{filepath.Clean(workDir): true}
 }
 
 func matchesRecordTarget(record lockpkg.Record, target string) bool {

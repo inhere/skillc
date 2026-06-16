@@ -3,7 +3,7 @@ package registry
 import (
 	"testing"
 
-	"github.com/gookit/goutil/testutil/assert"
+	"github.com/gookit/goutil/x/assert"
 )
 
 func TestNewRegistryFromLocalPath(t *testing.T) {
@@ -30,4 +30,24 @@ func TestEntryValidateRequiresSourceLocation(t *testing.T) {
 
 	assert.Err(t, err)
 	assert.Contains(t, err.Error(), "registry entry git url is required")
+}
+
+func TestSkillEntryValidateRequiresInstallSource(t *testing.T) {
+	err := SkillEntry{ID: "go-pro", Name: "Go Pro"}.Validate()
+
+	assert.Err(t, err)
+	assert.Contains(t, err.Error(), "source_url or download_url is required")
+}
+
+func TestNormalizeSkillEntryDefaultsInstallEntryAndName(t *testing.T) {
+	entry, err := NormalizeSkillEntry(SkillEntry{
+		ID:        "Go Pro",
+		SourceURL: "https://github.com/acme/skills.git",
+	}, "skills-sh")
+
+	assert.NoErr(t, err)
+	assert.Eq(t, "go-pro", entry.ID)
+	assert.Eq(t, "go-pro", entry.Name)
+	assert.Eq(t, ".", entry.InstallEntry)
+	assert.Eq(t, "skills-sh", entry.RegistryID)
 }

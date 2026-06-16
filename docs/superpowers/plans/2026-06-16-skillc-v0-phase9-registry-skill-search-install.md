@@ -203,7 +203,7 @@ For installed registry skills:
 - Modify: `internal/domain/registry/model.go`
 - Modify: `internal/domain/registry/model_test.go`
 
-- [ ] **Step 1: Write failing source type test**
+- [x] **Step 1: Write failing source type test**
 
 Add to `internal/domain/source/model_test.go`:
 
@@ -213,7 +213,7 @@ func TestSourceTypeRegistryConstant(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Write failing registry skill entry tests**
+- [x] **Step 2: Write failing registry skill entry tests**
 
 Add to `internal/domain/registry/model_test.go`:
 
@@ -239,7 +239,7 @@ func TestNormalizeSkillEntryDefaultsInstallEntryAndName(t *testing.T) {
 }
 ```
 
-- [ ] **Step 3: Run tests to verify they fail**
+- [x] **Step 3: Run tests to verify they fail**
 
 Run:
 
@@ -249,7 +249,7 @@ go test ./internal/domain/source ./internal/domain/registry -run 'Test(SourceTyp
 
 Expected: FAIL because `TypeRegistry`, `SkillEntry`, and `NormalizeSkillEntry` do not exist.
 
-- [ ] **Step 4: Implement registry domain model**
+- [x] **Step 4: Implement registry domain model**
 
 Modify `internal/domain/source/model.go`:
 
@@ -319,7 +319,7 @@ func NormalizeSkillEntry(entry SkillEntry, registryID string) (SkillEntry, error
 }
 ```
 
-- [ ] **Step 5: Run domain tests**
+- [x] **Step 5: Run domain tests**
 
 Run:
 

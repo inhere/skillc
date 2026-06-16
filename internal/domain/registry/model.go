@@ -37,7 +37,25 @@ type Entry struct {
 }
 
 type Catalog struct {
-	Sources []Entry `json:"sources"`
+	Skills  []SkillEntry `json:"skills,omitempty"`
+	Sources []Entry      `json:"sources,omitempty"`
+}
+
+type SkillEntry struct {
+	ID              string   `json:"id"`
+	Name            string   `json:"name,omitempty"`
+	Description     string   `json:"description,omitempty"`
+	Version         string   `json:"version,omitempty"`
+	SupportedAgents []string `json:"supported_agents,omitempty"`
+	SourceURL       string   `json:"source_url,omitempty"`
+	SourceRef       string   `json:"source_ref,omitempty"`
+	DownloadURL     string   `json:"download_url,omitempty"`
+	InstallEntry    string   `json:"install_entry,omitempty"`
+	Checksum         string   `json:"checksum,omitempty"`
+	Tags            []string `json:"tags,omitempty"`
+	Homepage         string   `json:"homepage,omitempty"`
+	RegistryID       string   `json:"registry_id,omitempty"`
+	RegistryURL      string   `json:"registry_url,omitempty"`
 }
 
 func New(id string, name string, value string) (Registry, error) {
@@ -84,6 +102,38 @@ func (e Entry) Validate() error {
 		return fmt.Errorf("registry entry type is required")
 	}
 	return nil
+}
+
+func (e SkillEntry) Validate() error {
+	if NormalizeID(e.ID) == "" {
+		return fmt.Errorf("registry skill id is required")
+	}
+	if strings.TrimSpace(e.SourceURL) == "" && strings.TrimSpace(e.DownloadURL) == "" {
+		return fmt.Errorf("registry skill source_url or download_url is required")
+	}
+	return nil
+}
+
+func NormalizeSkillEntry(entry SkillEntry, registryID string) (SkillEntry, error) {
+	entry.ID = NormalizeID(entry.ID)
+	entry.Name = strings.TrimSpace(entry.Name)
+	if entry.Name == "" {
+		entry.Name = entry.ID
+	}
+	entry.SourceURL = strings.TrimSpace(entry.SourceURL)
+	entry.SourceRef = strings.TrimSpace(entry.SourceRef)
+	entry.DownloadURL = strings.TrimSpace(entry.DownloadURL)
+	entry.InstallEntry = strings.TrimSpace(entry.InstallEntry)
+	if entry.InstallEntry == "" {
+		entry.InstallEntry = "."
+	}
+	entry.Checksum = strings.TrimSpace(entry.Checksum)
+	entry.RegistryURL = strings.TrimSpace(entry.RegistryURL)
+	entry.RegistryID = registryID
+	if err := entry.Validate(); err != nil {
+		return SkillEntry{}, err
+	}
+	return entry, nil
 }
 
 func NormalizeID(value string) string {

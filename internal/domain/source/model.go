@@ -12,8 +12,9 @@ import (
 type Type string
 
 const (
-	TypeLocal Type = "local"
-	TypeGit   Type = "git"
+	TypeLocal    Type = "local"
+	TypeGit      Type = "git"
+	TypeRegistry Type = "registry"
 )
 
 type Source struct {

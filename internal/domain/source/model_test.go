@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/gookit/goutil/fsutil"
-	"github.com/gookit/goutil/testutil/assert"
+	"github.com/gookit/goutil/x/assert"
 )
 
 func TestNewLocalSource_AssignsIDAndName(t *testing.T) {
@@ -50,6 +50,10 @@ func TestNewGitSourceGeneratesIDForSCPStyleURL(t *testing.T) {
 	assert.NoErr(t, err)
 	assert.Eq(t, "acme-skills", src.ID)
 	assert.Eq(t, "acme-skills", src.Name)
+}
+
+func TestSourceTypeRegistryConstant(t *testing.T) {
+	assert.Eq(t, Type("registry"), TypeRegistry)
 }
 
 func TestNewSourceWithExplicitIDAndName(t *testing.T) {

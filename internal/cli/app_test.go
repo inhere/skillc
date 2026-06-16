@@ -365,6 +365,30 @@ func TestUpdateCommand_CheckPrintsCandidatesWithoutCallingUpdateRunner(t *testin
 	assert.False(t, calledUpdateRunner)
 }
 
+func TestUpdateCommand_CheckPrintsPreciseDriftReason(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	lockFile := filepath.Join(baseDir, "skillc.lock.json")
+	indexFile := filepath.Join(baseDir, "index.json")
+	assert.NoErr(t, os.MkdirAll(filepath.Join(baseDir, ".agents", "skills", "rules"), 0o755))
+
+	config := cfg.DefaultConfig()
+	config.LockFile = lockFile
+	config.IndexFile = indexFile
+	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, ".agents")}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
+	assert.NoErr(t, lockstore.NewStore().Save(lockFile, lockpkg.File{
+		filepath.Clean(baseDir): {{SkillID: "rules", SourceID: "local", Version: "1.0.0", Checksum: "oldsum", Agents: []string{"universal"}}},
+	}))
+	assert.NoErr(t, repoindex.NewStore().Save(indexFile, []skill.Skill{{ID: "rules", SourceID: "local", Version: "1.0.0", Checksum: "newsum"}}))
+
+	output := runAppInDirWithStdout(t, baseDir, []string{"update", "--check", "--agent", "universal"})
+
+	assert.Contains(t, output, "Update Check")
+	assert.Contains(t, output, "rules")
+	assert.Contains(t, output, "checksum oldsum -> newsum")
+}
+
 func TestUpdateCommand_CheckHonorsTargetFilter(t *testing.T) {
 	baseDir := t.TempDir()
 	configFile := filepath.Join(baseDir, "skillc.yaml")

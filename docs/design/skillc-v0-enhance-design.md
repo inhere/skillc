@@ -20,6 +20,7 @@
 | 2026-06-16 | v0.16 | Codex | 增加 Phase 7 跨项目 project registry / update --all-projects 实施计划链接和范围 |
 | 2026-06-16 | v0.17 | Codex | 记录 Phase 7 已落地 project registry、`update --all-projects` 和 Web 跨项目更新闭环 |
 | 2026-06-16 | v0.18 | Codex | 增加 Phase 8 Registry 发现、source UX cleanup 和精确 drift 实施计划链接 |
+| 2026-06-16 | v0.19 | Codex | 记录 Phase 8 已落地 Registry MVP、source UX cleanup 和精确 drift metadata |
 
 状态：Draft
 
@@ -72,6 +73,8 @@
 八期开发计划：`docs/superpowers/plans/2026-06-16-skillc-v0-phase8-registry-source-drift.md`
 
 八期目标：将 Registry 发现能力、source UX cleanup 和精确 drift 判断拆成三个可独立提交的 slice。P8 先补 `source add <path-or-url> --id/--name`、去掉新 source ID 的 `local-` / `git-` 强前缀并新增 `source info <id>`；再落地本机 registry catalog 的 list/add/remove/sync/search/info/add-source；最后将 Git resolved ref 和 local checksum 写入 index/lock/status/Web，用于同版本内容漂移判断。P8 不做 Registry 信任模型、Web Registry 页面、profile 推荐、旧 source ID 自动迁移或 project manifest。
+
+八期状态：已完成 source UX cleanup、Registry 本机/HTTP JSON catalog MVP，以及基于 Git resolved ref / local directory checksum 的精确 drift metadata。`registry add-source` 只注册 source，不直接安装 Skill 或写 lock；Web Version Drift 已显示 version/checksum/git ref signals。
 
 ## 1. 设计结论
 
@@ -231,7 +234,7 @@ skillc install --collection go
 
 ### 3.4 Registry
 
-Registry 是旧设计中已经出现的远程技能发现来源，建议保留在概念模型里，但放到 profile 主链路之后实现。
+Registry 是旧设计中已经出现的远程技能发现来源。Phase 8 已先落地 MVP，用于发现可复用的 source entry，并保持“发现归 registry，安装仍进入 source/index/install/profile/lock”的边界。
 
 定位：
 
@@ -239,16 +242,19 @@ Registry 是旧设计中已经出现的远程技能发现来源，建议保留�
 - Registry 管理“我还不知道具体仓库时，去哪里搜索发现 skill/profile/source”。
 - Registry 的搜索结果最终仍应落成 source 或缓存快照，再进入统一 index/install/profile 流程。
 
-建议后期命令：
+已落地命令：
 
 ```bash
-skillc registry add <url> [--id <id>] [--name <name>]
 skillc registry list
+skillc registry add <path-or-url> --id <id> --name <name>
+skillc registry sync <id>
+skillc registry sync --all
 skillc registry search <keyword>
-skillc registry install <result-id>
+skillc registry info <entry-id>
+skillc registry add-source <entry-id> [--id <id>] [--name <name>] [--sync]
 ```
 
-v0 增强阶段不实现 registry，但数据模型和文档中要保留扩展点，避免后续把 registry 硬塞进 source 命令。
+P8 只支持本机/HTTP JSON catalog，不做账号、token、签名校验、信任策略、profile 推荐或 Web Registry 页面。`registry search` 只读 catalog cache，`registry add-source` 只写 source 配置；安装仍由 source sync/search/install/update 主链路处理。
 
 ### 3.5 Lock
 
@@ -1045,15 +1051,15 @@ internal/infra/termselect/
 - 本地监听默认 `127.0.0.1`。
 - 不默认开放远程访问。
 
-### 11.5 Registry 延后实现
+### 11.5 Registry MVP 边界
 
-风险：旧 PRD 中已有 Registry，但当前增强设计如果完全不提，后续会产生概念断层。
+风险：Registry 如果直接做成安装入口，会绕过 source/index/install/lock/profile 主链路，并引入信任、安全和权限模型。
 
 处理：
 
-- 在概念模型和配置扩展点中保留 Registry。
-- v0 增强阶段不实现 Registry，优先完成 profile/status/Web 管理主链路。
-- Registry 未来只负责发现，安装仍统一进入 source/index/install/lock/profile 流程。
+- Phase 8 只实现本机/HTTP JSON catalog 发现闭环。
+- `registry add-source` 只注册 source，不安装 Skill、不写 lock。
+- Registry 信任模型、Web Registry 页面、profile 推荐和签名校验继续后置。
 
 ## 12. 成功标准
 
@@ -1068,11 +1074,11 @@ v0 增强重构完成后，应满足：
 - 用户能登记允许管理的本机项目，并对这些项目执行跨项目 update plan/run。
 - Web 能查看 source、collection、profile、安装分布和版本差异，并对 registered projects 执行确认后的跨项目更新。
 - CLI 仍能完成核心写操作；Web 是关系查看和批量管理入口。
-- Registry 作为后续发现能力保留设计入口。
+- Registry MVP 能发现 source catalog，并保持安装仍进入 source/index/install/profile/lock 主链路。
 
 ## 13. 下一步建议
 
-Phase 1/2/3/4/5/6/7 已经完成：profile 最小闭环、当前项目 status/update check、基于 `gookit/cliui` 的交互式选择、`skillc web` 本地管理查看、当前项目 profile apply / update 确认执行闭环、当前项目 Web source/profile/uninstall/history 管理补齐，以及 project registry / `update --all-projects` / Web 跨项目更新闭环都已落地。
+Phase 1/2/3/4/5/6/7/8 已经完成：profile 最小闭环、当前项目 status/update check、基于 `gookit/cliui` 的交互式选择、`skillc web` 本地管理查看、当前项目 profile apply / update 确认执行闭环、当前项目 Web source/profile/uninstall/history 管理补齐、project registry / `update --all-projects` / Web 跨项目更新闭环，以及 Registry MVP / source UX cleanup / 精确 drift metadata 都已落地。
 
 Phase 5 实施计划见：`docs/superpowers/plans/2026-06-15-skillc-v0-phase5-web-execution.md`
 
@@ -1082,12 +1088,11 @@ Phase 7 实施计划见：`docs/superpowers/plans/2026-06-16-skillc-v0-phase7-cr
 
 Phase 8 实施计划见：`docs/superpowers/plans/2026-06-16-skillc-v0-phase8-registry-source-drift.md`
 
-下一步建议按 Phase 8 转向 discovery、source UX 和 drift 精确度，不再扩大当前跨项目更新的执行范围：
+下一步建议转向 Phase 9 级别的协作与治理能力，不再扩大 P8 的 Registry MVP 边界：
 
-- Registry 发现能力：P8 先做本机 catalog 同步和 `registry add-source`，保持“发现归 registry，安装仍进入 source/index/install/profile/lock”的边界。
-- Source UX cleanup：P8 支持自定义 `--id/--name`，去掉新 source ID 的 `local-` / `git-` 强前缀，并补 `source info <id>`；旧 ID 不自动迁移。
-- Drift 精确化：P8 使用 Git commit/resolved ref 和 local checksum 补齐版本漂移判断，执行仍复用现有 update app service。
-- Project manifest：设计 `skillc.profile.yaml` 或 profile export/import，解决团队共享 profile 的落点。
+- Project manifest / profile export-import：设计 `skillc.profile.yaml` 或 profile export/import，解决团队共享 profile 的落点。
+- Registry 信任模型：catalog entry 签名、checksum、来源 allow/deny policy 和远程 registry 安全边界。
+- Web Registry 页面：浏览 catalog、add-source plan/run 和 registry sync 状态可视化，但仍不直接绕过 source/index/install/lock 主链路。
 - Remote Web：远程访问、多用户权限和安全审计单独设计，不复用当前本地 JSONL history 作为安全审计系统。
 
 Phase 7 已经把跨项目更新收敛到 registered projects allowlist。后续继续坚持当前安全边界：先 plan、后确认、handler 保持薄层、执行复用 app service。

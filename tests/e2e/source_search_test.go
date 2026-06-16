@@ -9,7 +9,6 @@ import (
 	"github.com/inhere/skillc/internal/app/configapp"
 	"github.com/inhere/skillc/internal/app/searchapp"
 	"github.com/inhere/skillc/internal/app/sourceapp"
-	skillpkg "github.com/inhere/skillc/internal/domain/skill"
 	sourcepkg "github.com/inhere/skillc/internal/domain/source"
 )
 
@@ -89,5 +88,17 @@ install_entry: .
 
 	item, err := searchService.Show("hello-skill")
 	assert.NoErr(t, err)
-	assert.Eq(t, skillpkg.Skill{ID: "hello-skill", Name: "Hello Skill", Description: "Friendly greeting helper", Version: results[0].Version, SupportedAgents: []string{"claude-code"}, SourceID: listedSources[0].ID, SourceName: listedSources[0].Name, SourceType: sourcepkg.TypeLocal, QualifiedName: "hello-skill", SourceQualifiedName: src.Name + "/hello-skill", InstallEntry: ".", Path: skillDir}, item)
+	assert.Eq(t, "hello-skill", item.ID)
+	assert.Eq(t, "Hello Skill", item.Name)
+	assert.Eq(t, "Friendly greeting helper", item.Description)
+	assert.Eq(t, results[0].Version, item.Version)
+	assert.Eq(t, []string{"claude-code"}, item.SupportedAgents)
+	assert.Eq(t, listedSources[0].ID, item.SourceID)
+	assert.Eq(t, listedSources[0].Name, item.SourceName)
+	assert.Eq(t, sourcepkg.TypeLocal, item.SourceType)
+	assert.Eq(t, "hello-skill", item.QualifiedName)
+	assert.Eq(t, src.Name+"/hello-skill", item.SourceQualifiedName)
+	assert.Eq(t, ".", item.InstallEntry)
+	assert.Eq(t, skillDir, item.Path)
+	assert.NotEmpty(t, item.Checksum)
 }

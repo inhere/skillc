@@ -179,6 +179,8 @@ skillc update --all-projects --check    # 预览已登记项目的更新候选
 skillc update --all-projects --projects my-project,api --target go-pro --yes
 ```
 
+`update --check` 和 `status` 会报告精确 drift：版本相同但来源元数据变化时，Git source 比较 resolved ref，本地 source 比较目录级 checksum。
+
 ### 项目登记与跨项目更新
 
 `skillc project` 用于登记允许被 Web 和 `update --all-projects` 管理的本机项目。跨项目更新只作用于这些 registered projects，不会直接扫描 lock 中的未知项目。推荐先运行 `skillc project add . --id <id>` 或 `skillc project import-lock`，再使用 `skillc update --all-projects --check` 查看计划，确认后用 `skillc update --all-projects --yes` 执行。
@@ -200,6 +202,8 @@ skillc web --host 127.0.0.1 --port 8090
 ```
 
 Web 管理界面默认监听 `127.0.0.1`，当前支持查看 source/profile/status/install-map/version-drift，计划后确认执行当前项目 profile apply/update、source add/sync/remove、profile save/from-installed/from-collection、uninstall，以及已登记项目的跨项目 update plan/run。所有 Web 写操作都会先展示 plan，执行请求必须包含 `confirm:true`，写入本地 `skillc-web-history.jsonl` 历史记录，并且只操作当前项目或显式选择的 registered projects。
+
+Version Drift 视图也会展示 checksum / Git ref 信号，因此版本号相同但内容或 commit 已变化的情况也能被看到。
 
 ### `uninstall` — 卸载 Skills
 

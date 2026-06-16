@@ -175,6 +175,8 @@ skillc update --all-projects --check # preview registered project updates
 skillc update --all-projects --projects my-project,api --target go-pro --yes
 ```
 
+`update --check` and `status` report precise drift when the version is unchanged but the source metadata changed: Git sources compare resolved refs, and local sources compare directory-level checksums.
+
 ### Project Registry and Cross-Project Updates
 
 `skillc project` registers local projects that are allowed to be managed by Web and `update --all-projects`. Cross-project updates only operate on registered projects; they do not blindly scan unknown lock entries. Use `skillc project add . --id <id>` or `skillc project import-lock`, inspect with `skillc update --all-projects --check`, then execute with `skillc update --all-projects --yes`.
@@ -196,6 +198,8 @@ skillc web --host 127.0.0.1 --port 8090
 ```
 
 The web manager runs on `127.0.0.1` by default and supports source/profile/status/install-map/version-drift views, guarded current-project profile apply and update, source add/sync/remove, profile save/from-installed/from-collection, uninstall, and registered-project cross-project update plan/run. Every Web write action is plan-first, requires `confirm:true` on the run request, appends a local `skillc-web-history.jsonl` record, and only operates on the current project or explicitly selected registered projects.
+
+Version Drift also exposes checksum and Git ref signals, so same-version content changes are visible in Web alongside ordinary version differences.
 
 ### `uninstall` — Remove Skills
 

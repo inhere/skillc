@@ -14,6 +14,7 @@
 | --- | --- | --- | --- |
 | 2026-06-16 | v0.1 | Codex | 输出 P8 Registry / source UX / precise drift 实施计划 |
 | 2026-06-16 | v0.2 | Codex | 复审后补强 URL 解析、Registry HTTP/歧义测试、目录级 checksum 和 status fixture |
+| 2026-06-16 | v0.3 | Codex | 记录 Phase 8 实施完成、最终验证和 e2e checksum 断言调整 |
 
 相关文档：
 
@@ -1695,8 +1696,10 @@ git commit -m "feat(skillc): show precise drift signals"
 - Modify: `docs/TODO.md`
 - Modify: `docs/design/skillc-v0-enhance-design.md`
 - Modify: `docs/superpowers/plans/2026-06-16-skillc-v0-phase8-registry-source-drift.md`
+- Modify: `internal/cli/app_test.go`
+- Modify: `tests/e2e/source_search_test.go`
 
-- [ ] **Step 1: Update README files**
+- [x] **Step 1: Update README files**
 
 Document:
 
@@ -1705,7 +1708,7 @@ Document:
 - `registry add/list/sync/search/info/add-source`.
 - Precise drift behavior in `status` / `update --check`.
 
-- [ ] **Step 2: Update design and task docs**
+- [x] **Step 2: Update design and task docs**
 
 Update `docs/design/skillc-v0-enhance-design.md`:
 
@@ -1719,7 +1722,7 @@ Update `docs/TODO.md`:
 - Add Registry discovery status.
 - Add precise drift status.
 
-- [ ] **Step 3: Run focused verification**
+- [x] **Step 3: Run focused verification**
 
 Run:
 
@@ -1729,7 +1732,7 @@ go test ./internal/domain/source ./internal/app/sourceapp ./internal/domain/regi
 
 Expected: PASS.
 
-- [ ] **Step 4: Run full verification**
+- [x] **Step 4: Run full verification**
 
 Run:
 
@@ -1739,18 +1742,17 @@ go test ./...
 
 Expected: PASS.
 
-- [ ] **Step 5: Update this plan checkbox statuses and verification record**
+- [x] **Step 5: Update this plan checkbox statuses and verification record**
 
-Add:
-
-```markdown
 ## Verification
 
+- `go test ./tests/e2e -run TestLocalSourceToSearchFlow -v`
 - `go test ./internal/domain/source ./internal/app/sourceapp ./internal/domain/registry ./internal/infra/registrystore ./internal/app/registryapp ./internal/cli ./internal/domain/skill ./internal/infra/repoindex ./internal/app/installapp ./internal/app/listapp ./internal/app/statusapp ./internal/app/webapp`
 - `go test ./...`
-```
 
-- [ ] **Step 6: Commit documentation and verification**
+Verification note: full verification initially exposed an e2e assertion that compared the entire `skill.Skill` struct without accounting for the new `Checksum` metadata. The e2e now checks the stable user-facing fields and asserts checksum is present.
+
+- [x] **Step 6: Commit documentation and verification**
 
 Run:
 
@@ -1761,18 +1763,18 @@ git commit -m "docs(skillc): document phase 8 registry source drift"
 
 ## Self-Review Checklist
 
-- [ ] New source IDs do not receive forced `local-` / `git-` prefixes.
-- [ ] Existing source IDs remain unchanged and no migration rewrites config, lock, or profiles.
-- [ ] `source add` supports direct path/url plus legacy local/git subcommands.
-- [ ] `source info <id>` provides a single-source detail view.
-- [ ] Registry sync/search works from local JSON and HTTP JSON catalogs.
-- [ ] Registry search does not install skills or write lock records.
-- [ ] `registry add-source` writes source config through sourceapp and can optionally sync.
-- [ ] Install/reinstall writes checksum and source resolved ref into lock records.
-- [ ] Status/update check mark same-version checksum/ref changes as outdated with clear reason.
-- [ ] Web version drift shows same-version metadata drift.
-- [ ] README, TODO, design doc, and this plan cross-reference each other.
-- [ ] `go test ./...` passes before claiming Phase 8 complete.
+- [x] New source IDs do not receive forced `local-` / `git-` prefixes.
+- [x] Existing source IDs remain unchanged and no migration rewrites config, lock, or profiles.
+- [x] `source add` supports direct path/url plus legacy local/git subcommands.
+- [x] `source info <id>` provides a single-source detail view.
+- [x] Registry sync/search works from local JSON and HTTP JSON catalogs.
+- [x] Registry search does not install skills or write lock records.
+- [x] `registry add-source` writes source config through sourceapp and can optionally sync.
+- [x] Install/reinstall writes checksum and source resolved ref into lock records.
+- [x] Status/update check mark same-version checksum/ref changes as outdated with clear reason.
+- [x] Web version drift shows same-version metadata drift.
+- [x] README, TODO, design doc, and this plan cross-reference each other.
+- [x] `go test ./...` passes before claiming Phase 8 complete.
 
 ## Remaining After Phase 8
 

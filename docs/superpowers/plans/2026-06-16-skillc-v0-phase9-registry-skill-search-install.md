@@ -344,7 +344,7 @@ git commit -m "feat(skillc): model registry skill entries"
 - Modify: `internal/infra/registrystore/json_store.go`
 - Modify: `internal/infra/registrystore/json_store_test.go`
 
-- [ ] **Step 1: Write failing cache tests**
+- [x] **Step 1: Write failing cache tests**
 
 Add to `internal/infra/registrystore/json_store_test.go`:
 
@@ -379,7 +379,7 @@ func TestStore_LoadLegacyEntriesAsSources(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run:
 
@@ -389,7 +389,7 @@ go test ./internal/infra/registrystore -run 'TestStore_(SaveAndLoadSkillsAndSour
 
 Expected: FAIL because the store only persists `entries`.
 
-- [ ] **Step 3: Implement cache file format**
+- [x] **Step 3: Implement cache file format**
 
 Modify `internal/infra/registrystore/json_store.go`:
 
@@ -454,7 +454,7 @@ func (s *Store) Save(path string, entries []registry.Entry) error {
 }
 ```
 
-- [ ] **Step 4: Run cache tests**
+- [x] **Step 4: Run cache tests**
 
 Run:
 

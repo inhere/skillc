@@ -15,6 +15,7 @@ import (
 	"github.com/inhere/skillc/internal/app/installapp"
 	"github.com/inhere/skillc/internal/app/listapp"
 	"github.com/inhere/skillc/internal/app/projectupdateapp"
+	"github.com/inhere/skillc/internal/app/registryapp"
 	"github.com/inhere/skillc/internal/app/statusapp"
 	"github.com/inhere/skillc/internal/app/updateapp"
 	"github.com/inhere/skillc/internal/app/webapp"
@@ -245,7 +246,8 @@ func buildInstallCommand() *gcli.Command {
 			if targetArg == "" {
 				svc := installapp.NewService(config.LockFile).
 					WithInstallMode(installMode).
-					WithSymlinkFallbackNotifier(fallbackNotifier)
+					WithSymlinkFallbackNotifier(fallbackNotifier).
+					WithRestoreResolver(registryapp.NewLockedResolver(defaultConfigFile(cwd), cwd).Resolve)
 				result, err := svc.Run(config, installapp.InstallReq{
 					Agent:   opts.Agent,
 					Scope:   opts.Scope,

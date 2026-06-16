@@ -9,11 +9,13 @@ import (
 	"github.com/inhere/skillc/internal/app/apputil"
 	"github.com/inhere/skillc/internal/app/configapp"
 	"github.com/inhere/skillc/internal/app/installapp"
+	"github.com/inhere/skillc/internal/app/registryapp"
 	"github.com/inhere/skillc/internal/app/sourceapp"
 	"github.com/inhere/skillc/internal/domain/agent"
 	cfg "github.com/inhere/skillc/internal/domain/config"
 	lockpkg "github.com/inhere/skillc/internal/domain/lock"
 	"github.com/inhere/skillc/internal/domain/skill"
+	sourcepkg "github.com/inhere/skillc/internal/domain/source"
 	"github.com/inhere/skillc/internal/infra/lockstore"
 	"github.com/inhere/skillc/internal/infra/repoindex"
 )
@@ -82,24 +84,26 @@ type Result struct {
 }
 
 type Service struct {
-	configFile    string
-	baseDir       string
-	configService *configapp.Service
-	lockStore     *lockstore.Store
-	indexStore    *repoindex.Store
-	syncer        sourceSyncer
-	newInstaller  func(lockFile string, config cfg.Config) reinstallService
-	removeAll     func(path string) error
+	configFile       string
+	baseDir          string
+	configService    *configapp.Service
+	lockStore        *lockstore.Store
+	indexStore       *repoindex.Store
+	syncer           sourceSyncer
+	registryResolver registryapp.RecordResolver
+	newInstaller     func(lockFile string, config cfg.Config) reinstallService
+	removeAll        func(path string) error
 }
 
 func NewService(configFile string, baseDir string) *Service {
 	return &Service{
-		configFile:    configFile,
-		baseDir:       baseDir,
-		configService: configapp.NewService(configFile, baseDir),
-		lockStore:     lockstore.NewStore(),
-		indexStore:    repoindex.NewStore(),
-		syncer:        sourceapp.NewService(configFile, baseDir),
+		configFile:       configFile,
+		baseDir:          baseDir,
+		configService:    configapp.NewService(configFile, baseDir),
+		lockStore:        lockstore.NewStore(),
+		indexStore:       repoindex.NewStore(),
+		syncer:           sourceapp.NewService(configFile, baseDir),
+		registryResolver: registryapp.NewLockedResolver(configFile, baseDir),
 		newInstaller: func(lockFile string, config cfg.Config) reinstallService {
 			// 默认 reinstall 服务遵循 config.InstallMode 的安装方式（symlink/junction/copy）
 			return installapp.NewService(lockFile).WithRuntime(config, baseDir)
@@ -138,7 +142,7 @@ func (s *Service) Run(req UpdateReq) (Result, error) {
 		return Result{}, err
 	}
 
-	result.Candidates, result.UpdateFailed = collectCandidates(selected, items, result.SyncFailed)
+	result.Candidates, result.UpdateFailed = s.collectCandidates(selected, items, result.SyncFailed)
 	result.Failed = append(result.Failed, failedFromSync(selected, result.SyncFailed)...)
 	for _, item := range result.UpdateFailed {
 		result.Failed = append(result.Failed, FailedItem{SkillID: item.SkillID, Reason: item.Reason})
@@ -338,6 +342,9 @@ func uniqueSourceIDs(records []InstalledItem) []string {
 	seen := make(map[string]struct{}, len(records))
 	ids := make([]string, 0, len(records))
 	for _, record := range records {
+		if record.SourceType == string(sourcepkg.TypeRegistry) {
+			continue
+		}
 		if record.SourceID == "" {
 			continue
 		}
@@ -362,7 +369,7 @@ func (s *Service) loadIndex(path string) ([]skill.Skill, error) {
 	return nil, err
 }
 
-func collectCandidates(records []InstalledItem, items []skill.Skill, syncFailed []SourceSyncError) ([]Candidate, []UpdateItemError) {
+func (s *Service) collectCandidates(records []InstalledItem, items []skill.Skill, syncFailed []SourceSyncError) ([]Candidate, []UpdateItemError) {
 	failedSources := make(map[string]struct{}, len(syncFailed))
 	for _, item := range syncFailed {
 		failedSources[item.SourceID] = struct{}{}
@@ -372,6 +379,23 @@ func collectCandidates(records []InstalledItem, items []skill.Skill, syncFailed 
 	failed := make([]UpdateItemError, 0)
 	for _, record := range records {
 		if _, ok := failedSources[record.SourceID]; ok {
+			continue
+		}
+		if record.SourceType == string(sourcepkg.TypeRegistry) {
+			if s.registryResolver == nil {
+				failed = append(failed, UpdateItemError{SkillID: record.SkillID, Reason: "registry resolver is not configured"})
+				continue
+			}
+			latest, handled, err := s.registryResolver.Resolve(record.Record)
+			if err != nil {
+				failed = append(failed, UpdateItemError{SkillID: record.SkillID, Reason: err.Error()})
+				continue
+			}
+			if !handled {
+				failed = append(failed, UpdateItemError{SkillID: record.SkillID, Reason: fmt.Sprintf("registry skill not found in registry cache: %s", record.SkillID)})
+				continue
+			}
+			candidates = append(candidates, Candidate{Installed: record, Latest: latest})
 			continue
 		}
 		latest, ok := findLatest(items, record.Record)

@@ -344,6 +344,30 @@ func TestService_InstallWritesRegistryProvenanceToLock(t *testing.T) {
 	assert.Eq(t, "https://example.com/go-pro.zip", locks[baseDir][0].DownloadURL)
 }
 
+func TestService_RestoreUsesResolverForRegistryRecords(t *testing.T) {
+	baseDir := t.TempDir()
+	lockFile := filepath.Join(baseDir, "skillc.lock.json")
+	sourceDir := filepath.Join(baseDir, "cache", "go-pro")
+	assert.NoErr(t, os.MkdirAll(sourceDir, 0o755))
+	assert.NoErr(t, os.WriteFile(filepath.Join(sourceDir, "SKILL.md"), []byte("# Go Pro"), 0o644))
+	service := NewService(lockFile)
+	config := testConfig(baseDir)
+	config.LockFile = lockFile
+	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: ".agents"}
+	assert.NoErr(t, service.store.Save(lockFile, lockpkg.File{
+		baseDir: {{SkillID: "go-pro", SourceID: "team", SourceType: "registry", RegistryEntryID: "go-pro", InstallEntry: ".", Agents: []string{"universal"}}},
+	}))
+	service = service.WithRestoreResolver(func(record lockpkg.Record) (skill.Skill, bool, error) {
+		return skill.Skill{ID: record.SkillID, SourceID: record.SourceID, SourceType: sourcepkg.TypeRegistry, InstallEntry: ".", Path: sourceDir}, true, nil
+	})
+
+	restored, err := service.WithRuntime(config, baseDir).Restore(map[string]string{})
+
+	assert.NoErr(t, err)
+	assert.Len(t, restored, 1)
+	assert.FileExists(t, filepath.Join(baseDir, ".agents", "skills", "go-pro", "SKILL.md"))
+}
+
 func TestService_UninstallRemovesOnlyTargetAgentAndKeepsGroupedRecord(t *testing.T) {
 	baseDir := t.TempDir()
 	lockFile := filepath.Join(baseDir, "skillc-install.lock")

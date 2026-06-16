@@ -35,6 +35,18 @@ func (s reinstallServiceStub) ReinstallAtPath(item skill.Skill, agentName string
 	return s.reinstallFn(item, agentName, scope, scopeKey, targetPath)
 }
 
+type registryResolverStub struct {
+	resolveFn func(record lockpkg.Record) (skill.Skill, bool, error)
+}
+
+func (s registryResolverStub) Resolve(record lockpkg.Record) (skill.Skill, bool, error) {
+	return s.resolveFn(record)
+}
+
+func (s registryResolverStub) Latest(record lockpkg.Record) (skill.Skill, bool, error) {
+	return s.resolveFn(record)
+}
+
 func TestService_RunExpandsGroupedLockRecordsPerAgentAndProjectScopePath(t *testing.T) {
 	baseDir := t.TempDir()
 	configFile := filepath.Join(baseDir, "skillc.yaml")
@@ -612,6 +624,55 @@ func TestService_RunRejectsAmbiguousDuplicatePlainDirs(t *testing.T) {
 	assert.Eq(t, "shared-skill", result.Skipped[0].SkillID)
 	assert.Eq(t, "ambiguous index match", result.Skipped[0].Reason)
 	assert.Len(t, result.Failed, 0)
+}
+
+func TestService_RunUpdatesRegistrySkillFromRegistryResolver(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	lockFile := filepath.Join(baseDir, "skillc-install.lock")
+	projectKey := filepath.Join(baseDir, "projects", "alpha")
+	config := cfg.DefaultConfig()
+	config.LockFile = lockFile
+	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(projectKey, ".agents")}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config, baseDir))
+	assert.NoErr(t, lockstore.NewStore().Save(lockFile, lockpkg.File{
+		projectKey: {{
+			SkillID: "go-pro", SourceID: "team", SourceType: "registry", RegistryEntryID: "go-pro",
+			Version: "1.0.0", InstallEntry: ".", Agents: []string{"universal"},
+		}},
+	}))
+
+	service := NewService(configFile, baseDir)
+	service.syncer = sourceSyncerStub{syncFn: func(id string) error {
+		t.Fatalf("registry records must not call source sync, got %s", id)
+		return nil
+	}}
+	service.registryResolver = registryResolverStub{resolveFn: func(record lockpkg.Record) (skill.Skill, bool, error) {
+		return skill.Skill{
+			ID: "go-pro", SourceID: "team", SourceType: sourcepkg.TypeRegistry,
+			RegistryEntryID: "go-pro", Version: "2.0.0", InstallEntry: ".",
+			Path: filepath.Join(baseDir, "registry-cache", "go-pro"),
+		}, true, nil
+	}}
+	var installed skill.Skill
+	service.newInstaller = func(path string, _ cfg.Config) reinstallService {
+		assert.Eq(t, lockFile, path)
+		return reinstallServiceStub{reinstallFn: func(item skill.Skill, agentName string, scope agent.Scope, scopeKey string, targetPath string) (installapp.RuntimeRecord, error) {
+			installed = item
+			return installapp.RuntimeRecord{
+				Record: lockpkg.Record{SkillID: item.ID, SourceID: item.SourceID, SourceType: string(item.SourceType), Version: item.Version},
+				Agent:  agentName, Scope: string(scope), InstalledPath: targetPath,
+			}, nil
+		}}
+	}
+
+	result, err := service.Run(Req{Scope: "project", WorkDir: baseDir, ProjectPaths: []string{projectKey}})
+
+	assert.NoErr(t, err)
+	assert.Len(t, result.Updated, 1)
+	assert.Eq(t, sourcepkg.TypeRegistry, installed.SourceType)
+	assert.Eq(t, "2.0.0", installed.Version)
+	assert.Eq(t, "registry", result.Updated[0].SourceType)
 }
 
 func createSkillSource(t *testing.T, baseDir string, sourceDir string, fileName string, content string) string {

@@ -22,6 +22,8 @@ type skillLookup interface {
 	Resolve(target string) ([]skill.Skill, error)
 }
 
+type RestoreResolver func(record lockpkg.Record) (skill.Skill, bool, error)
+
 type RuntimeRecord struct {
 	lockpkg.Record
 	Agent         string
@@ -87,6 +89,7 @@ type Service struct {
 	workDir           string
 	installerExplicit bool
 	fallbackNotifier  agentfs.FallbackNotifier
+	restoreResolver   RestoreResolver
 }
 
 func NewService(lockFile string) *Service {
@@ -133,6 +136,12 @@ func (s *Service) WithSymlinkFallbackNotifier(notifier agentfs.FallbackNotifier)
 	cloneInstaller := *clone.installer
 	cloneInstaller.OnSymlinkFallback = notifier
 	clone.installer = &cloneInstaller
+	return &clone
+}
+
+func (s *Service) WithRestoreResolver(resolver RestoreResolver) *Service {
+	clone := *s
+	clone.restoreResolver = resolver
 	return &clone
 }
 
@@ -455,11 +464,10 @@ func (s *Service) Restore(sourcePaths map[string]string) ([]RuntimeRecord, error
 	for _, scopeKey := range scopeKeys {
 		scope := scopeFromKey(scopeKey)
 		for _, record := range locks[scopeKey] {
-			sourceRoot, ok := sourcePaths[record.SourceID]
-			if !ok {
-				return nil, fmt.Errorf("source path not found for %s", record.SourceID)
+			sourcePath, err := s.restoreSourcePath(record, sourcePaths)
+			if err != nil {
+				return nil, err
 			}
-			sourcePath := filepath.Join(sourceRoot, record.InstallEntry)
 			for _, agentName := range record.Agents {
 				targetPath, err := s.resolveInstalledPath(scopeKey, scope, agentName, record)
 				if err != nil {
@@ -473,6 +481,21 @@ func (s *Service) Restore(sourcePaths map[string]string) ([]RuntimeRecord, error
 		}
 	}
 	return restored, nil
+}
+
+func (s *Service) restoreSourcePath(record lockpkg.Record, sourcePaths map[string]string) (string, error) {
+	if s.restoreResolver != nil {
+		if item, handled, err := s.restoreResolver(record); err != nil {
+			return "", err
+		} else if handled {
+			return filepath.Join(item.Path, item.InstallEntry), nil
+		}
+	}
+	sourceRoot, ok := sourcePaths[record.SourceID]
+	if !ok {
+		return "", fmt.Errorf("source path not found for %s", record.SourceID)
+	}
+	return filepath.Join(sourceRoot, record.InstallEntry), nil
 }
 
 func (s *Service) loadLockFile() (lockpkg.File, error) {

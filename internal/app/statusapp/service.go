@@ -10,8 +10,10 @@ import (
 	"github.com/inhere/skillc/internal/app/apputil"
 	"github.com/inhere/skillc/internal/app/configapp"
 	"github.com/inhere/skillc/internal/app/listapp"
+	"github.com/inhere/skillc/internal/app/registryapp"
 	"github.com/inhere/skillc/internal/app/sourceapp"
 	"github.com/inhere/skillc/internal/domain/agent"
+	lockpkg "github.com/inhere/skillc/internal/domain/lock"
 	"github.com/inhere/skillc/internal/domain/skill"
 	sourcepkg "github.com/inhere/skillc/internal/domain/source"
 	"github.com/inhere/skillc/internal/infra/repoindex"
@@ -78,20 +80,22 @@ type SourceSyncError struct {
 }
 
 type Service struct {
-	configFile    string
-	baseDir       string
-	configService *configapp.Service
-	indexStore    *repoindex.Store
-	syncer        sourceSyncer
+	configFile       string
+	baseDir          string
+	configService    *configapp.Service
+	indexStore       *repoindex.Store
+	syncer           sourceSyncer
+	registryResolver registryapp.RecordResolver
 }
 
 func NewService(configFile string, baseDir string) *Service {
 	return &Service{
-		configFile:    configFile,
-		baseDir:       baseDir,
-		configService: configapp.NewService(configFile, baseDir),
-		indexStore:    repoindex.NewStore(),
-		syncer:        sourceapp.NewService(configFile, baseDir),
+		configFile:       configFile,
+		baseDir:          baseDir,
+		configService:    configapp.NewService(configFile, baseDir),
+		indexStore:       repoindex.NewStore(),
+		syncer:           sourceapp.NewService(configFile, baseDir),
+		registryResolver: registryapp.NewLockedResolver(configFile, baseDir),
 	}
 }
 
@@ -135,7 +139,7 @@ func (s *Service) Run(req Req) (Result, error) {
 		return Result{}, err
 	}
 	for _, current := range listItems {
-		result.Items = append(result.Items, classifyListItem(current, indexItems, syncFailed, sourceIDs))
+		result.Items = append(result.Items, s.classifyListItem(current, indexItems, syncFailed, sourceIDs))
 	}
 	if req.Profile == "" {
 		unmanaged, err := listSvc.ScanUnrecorded(canonicalAgent, scope)
@@ -184,7 +188,7 @@ func (s *Service) syncSources(sources []sourcepkg.Source) []SourceSyncError {
 	return out
 }
 
-func classifyListItem(current listapp.Item, indexItems []skill.Skill, syncFailed map[string]string, sourceIDs map[string]string) Item {
+func (s *Service) classifyListItem(current listapp.Item, indexItems []skill.Skill, syncFailed map[string]string, sourceIDs map[string]string) Item {
 	item := Item{
 		SkillID:                  current.SkillID,
 		QualifiedName:            current.QualifiedName,
@@ -197,6 +201,9 @@ func classifyListItem(current listapp.Item, indexItems []skill.Skill, syncFailed
 		CurrentChecksum:          current.Checksum,
 		CurrentSourceResolvedRef: current.SourceResolvedRef,
 		InstalledPath:            current.InstalledPath,
+	}
+	if current.SourceType == string(sourcepkg.TypeRegistry) {
+		return s.classifyRegistryListItem(current, item)
 	}
 	if reason, ok := syncFailed[current.SourceID]; ok {
 		item.Status = StatusSourceError
@@ -245,6 +252,52 @@ func classifyListItem(current listapp.Item, indexItems []skill.Skill, syncFailed
 	if current.SourceResolvedRef != "" && latest.SourceResolvedRef != "" && current.SourceResolvedRef != latest.SourceResolvedRef {
 		item.Status = StatusOutdated
 		item.Reason = fmt.Sprintf("git ref %s -> %s", shortSignal(current.SourceResolvedRef), shortSignal(latest.SourceResolvedRef))
+		return item
+	}
+	if current.Checksum != "" && latest.Checksum != "" && current.Checksum != latest.Checksum {
+		item.Status = StatusOutdated
+		item.Reason = fmt.Sprintf("checksum %s -> %s", shortSignal(current.Checksum), shortSignal(latest.Checksum))
+		return item
+	}
+	item.Status = StatusInstalled
+	return item
+}
+
+func (s *Service) classifyRegistryListItem(current listapp.Item, item Item) Item {
+	if s.registryResolver == nil {
+		item.Status = StatusOrphan
+		item.Reason = "registry resolver is not configured"
+		return item
+	}
+	latest, handled, err := s.registryResolver.Latest(lockpkg.Record{
+		SkillID:         current.SkillID,
+		SourceID:        current.SourceID,
+		SourceType:      current.SourceType,
+		RegistryEntryID: current.RegistryEntryID,
+	})
+	if err != nil {
+		item.Status = StatusSourceError
+		item.Reason = err.Error()
+		return item
+	}
+	if !handled {
+		item.Status = StatusOrphan
+		item.Reason = "registry skill not found in registry cache"
+		return item
+	}
+	item.LatestVersion = latest.Version
+	item.LatestChecksum = latest.Checksum
+	if item.SourceID == "" {
+		item.SourceID = latest.SourceID
+	}
+	if current.Status == StatusMissing {
+		item.Status = StatusMissing
+		item.Reason = "installed path is missing"
+		return item
+	}
+	if current.Version != "" && latest.Version != "" && current.Version != latest.Version {
+		item.Status = StatusOutdated
+		item.Reason = fmt.Sprintf("version %s -> %s", current.Version, latest.Version)
 		return item
 	}
 	if current.Checksum != "" && latest.Checksum != "" && current.Checksum != latest.Checksum {

@@ -24,6 +24,18 @@ func (s syncerStub) Sync(id string) error {
 	return s.syncFn(id)
 }
 
+type registryResolverStub struct {
+	resolveFn func(record lockpkg.Record) (skill.Skill, bool, error)
+}
+
+func (s registryResolverStub) Resolve(record lockpkg.Record) (skill.Skill, bool, error) {
+	return s.resolveFn(record)
+}
+
+func (s registryResolverStub) Latest(record lockpkg.Record) (skill.Skill, bool, error) {
+	return s.resolveFn(record)
+}
+
 func TestService_RunClassifiesInstalledMissingOutdatedAndOrphan(t *testing.T) {
 	baseDir := t.TempDir()
 	configFile := filepath.Join(baseDir, "skillc.yaml")
@@ -581,6 +593,36 @@ func TestService_RunMarksOutdatedWhenLocalChecksumChanges(t *testing.T) {
 	assert.NoErr(t, err)
 	assert.Eq(t, StatusOutdated, result.Items[0].Status)
 	assert.Contains(t, result.Items[0].Reason, "checksum")
+}
+
+func TestService_RunMarksRegistrySkillInstalledFromRegistryCache(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile, config := writeStatusDriftFixture(t, baseDir)
+	cacheDir := filepath.Join(baseDir, "registry-cache")
+	config.RegistryCacheDir = cacheDir
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config, baseDir))
+	assert.NoErr(t, os.MkdirAll(filepath.Join(baseDir, ".agents", "skills", "go-pro"), 0o755))
+	assert.NoErr(t, lockstore.NewStore().Save(config.LockFile, lockpkg.File{
+		baseDir: {{
+			SkillID: "go-pro", SourceID: "team", SourceType: "registry", RegistryEntryID: "go-pro",
+			Version: "1.0.0", Checksum: "abc123", Agents: []string{"universal"},
+		}},
+	}))
+
+	service := NewService(configFile, baseDir)
+	service.registryResolver = registryResolverStub{resolveFn: func(record lockpkg.Record) (skill.Skill, bool, error) {
+		return skill.Skill{
+			ID: "go-pro", SourceID: "team", SourceType: sourcepkg.TypeRegistry,
+			RegistryEntryID: "go-pro", Version: "1.0.0", Checksum: "abc123",
+			SourceURL: "https://example.com/skills.git", InstallEntry: "skills/go-pro",
+		}, true, nil
+	}}
+	result, err := service.Run(Req{Agent: "universal", Scope: "project", WorkDir: baseDir})
+
+	assert.NoErr(t, err)
+	assert.Len(t, result.Items, 1)
+	assert.Eq(t, StatusInstalled, result.Items[0].Status)
+	assert.Eq(t, "team", result.Items[0].SourceID)
 }
 
 func writeStatusDriftFixture(t *testing.T, baseDir string) (string, cfg.Config) {

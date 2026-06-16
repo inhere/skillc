@@ -981,7 +981,7 @@ git commit -m "feat(skillc): install registry skills"
 - Modify: `internal/app/projectupdateapp/service_test.go`
 - Modify: `internal/cli/manage_cmd.go`
 
-- [ ] **Step 1: Write failing restore test**
+- [x] **Step 1: Write failing restore test**
 
 Add to `internal/app/installapp/service_test.go`:
 
@@ -1011,7 +1011,7 @@ func TestService_RestoreUsesResolverForRegistryRecords(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Write failing status/update tests**
+- [x] **Step 2: Write failing status/update tests**
 
 Add to `internal/app/statusapp/service_test.go`:
 
@@ -1110,7 +1110,7 @@ func TestService_RunUpdatesRegistrySkillFromRegistryResolver(t *testing.T) {
 }
 ```
 
-- [ ] **Step 3: Run tests to verify they fail**
+- [x] **Step 3: Run tests to verify they fail**
 
 Run:
 
@@ -1120,7 +1120,7 @@ go test ./internal/app/installapp ./internal/app/statusapp ./internal/app/update
 
 Expected: FAIL because restore/status/update are source-index-only.
 
-- [ ] **Step 4: Implement registry lock resolver**
+- [x] **Step 4: Implement registry lock resolver**
 
 Create `internal/app/registryapp/locked_resolver.go`:
 
@@ -1182,7 +1182,7 @@ Modify `updateapp` to:
 
 Modify `projectupdateapp` so cross-project update plans use the updated `statusapp` registry latest resolver, and confirmed cross-project runs continue to call `updateapp` with registry resolver support. Modify `buildInstallCommand` restore path to call `installapp.NewService(...).WithRestoreResolver(registryapp.NewLockedResolver(...).Resolve)` before `Run`; otherwise `skillc install` with no target cannot restore registry-installed records.
 
-- [ ] **Step 5: Run registry lifecycle tests**
+- [x] **Step 5: Run registry lifecycle tests**
 
 Run:
 
@@ -1192,7 +1192,7 @@ go test ./internal/app/registryapp ./internal/app/installapp ./internal/app/stat
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 Run:
 

@@ -191,6 +191,29 @@ func TestManagerServerUpdateRunRequiresConfirmation(t *testing.T) {
 	assert.Contains(t, rec.Body.String(), `"confirmation required"`)
 }
 
+func TestManagerServerRegistryRunEndpointsRequireConfirmation(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile, config := writeWebManagerFixture(t, baseDir)
+	writeWebRegistryFixture(t, configFile, baseDir, config)
+	server := NewManagerServer(configFile, baseDir)
+
+	tests := []struct {
+		path string
+		body string
+	}{
+		{path: "/api/registry/install/run", body: `{"target":"team/go-pro"}`},
+		{path: "/api/registry/sync/run", body: `{"registry_id":"team"}`},
+		{path: "/api/registry/add-source/run", body: `{"entry_id":"team/gstack"}`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			rec := performManagerRequestWithBody(server, http.MethodPost, tt.path, strings.NewReader(tt.body))
+			assert.Eq(t, http.StatusBadRequest, rec.Code)
+			assert.Contains(t, rec.Body.String(), `"confirmation required"`)
+		})
+	}
+}
+
 func TestManagerServerUpdateRunRejectsInvalidJSONBody(t *testing.T) {
 	baseDir := t.TempDir()
 	configFile := writeWebActionFixture(t, baseDir)

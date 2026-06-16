@@ -70,6 +70,12 @@ func (s *ManagerServer) Handler() http.Handler {
 	mux.HandleFunc("/api/registries", s.handleRegistries)
 	mux.HandleFunc("/api/registry/skills", s.handleRegistrySkills)
 	mux.HandleFunc("/api/registry/sources", s.handleRegistrySources)
+	mux.HandleFunc("/api/registry/sync/plan", s.handleRegistrySyncPlan)
+	mux.HandleFunc("/api/registry/sync/run", s.handleRegistrySyncRun)
+	mux.HandleFunc("/api/registry/install/plan", s.handleRegistryInstallPlan)
+	mux.HandleFunc("/api/registry/install/run", s.handleRegistryInstallRun)
+	mux.HandleFunc("/api/registry/add-source/plan", s.handleRegistryAddSourcePlan)
+	mux.HandleFunc("/api/registry/add-source/run", s.handleRegistryAddSourceRun)
 	mux.HandleFunc("/api/status", s.handleStatus)
 	mux.HandleFunc("/api/install-map", s.handleInstallMap)
 	mux.HandleFunc("/api/version-drift", s.handleVersionDrift)
@@ -186,6 +192,83 @@ func (s *ManagerServer) handleRegistrySources(w http.ResponseWriter, r *http.Req
 		return
 	}
 	result, err := s.manager.RegistrySources(r.URL.Query().Get("keyword"), r.URL.Query().Get("registry"))
+	writeResult(w, result, err)
+}
+
+func (s *ManagerServer) handleRegistrySyncPlan(w http.ResponseWriter, r *http.Request) {
+	if !allowMethod(w, r, http.MethodPost) {
+		return
+	}
+	req, ok := readJSONReq[WebRegistrySyncReq](w, r)
+	if !ok {
+		return
+	}
+	result, err := s.manager.PlanRegistrySync(req)
+	writeResult(w, result, err)
+}
+
+func (s *ManagerServer) handleRegistrySyncRun(w http.ResponseWriter, r *http.Request) {
+	if !allowMethod(w, r, http.MethodPost) {
+		return
+	}
+	req, ok := requireConfirmedRegistrySyncReq(w, r)
+	if !ok {
+		return
+	}
+	result, err := s.manager.RunRegistrySync(req)
+	s.recordHistory(r, "registry.sync", req, result, err)
+	writeResult(w, result, err)
+}
+
+func (s *ManagerServer) handleRegistryInstallPlan(w http.ResponseWriter, r *http.Request) {
+	if !allowMethod(w, r, http.MethodPost) {
+		return
+	}
+	req, ok := readJSONReq[WebRegistryInstallReq](w, r)
+	if !ok {
+		return
+	}
+	req.ManagerReq = managerReqFromQuery(r)
+	result, err := s.manager.PlanRegistryInstall(req)
+	writeResult(w, result, err)
+}
+
+func (s *ManagerServer) handleRegistryInstallRun(w http.ResponseWriter, r *http.Request) {
+	if !allowMethod(w, r, http.MethodPost) {
+		return
+	}
+	req, ok := requireConfirmedRegistryInstallReq(w, r)
+	if !ok {
+		return
+	}
+	req.ManagerReq = managerReqFromQuery(r)
+	result, err := s.manager.RunRegistryInstall(req)
+	s.recordHistory(r, "registry.install", req, result, err)
+	writeResult(w, result, err)
+}
+
+func (s *ManagerServer) handleRegistryAddSourcePlan(w http.ResponseWriter, r *http.Request) {
+	if !allowMethod(w, r, http.MethodPost) {
+		return
+	}
+	req, ok := readJSONReq[WebRegistryAddSourceReq](w, r)
+	if !ok {
+		return
+	}
+	result, err := s.manager.PlanRegistryAddSource(req)
+	writeResult(w, result, err)
+}
+
+func (s *ManagerServer) handleRegistryAddSourceRun(w http.ResponseWriter, r *http.Request) {
+	if !allowMethod(w, r, http.MethodPost) {
+		return
+	}
+	req, ok := requireConfirmedRegistryAddSourceReq(w, r)
+	if !ok {
+		return
+	}
+	result, err := s.manager.RunRegistryAddSource(req)
+	s.recordHistory(r, "registry.add_source", req, result, err)
 	writeResult(w, result, err)
 }
 
@@ -660,6 +743,42 @@ func requireConfirmedUninstallReq(w http.ResponseWriter, r *http.Request) (unins
 	if !req.Confirm {
 		writeJSON(w, http.StatusBadRequest, errorResp{Error: "confirmation required"})
 		return uninstallActionReq{}, false
+	}
+	return req, true
+}
+
+func requireConfirmedRegistryInstallReq(w http.ResponseWriter, r *http.Request) (WebRegistryInstallReq, bool) {
+	req, ok := readJSONReq[WebRegistryInstallReq](w, r)
+	if !ok {
+		return WebRegistryInstallReq{}, false
+	}
+	if !req.Confirm {
+		writeJSON(w, http.StatusBadRequest, errorResp{Error: "confirmation required"})
+		return WebRegistryInstallReq{}, false
+	}
+	return req, true
+}
+
+func requireConfirmedRegistrySyncReq(w http.ResponseWriter, r *http.Request) (WebRegistrySyncReq, bool) {
+	req, ok := readJSONReq[WebRegistrySyncReq](w, r)
+	if !ok {
+		return WebRegistrySyncReq{}, false
+	}
+	if !req.Confirm {
+		writeJSON(w, http.StatusBadRequest, errorResp{Error: "confirmation required"})
+		return WebRegistrySyncReq{}, false
+	}
+	return req, true
+}
+
+func requireConfirmedRegistryAddSourceReq(w http.ResponseWriter, r *http.Request) (WebRegistryAddSourceReq, bool) {
+	req, ok := readJSONReq[WebRegistryAddSourceReq](w, r)
+	if !ok {
+		return WebRegistryAddSourceReq{}, false
+	}
+	if !req.Confirm {
+		writeJSON(w, http.StatusBadRequest, errorResp{Error: "confirmation required"})
+		return WebRegistryAddSourceReq{}, false
 	}
 	return req, true
 }

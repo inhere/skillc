@@ -860,7 +860,7 @@ go test ./internal/app/webapp -run TestManagerServer_RegistryQueryRoutes -count=
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit Web query APIs**
+- [x] **Step 6: Commit Web query APIs**
 
 ```bash
 git add internal/app/webapp/manager.go internal/app/webapp/manager_server.go internal/app/webapp/manager_server_test.go docs/superpowers/plans/2026-06-16-skillc-v0-phase10-web-registry-archive.md
@@ -875,7 +875,7 @@ git commit -m "feat(skillc): expose registry queries in web manager"
 - Modify: `internal/app/webapp/manager_server.go`
 - Modify: `internal/app/webapp/manager_server_test.go`
 
-- [ ] **Step 1: Write failing manager install plan test**
+- [x] **Step 1: Write failing manager install plan test**
 
 Create `manager_registry_actions_test.go`:
 
@@ -900,7 +900,7 @@ func TestManager_PlanRegistryInstall(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run focused test and verify failure**
+- [x] **Step 2: Run focused test and verify failure**
 
 Run:
 
@@ -910,7 +910,7 @@ go test ./internal/app/webapp -run TestManager_PlanRegistryInstall -count=1
 
 Expected: FAIL because types/method do not exist.
 
-- [ ] **Step 3: Implement registry action types and plan methods**
+- [x] **Step 3: Implement registry action types and plan methods**
 
 Create `manager_registry_actions.go` with:
 
@@ -967,7 +967,7 @@ func (m *Manager) PlanRegistryInstall(req WebRegistryInstallReq) (registryInstal
 }
 ```
 
-- [ ] **Step 4: Implement RunRegistryInstall**
+- [x] **Step 4: Implement RunRegistryInstall**
 
 Add:
 
@@ -999,7 +999,7 @@ func (m *Manager) RunRegistryInstall(req WebRegistryInstallReq) (registryInstall
 }
 ```
 
-- [ ] **Step 5: Add sync and add-source action plans**
+- [x] **Step 5: Add sync and add-source action plans**
 
 Add types and methods:
 
@@ -1041,7 +1041,7 @@ func (m *Manager) RunRegistryAddSource(req WebRegistryAddSourceReq) (registryAdd
 
 Plan methods should only read `registryapp.List` / `Info`; run methods call `Sync` / `SyncAll` / `AddSource`.
 
-- [ ] **Step 6: Add server route tests for confirm gate**
+- [x] **Step 6: Add server route tests for confirm gate**
 
 In `manager_server_test.go`, add tests that POST run endpoints without confirm:
 
@@ -1051,7 +1051,7 @@ assertJSONStatus(t, server.Handler(), http.MethodPost, "/api/registry/sync/run",
 assertJSONStatus(t, server.Handler(), http.MethodPost, "/api/registry/add-source/run", strings.NewReader(`{"entry_id":"team/gstack"}`), http.StatusBadRequest)
 ```
 
-- [ ] **Step 7: Add server handlers**
+- [x] **Step 7: Add server handlers**
 
 Add routes:
 
@@ -1070,7 +1070,7 @@ Each plan handler reads JSON body and calls manager plan. Each run handler uses 
 - `registry.install`
 - `registry.add_source`
 
-- [ ] **Step 8: Run webapp tests**
+- [x] **Step 8: Run webapp tests**
 
 Run:
 

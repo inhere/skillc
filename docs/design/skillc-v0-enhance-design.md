@@ -26,6 +26,7 @@
 | 2026-06-16 | v0.22 | Codex | 增加 Phase 10 Web Registry 页面与 archive download 实施计划链接 |
 | 2026-06-16 | v0.23 | Codex | 记录 Phase 10 已落地 Web Registry 页面与 archive download 安装能力 |
 | 2026-06-19 | v0.24 | Codex | 增加 Phase 11 SkillsMP 真实 Registry provider adapter 设计链接和范围 |
+| 2026-06-19 | v0.25 | Codex | 增加 Phase 11 SkillsMP provider adapter 实施计划链接 |
 
 状态：Draft
 
@@ -45,6 +46,7 @@
 - `docs/superpowers/specs/2026-06-16-skillc-v0-phase10-web-registry-archive-design.md`
 - `docs/superpowers/plans/2026-06-16-skillc-v0-phase10-web-registry-archive.md`
 - `docs/superpowers/specs/2026-06-19-skillc-v0-phase11-skillsmp-provider-design.md`
+- `docs/superpowers/plans/2026-06-19-skillc-v0-phase11-skillsmp-provider.md`
 - `docs/prd.md`
 - `docs/mvp-arch.md`
 - `docs/mvp-plan.md`
@@ -96,6 +98,8 @@
 十期状态：已补齐 registry skill archive `download_url` zip/tar.gz/tgz 下载安装能力，archive 解压包含 SHA-256 校验和 path traversal 防护；Web 已新增 Registry 页面，支持当前项目范围内 registry skill/source 搜索、registry sync、registry install plan/run 和 source result add-source plan/run。真实 skills.sh / SkillsMP / SkillsLLM provider adapter、Registry auth/signature/trust、跨项目 registry install 继续后置。
 
 十一期设计：`docs/superpowers/specs/2026-06-19-skillc-v0-phase11-skillsmp-provider-design.md`
+
+十一期开发计划：`docs/superpowers/plans/2026-06-19-skillc-v0-phase11-skillsmp-provider.md`
 
 十一期目标：先实现 SkillsMP 作为第一个真实 Registry provider adapter。SkillsMP 有稳定搜索 API，且 `githubUrl` 能映射为现有 `SkillEntry.source_url/source_ref/install_entry`，因此可以复用 P9/P10 的 registry install/materialize/lock/Web 链路。P11 不做 skills.sh、SkillsLLM、provider 全量 sync、provider auth 或大 provider interface；后续等第二个 provider 确认落地再抽象。
 
@@ -1151,6 +1155,8 @@ Phase 9 实施计划见：`docs/superpowers/plans/2026-06-16-skillc-v0-phase9-re
 Phase 10 实施计划见：`docs/superpowers/plans/2026-06-16-skillc-v0-phase10-web-registry-archive.md`
 
 Phase 11 设计见：`docs/superpowers/specs/2026-06-19-skillc-v0-phase11-skillsmp-provider-design.md`
+
+Phase 11 实施计划见：`docs/superpowers/plans/2026-06-19-skillc-v0-phase11-skillsmp-provider.md`
 
 下一步建议先完成 SkillsMP provider adapter，再转向协作与治理能力：
 

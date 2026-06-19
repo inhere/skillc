@@ -11,6 +11,7 @@
 - 总设计：`docs/design/skillc-v0-enhance-design.md`
 - Phase 10 设计：`docs/superpowers/specs/2026-06-16-skillc-v0-phase10-web-registry-archive-design.md`
 - Phase 10 实施计划：`docs/superpowers/plans/2026-06-16-skillc-v0-phase10-web-registry-archive.md`
+- Phase 11 实施计划：`docs/superpowers/plans/2026-06-19-skillc-v0-phase11-skillsmp-provider.md`
 - PRD：`docs/prd.md`
 - MVP 架构：`docs/mvp-arch.md`
 

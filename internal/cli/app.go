@@ -74,7 +74,7 @@ func newLocalSourceService() *sourceapp.Service {
 
 func newRegistryService() *registryapp.Service {
 	cwd := getWorkdir()
-	return registryapp.NewService(filepath.Join(cwd, "skillc.yaml"), cwd)
+	return registryapp.NewService(defaultConfigFile(cwd), cwd)
 }
 
 func newDoctorService() *doctorapp.Service {

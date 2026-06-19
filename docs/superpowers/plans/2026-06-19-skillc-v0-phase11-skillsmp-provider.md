@@ -179,7 +179,7 @@ git commit -m "feat(skillc): add provider registry model"
 - Create: `internal/app/registryapp/skillsmp.go`
 - Create: `internal/app/registryapp/skillsmp_test.go`
 
-- [ ] **Step 1: Write failing SkillsMP mapper tests**
+- [x] **Step 1: Write failing SkillsMP mapper tests**
 
 Create `internal/app/registryapp/skillsmp_test.go`:
 
@@ -233,7 +233,7 @@ func TestSearchSkillsMPSkipsUninstallableResults(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run failing mapper tests**
+- [x] **Step 2: Run failing mapper tests**
 
 Run:
 
@@ -243,7 +243,7 @@ go test ./internal/app/registryapp -run 'TestSearchSkillsMP' -v
 
 Expected: fail because `searchSkillsMP` does not exist.
 
-- [ ] **Step 3: Implement SkillsMP mapper**
+- [x] **Step 3: Implement SkillsMP mapper**
 
 Create `internal/app/registryapp/skillsmp.go` with stdlib only:
 
@@ -363,7 +363,7 @@ func skillsMPTags(author string) []string {
 }
 ```
 
-- [ ] **Step 4: Run mapper tests**
+- [x] **Step 4: Run mapper tests**
 
 Run:
 
@@ -373,7 +373,7 @@ go test ./internal/app/registryapp -run 'TestSearchSkillsMP|TestSearchSkillsMPSk
 
 Expected: pass.
 
-- [ ] **Step 5: Commit mapper slice**
+- [x] **Step 5: Commit mapper slice**
 
 ```bash
 git add internal/app/registryapp/skillsmp.go internal/app/registryapp/skillsmp_test.go

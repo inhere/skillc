@@ -4,7 +4,7 @@
 | --- | --- | --- | --- |
 | 2026-06-19 | v0.1 | Codex | 规划首个真实 Registry provider adapter：SkillsMP 远程搜索与安装映射 |
 
-状态：Draft
+状态：Implemented
 
 相关文档：
 

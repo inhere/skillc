@@ -27,6 +27,7 @@
 | 2026-06-16 | v0.23 | Codex | 记录 Phase 10 已落地 Web Registry 页面与 archive download 安装能力 |
 | 2026-06-19 | v0.24 | Codex | 增加 Phase 11 SkillsMP 真实 Registry provider adapter 设计链接和范围 |
 | 2026-06-19 | v0.25 | Codex | 增加 Phase 11 SkillsMP provider adapter 实施计划链接 |
+| 2026-06-19 | v0.26 | Codex | 记录 Phase 11 已落地 SkillsMP provider adapter |
 
 状态：Draft
 
@@ -102,6 +103,8 @@
 十一期开发计划：`docs/superpowers/plans/2026-06-19-skillc-v0-phase11-skillsmp-provider.md`
 
 十一期目标：先实现 SkillsMP 作为第一个真实 Registry provider adapter。SkillsMP 有稳定搜索 API，且 `githubUrl` 能映射为现有 `SkillEntry.source_url/source_ref/install_entry`，因此可以复用 P9/P10 的 registry install/materialize/lock/Web 链路。P11 不做 skills.sh、SkillsLLM、provider 全量 sync、provider auth 或大 provider interface；后续等第二个 provider 确认落地再抽象。
+
+十一期状态：已落地 `type=provider` / `provider=skillsmp` registry 配置、`registry add --provider skillsmp`、SkillsMP 远程 keyword search、GitHub tree URL 到 `source_url/source_ref/install_entry` 的映射、搜索结果 cache merge、provider 无关键词 sync 边界错误，以及 Web Registry provider search 覆盖。skills.sh、SkillsLLM、provider auth、全量 sync 和信任模型继续后置。
 
 ## 1. 设计结论
 
@@ -1140,7 +1143,7 @@ v0 增强重构完成后，应满足：
 
 ## 13. 下一步建议
 
-Phase 1/2/3/4/5/6/7/8/9/10 已经完成：profile 最小闭环、当前项目 status/update check、基于 `gookit/cliui` 的交互式选择、`skillc web` 本地管理查看、当前项目 profile apply / update 确认执行闭环、当前项目 Web source/profile/uninstall/history 管理补齐、project registry / `update --all-projects` / Web 跨项目更新闭环、source UX cleanup / JSON source catalog 子集 / 精确 drift metadata、generic JSON Registry skill search/install、lock provenance 和 registry record restore/status/update、archive download materialization，以及 Web Registry 页面都已落地。Phase 11 先规划 SkillsMP 真实 provider adapter。
+Phase 1/2/3/4/5/6/7/8/9/10/11 已经完成：profile 最小闭环、当前项目 status/update check、基于 `gookit/cliui` 的交互式选择、`skillc web` 本地管理查看、当前项目 profile apply / update 确认执行闭环、当前项目 Web source/profile/uninstall/history 管理补齐、project registry / `update --all-projects` / Web 跨项目更新闭环、source UX cleanup / JSON source catalog 子集 / 精确 drift metadata、generic JSON Registry skill search/install、lock provenance 和 registry record restore/status/update、archive download materialization、Web Registry 页面，以及 SkillsMP 真实 provider adapter 都已落地。
 
 Phase 5 实施计划见：`docs/superpowers/plans/2026-06-15-skillc-v0-phase5-web-execution.md`
 
@@ -1158,9 +1161,8 @@ Phase 11 设计见：`docs/superpowers/specs/2026-06-19-skillc-v0-phase11-skills
 
 Phase 11 实施计划见：`docs/superpowers/plans/2026-06-19-skillc-v0-phase11-skillsmp-provider.md`
 
-下一步建议先完成 SkillsMP provider adapter，再转向协作与治理能力：
+下一步建议转向协作与治理能力：
 
-- SkillsMP provider adapter：接入 SkillsMP 搜索 API，把 GitHub tree URL 映射到现有 registry skill 安装链路。
 - Project manifest / profile export-import：设计 `skillc.profile.yaml` 或 profile export/import，解决团队共享 profile 的落点。
 - Registry 信任模型：catalog entry 签名、checksum、来源 allow/deny policy 和远程 registry 安全边界。
 - Registry adapters：在 SkillsMP 验证后，再接入 skills.sh、SkillsLLM 等公开站点搜索 API。

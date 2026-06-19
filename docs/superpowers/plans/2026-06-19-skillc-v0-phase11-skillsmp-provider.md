@@ -724,7 +724,7 @@ git commit -m "test(skillc): cover web skillsmp registry search"
 - Modify: `docs/superpowers/specs/2026-06-19-skillc-v0-phase11-skillsmp-provider-design.md`
 - Modify: `docs/superpowers/plans/2026-06-19-skillc-v0-phase11-skillsmp-provider.md`
 
-- [ ] **Step 1: Update README Registry examples**
+- [x] **Step 1: Update README Registry examples**
 
 In `README.md`, extend the registry block with:
 
@@ -750,7 +750,7 @@ skillc registry search go --registry skillsmp
 SkillsMP 是第一个内置 provider adapter。它不同于 generic JSON registry：搜索时会按关键词请求远程站点，并把返回的 Skill 结果缓存到本地，让 `registry info` 和 `registry install` 继续复用普通 Registry 安装链路。
 ```
 
-- [ ] **Step 2: Update design/spec/plan status**
+- [x] **Step 2: Update design/spec/plan status**
 
 In `docs/design/skillc-v0-enhance-design.md`:
 
@@ -765,7 +765,7 @@ In this plan:
 
 - Mark completed checkboxes as implementation progresses.
 
-- [ ] **Step 3: Run focused tests**
+- [x] **Step 3: Run focused tests**
 
 Run:
 
@@ -775,7 +775,7 @@ go test ./internal/domain/registry ./internal/app/registryapp ./internal/cli ./i
 
 Expected: pass.
 
-- [ ] **Step 4: Run full test suite**
+- [x] **Step 4: Run full test suite**
 
 Run:
 
@@ -785,7 +785,7 @@ go test ./...
 
 Expected: pass.
 
-- [ ] **Step 5: Commit docs and plan completion**
+- [x] **Step 5: Commit docs and plan completion**
 
 ```bash
 git add README.md README.zh-CN.md docs/design/skillc-v0-enhance-design.md docs/superpowers/specs/2026-06-19-skillc-v0-phase11-skillsmp-provider-design.md docs/superpowers/plans/2026-06-19-skillc-v0-phase11-skillsmp-provider.md

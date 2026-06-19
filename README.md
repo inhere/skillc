@@ -104,16 +104,20 @@ skillc source remove <id>             # remove a source
 ```bash
 skillc registry list
 skillc registry add <path-or-url> --id official --name "Official Registry"
+skillc registry add https://skillsmp.com --id skillsmp --name SkillsMP --provider skillsmp
 skillc registry sync <id>
 skillc registry sync --all
 skillc registry search go                         # search Skill results by default
+skillc registry search go --registry skillsmp     # remote search via SkillsMP provider
 skillc registry info official/go-pro              # show a registry Skill result
 skillc registry install official/go-pro --agent codex --scope project --yes
 skillc registry search gstack --kind source       # inspect source catalog entries
 skillc registry add-source official/gstack [--id <id>] [--name <name>] [--sync]
 ```
 
-Registry providers discover Skill-level results from a generic JSON catalog. `registry install` materializes one Skill into the local registry cache and then uses the normal install/lock flow with `source_type=registry` provenance. `registry add-source` is optional and only turns a source result into a long-lived source subscription. Public site adapters such as skills.sh, SkillsMP, and SkillsLLM are planned after the generic JSON path.
+Registry providers discover Skill-level results from a generic JSON catalog or a built-in provider adapter. `registry install` materializes one Skill into the local registry cache and then uses the normal install/lock flow with `source_type=registry` provenance. `registry add-source` is optional and only turns a source result into a long-lived source subscription.
+
+SkillsMP is the first built-in provider adapter. Unlike generic JSON registries, it performs remote keyword search and caches returned Skill results locally so `registry info` and `registry install` can reuse the normal Registry install flow.
 
 Registry Skill entries can point at a Git/local `source_url` or an archive `download_url`. Archive downloads support `zip`, `tar.gz`, and `tgz`; `checksum` verifies the original archive bytes with SHA-256 before extraction:
 

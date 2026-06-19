@@ -106,16 +106,20 @@ skillc source remove <id>                      # 删除来源
 ```bash
 skillc registry list
 skillc registry add <path-or-url> --id official --name "Official Registry"
+skillc registry add https://skillsmp.com --id skillsmp --name SkillsMP --provider skillsmp
 skillc registry sync <id>
 skillc registry sync --all
 skillc registry search go                         # 默认搜索 Skill 结果
+skillc registry search go --registry skillsmp     # 通过 SkillsMP provider 远程搜索
 skillc registry info official/go-pro              # 查看 Registry Skill 详情
 skillc registry install official/go-pro --agent codex --scope project --yes
 skillc registry search gstack --kind source       # 查看 source catalog 结果
 skillc registry add-source official/gstack [--id <id>] [--name <name>] [--sync]
 ```
 
-Registry 用于从 generic JSON catalog 发现 Skill 级结果。`registry install` 会先把单个 Skill materialize 到本地 registry cache，再复用普通 install/lock 流程，并在 lock 中记录 `source_type=registry` provenance。`registry add-source` 是可选入口，只用于把 source 结果转成长期订阅的 source。skills.sh、SkillsMP、SkillsLLM 等公开站点 adapter 后续再实现。
+Registry 用于从 generic JSON catalog 或内置 provider adapter 发现 Skill 级结果。`registry install` 会先把单个 Skill materialize 到本地 registry cache，再复用普通 install/lock 流程，并在 lock 中记录 `source_type=registry` provenance。`registry add-source` 是可选入口，只用于把 source 结果转成长期订阅的 source。
+
+SkillsMP 是第一个内置 provider adapter。它不同于 generic JSON registry：搜索时会按关键词请求远程站点，并把返回的 Skill 结果缓存到本地，让 `registry info` 和 `registry install` 继续复用普通 Registry 安装链路。
 
 Registry Skill entry 可以使用 Git/本地 `source_url`，也可以使用 archive `download_url`。Archive 下载支持 `zip`、`tar.gz`、`tgz`；`checksum` 用 SHA-256 校验 archive 原始字节后再解压：
 

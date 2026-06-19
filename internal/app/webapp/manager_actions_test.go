@@ -94,6 +94,7 @@ func writeWebActionFixture(t *testing.T, baseDir string) string {
 	config := cfg.DefaultConfig()
 	config.LockFile = lockFile
 	config.IndexFile = indexFile
+	config.RegistryCacheDir = filepath.Join(baseDir, "cache", "registry")
 	config.InstallMode = "copy"
 	config.AgentTools["universal"] = cfg.AgentToolConfig{
 		Dirname:    ".agents",

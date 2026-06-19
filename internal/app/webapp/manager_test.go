@@ -58,6 +58,18 @@ func TestManager_ListProfilesReturnsSavedProfiles(t *testing.T) {
 	assert.Eq(t, "Go dev", profiles[0].Description)
 }
 
+func TestManager_HistoryFileUsesUserCacheDir(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "project", "skillc.yaml")
+	config := cfg.DefaultConfig()
+	config.RegistryCacheDir = filepath.Join(baseDir, "cache", "registry")
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config, filepath.Dir(configFile)))
+
+	got := NewManager(configFile, filepath.Dir(configFile)).historyFile()
+
+	assert.Eq(t, filepath.Join(baseDir, "cache", "skillc-web-history.jsonl"), got)
+}
+
 func TestManager_InstallMapReadsLockRecords(t *testing.T) {
 	baseDir := t.TempDir()
 	configFile, _ := writeWebManagerFixture(t, baseDir)
@@ -140,6 +152,7 @@ func writeWebManagerFixture(t *testing.T, baseDir string) (string, cfg.Config) {
 	config := cfg.DefaultConfig()
 	config.LockFile = lockFile
 	config.IndexFile = indexFile
+	config.RegistryCacheDir = filepath.Join(baseDir, "cache", "registry")
 	config.AgentTools["universal"] = cfg.AgentToolConfig{
 		Dirname:    ".agents",
 		ProjectDir: filepath.Join(baseDir, ".agents"),

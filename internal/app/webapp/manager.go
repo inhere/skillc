@@ -209,6 +209,10 @@ func (m *Manager) History(limit int) ([]HistoryRecord, error) {
 }
 
 func (m *Manager) historyFile() string {
+	config, err := m.config()
+	if err == nil && config.RegistryCacheDir != "" {
+		return filepath.Join(filepath.Dir(config.RegistryCacheDir), "skillc-web-history.jsonl")
+	}
 	return filepath.Join(filepath.Dir(m.configFile), "skillc-web-history.jsonl")
 }
 

@@ -9,14 +9,16 @@ import (
 type Type string
 
 const (
-	TypeLocal Type = "local"
-	TypeHTTP  Type = "http"
+	TypeLocal    Type = "local"
+	TypeHTTP     Type = "http"
+	TypeProvider Type = "provider"
 )
 
 type Registry struct {
 	ID           string `yaml:"id" json:"id"`
 	Name         string `yaml:"name,omitempty" json:"name,omitempty"`
 	Type         Type   `yaml:"type" json:"type"`
+	Provider     string `yaml:"provider,omitempty" json:"provider,omitempty"`
 	Path         string `yaml:"path,omitempty" json:"path,omitempty"`
 	URL          string `yaml:"url,omitempty" json:"url,omitempty"`
 	LastSyncAt   string `yaml:"last_sync_at,omitempty" json:"last_sync_at,omitempty"`
@@ -59,6 +61,10 @@ type SkillEntry struct {
 }
 
 func New(id string, name string, value string) (Registry, error) {
+	return NewWithProvider(id, name, value, "")
+}
+
+func NewWithProvider(id string, name string, value string, provider string) (Registry, error) {
 	value = strings.TrimSpace(value)
 	if value == "" {
 		return Registry{}, fmt.Errorf("registry path or url is required")
@@ -72,6 +78,17 @@ func New(id string, name string, value string) (Registry, error) {
 	id = NormalizeID(firstNonEmpty(id, name))
 	if id == "" {
 		return Registry{}, fmt.Errorf("registry id is required")
+	}
+
+	provider = NormalizeID(provider)
+	if provider != "" {
+		if provider != "skillsmp" {
+			return Registry{}, fmt.Errorf("unsupported registry provider: %s", provider)
+		}
+		if !IsHTTPURL(value) {
+			return Registry{}, fmt.Errorf("provider registry url must be http URL")
+		}
+		return Registry{ID: id, Name: name, Type: TypeProvider, Provider: provider, URL: strings.TrimRight(value, "/")}, nil
 	}
 
 	if IsHTTPURL(value) {

@@ -56,7 +56,7 @@
 - Modify: `internal/domain/registry/model.go`
 - Modify: `internal/domain/registry/model_test.go`
 
-- [ ] **Step 1: Write failing registry model tests**
+- [x] **Step 1: Write failing registry model tests**
 
 Add tests:
 
@@ -80,7 +80,7 @@ func TestNewRegistryRejectsUnsupportedProvider(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run failing model tests**
+- [x] **Step 2: Run failing model tests**
 
 Run:
 
@@ -90,7 +90,7 @@ go test ./internal/domain/registry -run 'TestNewRegistryFromProviderURL|TestNewR
 
 Expected: fail because `NewWithProvider` and `TypeProvider` do not exist.
 
-- [ ] **Step 3: Implement minimal provider model**
+- [x] **Step 3: Implement minimal provider model**
 
 Update `internal/domain/registry/model.go`:
 
@@ -156,7 +156,7 @@ func NewWithProvider(id string, name string, value string, provider string) (Reg
 }
 ```
 
-- [ ] **Step 4: Run model tests**
+- [x] **Step 4: Run model tests**
 
 Run:
 
@@ -166,7 +166,7 @@ go test ./internal/domain/registry -v
 
 Expected: pass.
 
-- [ ] **Step 5: Commit model slice**
+- [x] **Step 5: Commit model slice**
 
 ```bash
 git add internal/domain/registry/model.go internal/domain/registry/model_test.go

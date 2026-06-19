@@ -25,6 +25,24 @@ func TestNewRegistryFromHTTPURL(t *testing.T) {
 	assert.Eq(t, "https://example.com/registry.json", got.URL)
 }
 
+func TestNewRegistryFromProviderURL(t *testing.T) {
+	got, err := NewWithProvider("skillsmp", "SkillsMP", "https://skillsmp.com/", "skillsmp")
+
+	assert.NoErr(t, err)
+	assert.Eq(t, "skillsmp", got.ID)
+	assert.Eq(t, "SkillsMP", got.Name)
+	assert.Eq(t, TypeProvider, got.Type)
+	assert.Eq(t, "skillsmp", got.Provider)
+	assert.Eq(t, "https://skillsmp.com", got.URL)
+}
+
+func TestNewRegistryRejectsUnsupportedProvider(t *testing.T) {
+	_, err := NewWithProvider("bad", "Bad", "https://example.com", "unknown")
+
+	assert.Err(t, err)
+	assert.Contains(t, err.Error(), "unsupported registry provider")
+}
+
 func TestEntryValidateRequiresSourceLocation(t *testing.T) {
 	err := Entry{ID: "broken", Type: "git"}.Validate()
 

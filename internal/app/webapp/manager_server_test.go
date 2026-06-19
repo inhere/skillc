@@ -110,6 +110,27 @@ func TestManagerServerRegistryQueryRoutes(t *testing.T) {
 	assert.Contains(t, rec.Body.String(), `"id":"gstack"`)
 }
 
+func TestManagerServerRegistrySkillsProviderRoute(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile, config := writeWebManagerFixture(t, baseDir)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"success":true,"data":{"skills":[{"id":"owner-repo-skills-go-skill-md","name":"go","author":"Owner","description":"Go helper","githubUrl":"https://github.com/Owner/Repo/tree/main/skills/go","skillUrl":"https://skillsmp.com/creators/owner/repo/skills-go"}]}}`))
+	}))
+	defer server.Close()
+	config.RegistryCacheDir = filepath.Join(baseDir, "cache", "registry")
+	config.Registries = []registry.Registry{{
+		ID: "skillsmp", Name: "SkillsMP", Type: registry.TypeProvider, Provider: "skillsmp", URL: server.URL,
+	}}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config, baseDir))
+	manager := NewManagerServer(configFile, baseDir)
+
+	rec := performManagerRequest(manager, http.MethodGet, "/api/registry/skills?keyword=go&registry=skillsmp")
+
+	assert.Eq(t, http.StatusOK, rec.Code)
+	assert.Contains(t, rec.Body.String(), `"id":"owner-repo-skills-go-skill-md"`)
+	assert.Contains(t, rec.Body.String(), `"source_url":"https://github.com/Owner/Repo.git"`)
+}
+
 func TestManagerServerProfilePlanEndpoint(t *testing.T) {
 	baseDir := t.TempDir()
 	configFile, _ := writeWebManagerFixture(t, baseDir)

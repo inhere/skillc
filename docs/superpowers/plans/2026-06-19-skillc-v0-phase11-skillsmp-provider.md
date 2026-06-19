@@ -671,7 +671,7 @@ git commit -m "feat(skillc): add skillsmp registry cli"
 **Files:**
 - Modify: `internal/app/webapp/manager_server_test.go`
 
-- [ ] **Step 1: Write failing Web test**
+- [x] **Step 1: Write failing Web test**
 
 Append near `TestManagerServerRegistryQueryRoutes`:
 
@@ -698,7 +698,7 @@ func TestManagerServerRegistrySkillsProviderRoute(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run Web test**
+- [x] **Step 2: Run Web test**
 
 Run:
 
@@ -708,7 +708,7 @@ go test ./internal/app/webapp -run 'TestManagerServerRegistrySkillsProviderRoute
 
 Expected: pass once Task 3 is complete. If it fails because of imports, add existing package imports only.
 
-- [ ] **Step 3: Commit Web test slice**
+- [x] **Step 3: Commit Web test slice**
 
 ```bash
 git add internal/app/webapp/manager_server_test.go

@@ -2,7 +2,9 @@
 .agents/
 .claude/
 .worktrees/
-*.exe
+.superpowers/
 testdata/
 dist/
 tmp/
+*.local.*
+*.exe

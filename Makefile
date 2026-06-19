@@ -6,7 +6,7 @@ GOEXE = $(shell go env GOEXE)
 BINARY  := $(APP)$(GOEXE)
 
 # Build metadata
-BUILD_TIME := $(shell date +%Y/%m/%d-%H:%M:%S)
+BUILD_TIME := $(shell date +%Y-%m-%dT%H:%M:%S)
 GIT_HASH  := $(shell git rev-parse --short=8 HEAD 2>/dev/null || echo "unknown")
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null | sed 's/^v//' || echo "dev-$(GIT_HASH)")
 
@@ -41,6 +41,7 @@ run: build
 # ─── Cross Compilation ────────────────────────────────────────────────────────
 
 DIST_DIR := dist
+DESCRIPTION := "local skills management tool for the multi-Agent ecosystem"
 
 ## build-all: cross-compile for all platforms
 build-all: dump-info build-linux build-linux-arm64 build-darwin build-darwin-arm64 build-windows latest-yaml
@@ -60,6 +61,7 @@ latest-yaml:
 		echo "name: $(APP)"; \
 		echo "version: $(VERSION)"; \
 		echo "released_at: $(BUILD_TIME)"; \
+		echo "description: $(DESCRIPTION)"; \
 	} > $(DIST_DIR)/latest.yaml
 	@echo "   → $(DIST_DIR)/latest.yaml"
 

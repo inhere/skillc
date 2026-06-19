@@ -25,6 +25,7 @@
 | 2026-06-16 | v0.21 | Codex | 记录 Phase 9 已落地 generic JSON Registry skill search/install、lock provenance 和 registry record restore/status/update |
 | 2026-06-16 | v0.22 | Codex | 增加 Phase 10 Web Registry 页面与 archive download 实施计划链接 |
 | 2026-06-16 | v0.23 | Codex | 记录 Phase 10 已落地 Web Registry 页面与 archive download 安装能力 |
+| 2026-06-19 | v0.24 | Codex | 增加 Phase 11 SkillsMP 真实 Registry provider adapter 设计链接和范围 |
 
 状态：Draft
 
@@ -43,6 +44,7 @@
 - `docs/superpowers/plans/2026-06-16-skillc-v0-phase9-registry-skill-search-install.md`
 - `docs/superpowers/specs/2026-06-16-skillc-v0-phase10-web-registry-archive-design.md`
 - `docs/superpowers/plans/2026-06-16-skillc-v0-phase10-web-registry-archive.md`
+- `docs/superpowers/specs/2026-06-19-skillc-v0-phase11-skillsmp-provider-design.md`
 - `docs/prd.md`
 - `docs/mvp-arch.md`
 - `docs/mvp-plan.md`
@@ -92,6 +94,10 @@
 十期开发计划：`docs/superpowers/plans/2026-06-16-skillc-v0-phase10-web-registry-archive.md`
 
 十期状态：已补齐 registry skill archive `download_url` zip/tar.gz/tgz 下载安装能力，archive 解压包含 SHA-256 校验和 path traversal 防护；Web 已新增 Registry 页面，支持当前项目范围内 registry skill/source 搜索、registry sync、registry install plan/run 和 source result add-source plan/run。真实 skills.sh / SkillsMP / SkillsLLM provider adapter、Registry auth/signature/trust、跨项目 registry install 继续后置。
+
+十一期设计：`docs/superpowers/specs/2026-06-19-skillc-v0-phase11-skillsmp-provider-design.md`
+
+十一期目标：先实现 SkillsMP 作为第一个真实 Registry provider adapter。SkillsMP 有稳定搜索 API，且 `githubUrl` 能映射为现有 `SkillEntry.source_url/source_ref/install_entry`，因此可以复用 P9/P10 的 registry install/materialize/lock/Web 链路。P11 不做 skills.sh、SkillsLLM、provider 全量 sync、provider auth 或大 provider interface；后续等第二个 provider 确认落地再抽象。
 
 ## 1. 设计结论
 
@@ -251,7 +257,7 @@ skillc install --collection go
 
 ### 3.4 Registry
 
-Registry 是旧 PRD 中已经出现的第三方 Skill 搜索来源，目标是从 skills.sh、skillsmp、skillsllm 这类公开收集站点或团队内部 catalog 搜索 Skill，筛选后安装到本地试用。Phase 8 已落地的是一个更窄的 JSON source catalog 子集，用于发现可复用的 source entry；它有价值，但不等于完整 Registry。
+Registry 是旧 PRD 中已经出现的第三方 Skill 搜索来源，目标是从 skills.sh、SkillsMP、SkillsLLM 这类公开收集站点或团队内部 catalog 搜索 Skill，筛选后安装到本地试用。Phase 8 已落地的是一个更窄的 JSON source catalog 子集，用于发现可复用的 source entry；它有价值，但不等于完整 Registry。
 
 定位：
 
@@ -285,7 +291,7 @@ skillc registry install <registry>/<skill> --agent codex --scope project
 skillc registry install <registry>/<skill> --yes
 ```
 
-P9 继续保留 `registry add-source`，但只用于“把搜索结果背后的 Git/source 加入长期 source 管理”。公开 registry 搜到单个 Skill 时，用户不再需要先 add-source 再 source sync 再 install。当前 P9 实现 generic JSON catalog；P10 已补齐 archive download/extract 和 Web Registry 页面。真实 skills.sh / SkillsMP / SkillsLLM adapter、签名和信任策略后置。
+P9 继续保留 `registry add-source`，但只用于“把搜索结果背后的 Git/source 加入长期 source 管理”。公开 registry 搜到单个 Skill 时，用户不再需要先 add-source 再 source sync 再 install。当前 P9 实现 generic JSON catalog；P10 已补齐 archive download/extract 和 Web Registry 页面。P11 设计先接入 SkillsMP 真实 provider adapter；skills.sh、SkillsLLM、签名和信任策略后置。
 
 ### 3.5 Lock
 
@@ -829,7 +835,7 @@ Profile apply 不应直接边解析边安装，应先生成 plan：
 
 ### 8.3 Registry 扩展模型
 
-Registry 作为独立配置块加入。P8 已实现 `registries` 配置和 JSON source catalog cache；P9 需要扩展 provider 类型和 skill 级搜索结果。
+Registry 作为独立配置块加入。P8 已实现 `registries` 配置和 JSON source catalog cache；P9 已扩展 skill 级搜索结果；P11 先新增最小 provider 类型接入 SkillsMP。
 
 ```go
 type Config struct {
@@ -840,8 +846,8 @@ type Config struct {
 type Registry struct {
     ID      string `yaml:"id"`
     Name    string `yaml:"name,omitempty"`
-    Type    string `yaml:"type,omitempty"`    // json | api | site
-    Adapter string `yaml:"adapter,omitempty"` // generic-json | skills-sh | skillsmp | skillsllm
+    Type    string `yaml:"type,omitempty"`      // local | http | provider
+    Provider string `yaml:"provider,omitempty"` // skillsmp
     URL     string `yaml:"url"`
     Status  string `yaml:"status,omitempty"`
 }
@@ -863,6 +869,8 @@ type RegistrySkill struct {
 ```
 
 Registry search 的结果不直接写 lock。安装前应解析为可缓存的 skill snapshot 或 source snapshot，再进入统一 install/profile/lock 流程。单个 registry skill 不需要先注册为 source；只有用户想长期订阅结果背后的仓库时，才使用 `registry add-source`。
+
+P11 的 provider registry 是远程搜索，不是完整 catalog mirror。`registry search <keyword> --registry skillsmp` 会请求 SkillsMP 并把本次结果合并进 registry cache；`registry sync skillsmp` 不做无关键词全量同步。
 
 ## 9. 分层落点
 
@@ -1128,7 +1136,7 @@ v0 增强重构完成后，应满足：
 
 ## 13. 下一步建议
 
-Phase 1/2/3/4/5/6/7/8/9/10 已经完成：profile 最小闭环、当前项目 status/update check、基于 `gookit/cliui` 的交互式选择、`skillc web` 本地管理查看、当前项目 profile apply / update 确认执行闭环、当前项目 Web source/profile/uninstall/history 管理补齐、project registry / `update --all-projects` / Web 跨项目更新闭环、source UX cleanup / JSON source catalog 子集 / 精确 drift metadata、generic JSON Registry skill search/install、lock provenance 和 registry record restore/status/update、archive download materialization，以及 Web Registry 页面都已落地。
+Phase 1/2/3/4/5/6/7/8/9/10 已经完成：profile 最小闭环、当前项目 status/update check、基于 `gookit/cliui` 的交互式选择、`skillc web` 本地管理查看、当前项目 profile apply / update 确认执行闭环、当前项目 Web source/profile/uninstall/history 管理补齐、project registry / `update --all-projects` / Web 跨项目更新闭环、source UX cleanup / JSON source catalog 子集 / 精确 drift metadata、generic JSON Registry skill search/install、lock provenance 和 registry record restore/status/update、archive download materialization，以及 Web Registry 页面都已落地。Phase 11 先规划 SkillsMP 真实 provider adapter。
 
 Phase 5 实施计划见：`docs/superpowers/plans/2026-06-15-skillc-v0-phase5-web-execution.md`
 
@@ -1142,11 +1150,14 @@ Phase 9 实施计划见：`docs/superpowers/plans/2026-06-16-skillc-v0-phase9-re
 
 Phase 10 实施计划见：`docs/superpowers/plans/2026-06-16-skillc-v0-phase10-web-registry-archive.md`
 
-下一步建议转向协作与治理能力：
+Phase 11 设计见：`docs/superpowers/specs/2026-06-19-skillc-v0-phase11-skillsmp-provider-design.md`
 
+下一步建议先完成 SkillsMP provider adapter，再转向协作与治理能力：
+
+- SkillsMP provider adapter：接入 SkillsMP 搜索 API，把 GitHub tree URL 映射到现有 registry skill 安装链路。
 - Project manifest / profile export-import：设计 `skillc.profile.yaml` 或 profile export/import，解决团队共享 profile 的落点。
 - Registry 信任模型：catalog entry 签名、checksum、来源 allow/deny policy 和远程 registry 安全边界。
-- Registry adapters：接入 skills.sh、SkillsMP、SkillsLLM 等公开站点搜索 API。
+- Registry adapters：在 SkillsMP 验证后，再接入 skills.sh、SkillsLLM 等公开站点搜索 API。
 - Remote Web：远程访问、多用户权限和安全审计单独设计，不复用当前本地 JSONL history 作为安全审计系统。
 
 Phase 7 已经把跨项目更新收敛到 registered projects allowlist。后续继续坚持当前安全边界：先 plan、后确认、handler 保持薄层、执行复用 app service。

@@ -73,6 +73,54 @@ func TestService_SyncJSONRegistryCachesSkillEntries(t *testing.T) {
 	assert.Eq(t, catalogPath, results[0].RegistryURL)
 }
 
+func TestService_SearchSkillsProviderCachesSkillsMPResults(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := writeRegistryAppConfig(t, baseDir)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"success":true,"data":{"skills":[{"id":"owner-repo-skills-go-skill-md","name":"go","author":"Owner","description":"Go helper","githubUrl":"https://github.com/Owner/Repo/tree/main/skills/go","skillUrl":"https://skillsmp.com/creators/owner/repo/skills-go"}]}}`))
+	}))
+	defer server.Close()
+	service := NewService(configFile, baseDir)
+	_, err := service.Add(AddReq{ID: "skillsmp", Name: "SkillsMP", Value: server.URL, Provider: "skillsmp"})
+	assert.NoErr(t, err)
+
+	results, err := service.SearchSkills(SearchReq{Keyword: "go", RegistryID: "skillsmp"})
+
+	assert.NoErr(t, err)
+	assert.Len(t, results, 1)
+	assert.Eq(t, "https://github.com/Owner/Repo.git", results[0].SourceURL)
+
+	cached, err := service.InfoSkill("skillsmp/owner-repo-skills-go-skill-md")
+	assert.NoErr(t, err)
+	assert.Eq(t, "skills/go", cached.InstallEntry)
+}
+
+func TestService_SearchSkillsProviderRequiresKeyword(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := writeRegistryAppConfig(t, baseDir)
+	service := NewService(configFile, baseDir)
+	_, err := service.Add(AddReq{ID: "skillsmp", Value: "https://skillsmp.com", Provider: "skillsmp"})
+	assert.NoErr(t, err)
+
+	_, err = service.SearchSkills(SearchReq{RegistryID: "skillsmp"})
+
+	assert.Err(t, err)
+	assert.Contains(t, err.Error(), "keyword is required")
+}
+
+func TestService_SyncProviderRegistryReturnsKeywordHint(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := writeRegistryAppConfig(t, baseDir)
+	service := NewService(configFile, baseDir)
+	_, err := service.Add(AddReq{ID: "skillsmp", Value: "https://skillsmp.com", Provider: "skillsmp"})
+	assert.NoErr(t, err)
+
+	err = service.Sync("skillsmp")
+
+	assert.Err(t, err)
+	assert.Contains(t, err.Error(), "does not support sync without keyword")
+}
+
 func TestService_InfoSkillRequiresRegistryWhenAmbiguous(t *testing.T) {
 	baseDir := t.TempDir()
 	configFile := writeRegistryAppConfig(t, baseDir)

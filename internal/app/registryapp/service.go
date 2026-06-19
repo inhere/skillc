@@ -21,9 +21,10 @@ import (
 )
 
 type AddReq struct {
-	ID    string
-	Name  string
-	Value string
+	ID       string
+	Name     string
+	Value    string
+	Provider string
 }
 
 type AddSourceReq struct {
@@ -73,7 +74,7 @@ func (s *Service) Add(req AddReq) (registry.Registry, error) {
 	if err != nil {
 		return registry.Registry{}, err
 	}
-	item, err := registry.New(req.ID, req.Name, req.Value)
+	item, err := registry.NewWithProvider(req.ID, req.Name, req.Value, req.Provider)
 	if err != nil {
 		return registry.Registry{}, err
 	}
@@ -181,6 +182,15 @@ func (s *Service) Search(keyword string) ([]registry.Entry, error) {
 }
 
 func (s *Service) SearchSkills(req SearchReq) ([]registry.SkillEntry, error) {
+	if strings.TrimSpace(req.RegistryID) != "" {
+		item, ok, err := s.findRegistry(req.RegistryID)
+		if err != nil {
+			return nil, err
+		}
+		if ok && item.Type == registry.TypeProvider {
+			return s.searchProviderSkills(item, req.Keyword)
+		}
+	}
 	file, err := s.loadCacheFile()
 	if err != nil {
 		return nil, err
@@ -282,9 +292,69 @@ func (s *Service) fetchCatalog(item registry.Registry) (registry.Catalog, error)
 		return s.fetchLocalCatalog(item)
 	case registry.TypeHTTP:
 		return s.fetchHTTPCatalog(item)
+	case registry.TypeProvider:
+		return registry.Catalog{}, fmt.Errorf("provider registry does not support sync without keyword; use registry search <keyword> --registry %s", item.ID)
 	default:
 		return registry.Catalog{}, fmt.Errorf("unsupported registry type: %s", item.Type)
 	}
+}
+
+func (s *Service) findRegistry(id string) (registry.Registry, bool, error) {
+	data, err := s.load()
+	if err != nil {
+		return registry.Registry{}, false, err
+	}
+	id = strings.ToLower(strings.TrimSpace(id))
+	for _, item := range data.Registries {
+		if strings.ToLower(item.ID) == id {
+			return item, true, nil
+		}
+	}
+	return registry.Registry{}, false, nil
+}
+
+func (s *Service) searchProviderSkills(item registry.Registry, keyword string) ([]registry.SkillEntry, error) {
+	if strings.TrimSpace(keyword) == "" {
+		return nil, fmt.Errorf("provider registry search keyword is required")
+	}
+	switch item.Provider {
+	case "skillsmp":
+		results, err := searchSkillsMP(s.client, item, keyword)
+		if err != nil {
+			return nil, err
+		}
+		if err := s.mergeCachedSkills(item.ID, results); err != nil {
+			return nil, err
+		}
+		sortSkillEntries(results)
+		return results, nil
+	default:
+		return nil, fmt.Errorf("unsupported registry provider: %s", item.Provider)
+	}
+}
+
+func (s *Service) mergeCachedSkills(registryID string, results []registry.SkillEntry) error {
+	data, err := s.load()
+	if err != nil {
+		return err
+	}
+	current, err := s.cache.LoadFile(registryCachePath(data))
+	if err != nil {
+		return err
+	}
+	byKey := make(map[string]registry.SkillEntry, len(current.Skills)+len(results))
+	for _, entry := range current.Skills {
+		byKey[entry.RegistryID+"/"+entry.ID] = entry
+	}
+	for _, entry := range results {
+		byKey[registryID+"/"+entry.ID] = entry
+	}
+	merged := make([]registry.SkillEntry, 0, len(byKey))
+	for _, entry := range byKey {
+		merged = append(merged, entry)
+	}
+	sortSkillEntries(merged)
+	return s.cache.SaveFile(registryCachePath(data), registrystore.File{Skills: merged, Sources: current.Sources})
 }
 
 func (s *Service) fetchLocalCatalog(item registry.Registry) (registry.Catalog, error) {

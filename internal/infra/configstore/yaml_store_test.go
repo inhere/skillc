@@ -177,6 +177,25 @@ func TestYAMLStore_LoadSaveRegistries(t *testing.T) {
 	assert.Eq(t, registryPath, got.Registries[0].Path)
 }
 
+func TestYAMLStore_LoadSaveProviderRegistries(t *testing.T) {
+	baseDir := t.TempDir()
+	path := filepath.Join(baseDir, "skillc.yaml")
+	data := cfg.DefaultConfig()
+	data.Registries = []registry.Registry{{
+		ID: "skillsmp", Name: "SkillsMP", Type: registry.TypeProvider, Provider: "skillsmp", URL: "https://skillsmp.com",
+	}}
+
+	store := NewYAMLStore()
+	assert.NoErr(t, store.Save(path, data, baseDir))
+
+	got, err := store.Load(path, baseDir)
+	assert.NoErr(t, err)
+	assert.Len(t, got.Registries, 1)
+	assert.Eq(t, registry.TypeProvider, got.Registries[0].Type)
+	assert.Eq(t, "skillsmp", got.Registries[0].Provider)
+	assert.Eq(t, "https://skillsmp.com", got.Registries[0].URL)
+}
+
 func TestStore_SaveAfterLoadKeepsProjectDirsPortable(t *testing.T) {
 	firstBaseDir := t.TempDir()
 	configFile := filepath.Join(firstBaseDir, "skillc.yaml")

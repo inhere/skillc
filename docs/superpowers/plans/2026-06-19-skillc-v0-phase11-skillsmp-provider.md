@@ -385,8 +385,10 @@ git commit -m "feat(skillc): map skillsmp search results"
 **Files:**
 - Modify: `internal/app/registryapp/service.go`
 - Modify: `internal/app/registryapp/service_test.go`
+- Modify: `internal/infra/configstore/yaml_store.go`
+- Modify: `internal/infra/configstore/yaml_store_test.go`
 
-- [ ] **Step 1: Write failing service tests**
+- [x] **Step 1: Write failing service tests**
 
 Append to `internal/app/registryapp/service_test.go`:
 
@@ -440,7 +442,7 @@ func TestService_SyncProviderRegistryReturnsKeywordHint(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run failing service tests**
+- [x] **Step 2: Run failing service tests**
 
 Run:
 
@@ -450,7 +452,7 @@ go test ./internal/app/registryapp -run 'TestService_SearchSkillsProvider|TestSe
 
 Expected: fail because `AddReq.Provider` and provider service path are missing.
 
-- [ ] **Step 3: Implement service wiring**
+- [x] **Step 3: Implement service wiring**
 
 Make these minimal changes in `internal/app/registryapp/service.go`:
 
@@ -550,7 +552,7 @@ func (s *Service) mergeCachedSkills(registryID string, results []registry.SkillE
 }
 ```
 
-- [ ] **Step 4: Run service tests**
+- [x] **Step 4: Run service tests**
 
 Run:
 
@@ -560,7 +562,7 @@ go test ./internal/domain/registry ./internal/app/registryapp -v
 
 Expected: pass.
 
-- [ ] **Step 5: Commit service slice**
+- [x] **Step 5: Commit service slice**
 
 ```bash
 git add internal/app/registryapp/service.go internal/app/registryapp/service_test.go

@@ -40,6 +40,7 @@ type registryRecord struct {
 	ID           string        `yaml:"id"`
 	Name         string        `yaml:"name,omitempty"`
 	Type         registry.Type `yaml:"type"`
+	Provider     string        `yaml:"provider,omitempty"`
 	Path         string        `yaml:"path,omitempty"`
 	URL          string        `yaml:"url,omitempty"`
 	LastSyncAt   string        `yaml:"last_sync_at,omitempty"`
@@ -473,6 +474,7 @@ func toRegistryRecords(registries []registry.Registry) []registryRecord {
 			ID:           item.ID,
 			Name:         item.Name,
 			Type:         item.Type,
+			Provider:     item.Provider,
 			Path:         item.Path,
 			URL:          item.URL,
 			LastSyncAt:   item.LastSyncAt,
@@ -509,6 +511,7 @@ func fromRegistryRecords(records []registryRecord) []registry.Registry {
 			ID:           record.ID,
 			Name:         record.Name,
 			Type:         record.Type,
+			Provider:     record.Provider,
 			Path:         record.Path,
 			URL:          record.URL,
 			LastSyncAt:   record.LastSyncAt,

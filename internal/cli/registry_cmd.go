@@ -54,19 +54,25 @@ func buildRegistryListCommand() *gcli.Command {
 func buildRegistryAddCommand() *gcli.Command {
 	var id string
 	var name string
+	var provider string
 	return &gcli.Command{
 		Name: "add",
 		Desc: "Add a registry catalog",
 		Config: func(c *gcli.Command) {
 			c.StrOpt(&id, "id", "", "", "custom registry id")
 			c.StrOpt(&name, "name", "", "", "custom registry name")
+			c.StrOpt(&provider, "provider", "", "", "registry provider adapter, e.g. skillsmp")
 			c.AddArg("value", "registry catalog path or URL", true)
 		},
-		Func: func(c *gcli.Command, _ []string) error {
+		Func: func(c *gcli.Command, args []string) error {
+			if err := applyRegistryAddTrailingOptions(&id, &name, &provider, args); err != nil {
+				return err
+			}
 			item, err := newRegistryService().Add(registryapp.AddReq{
-				ID:    id,
-				Name:  name,
-				Value: c.Arg("value").String(),
+				ID:       id,
+				Name:     name,
+				Value:    c.Arg("value").String(),
+				Provider: provider,
 			})
 			if err != nil {
 				return err
@@ -75,6 +81,45 @@ func buildRegistryAddCommand() *gcli.Command {
 			return nil
 		},
 	}
+}
+
+func applyRegistryAddTrailingOptions(id *string, name *string, provider *string, args []string) error {
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		optName, value, hasValue := strings.Cut(arg, "=")
+		switch optName {
+		case "--id":
+			if !hasValue {
+				i++
+				if i >= len(args) {
+					return fmt.Errorf("%s requires a value", optName)
+				}
+				value = args[i]
+			}
+			*id = value
+		case "--name":
+			if !hasValue {
+				i++
+				if i >= len(args) {
+					return fmt.Errorf("%s requires a value", optName)
+				}
+				value = args[i]
+			}
+			*name = value
+		case "--provider":
+			if !hasValue {
+				i++
+				if i >= len(args) {
+					return fmt.Errorf("%s requires a value", optName)
+				}
+				value = args[i]
+			}
+			*provider = value
+		default:
+			return fmt.Errorf("unknown registry add argument: %s", arg)
+		}
+	}
+	return nil
 }
 
 func buildRegistryRemoveCommand() *gcli.Command {

@@ -575,7 +575,7 @@ git commit -m "feat(skillc): search skillsmp provider registries"
 - Modify: `internal/cli/registry_cmd.go`
 - Modify: `internal/cli/app_test.go`
 
-- [ ] **Step 1: Write failing CLI tests**
+- [x] **Step 1: Write failing CLI tests**
 
 Append near existing registry CLI tests in `internal/cli/app_test.go`:
 
@@ -619,7 +619,7 @@ import (
 )
 ```
 
-- [ ] **Step 2: Run failing CLI tests**
+- [x] **Step 2: Run failing CLI tests**
 
 Run:
 
@@ -629,7 +629,7 @@ go test ./internal/cli -run 'TestRegistryCommand(AddProviderSkillsMP|SearchProvi
 
 Expected: fail because `--provider` is not registered.
 
-- [ ] **Step 3: Implement CLI flag**
+- [x] **Step 3: Implement CLI flag**
 
 In `buildRegistryAddCommand`, add:
 
@@ -649,7 +649,7 @@ In `AddReq`:
 Provider: provider,
 ```
 
-- [ ] **Step 4: Run CLI tests**
+- [x] **Step 4: Run CLI tests**
 
 Run:
 
@@ -659,7 +659,7 @@ go test ./internal/cli -run 'TestRegistryCommand(AddProviderSkillsMP|SearchProvi
 
 Expected: pass.
 
-- [ ] **Step 5: Commit CLI slice**
+- [x] **Step 5: Commit CLI slice**
 
 ```bash
 git add internal/cli/registry_cmd.go internal/cli/app_test.go

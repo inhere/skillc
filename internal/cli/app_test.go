@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -20,6 +22,7 @@ import (
 	cfg "github.com/inhere/skillc/internal/domain/config"
 	lockpkg "github.com/inhere/skillc/internal/domain/lock"
 	"github.com/inhere/skillc/internal/domain/profile"
+	"github.com/inhere/skillc/internal/domain/registry"
 	"github.com/inhere/skillc/internal/domain/skill"
 	sourcepkg "github.com/inhere/skillc/internal/domain/source"
 	"github.com/inhere/skillc/internal/infra/agentfs"
@@ -1828,6 +1831,33 @@ func TestRegistryCommandSearchKindSourceStillShowsSourceCatalog(t *testing.T) {
 	xassert.Contains(t, output, "GStack Skills")
 	xassert.Contains(t, output, "git")
 	xassert.NotContains(t, output, "go-pro")
+}
+
+func TestRegistryCommandAddProviderSkillsMP(t *testing.T) {
+	baseDir := t.TempDir()
+
+	output := runAppInDirWithStdout(t, baseDir, []string{"registry", "add", "https://skillsmp.com", "--id", "skillsmp", "--name", "SkillsMP", "--provider", "skillsmp"})
+
+	xassert.Contains(t, output, "registry added: skillsmp")
+	config, err := configstore.NewYAMLStore().Load(filepath.Join(baseDir, "skillc.yaml"), baseDir)
+	xassert.NoErr(t, err)
+	xassert.Len(t, config.Registries, 1)
+	xassert.Eq(t, registry.TypeProvider, config.Registries[0].Type)
+	xassert.Eq(t, "skillsmp", config.Registries[0].Provider)
+}
+
+func TestRegistryCommandSearchProviderSkillsMP(t *testing.T) {
+	baseDir := t.TempDir()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"success":true,"data":{"skills":[{"id":"owner-repo-skills-go-skill-md","name":"go","author":"Owner","description":"Go helper","githubUrl":"https://github.com/Owner/Repo/tree/main/skills/go","skillUrl":"https://skillsmp.com/creators/owner/repo/skills-go"}]}}`))
+	}))
+	defer server.Close()
+	runAppInDirWithStdout(t, baseDir, []string{"registry", "add", server.URL, "--id", "skillsmp", "--provider", "skillsmp"})
+
+	output := runAppInDirWithStdout(t, baseDir, []string{"registry", "search", "go", "--registry", "skillsmp"})
+
+	xassert.Contains(t, output, "owner-repo-skills-go-skill-md")
+	xassert.Contains(t, output, "https://github.com/Owner/Repo.git")
 }
 
 func findCommandByName(app *gcli.App, name string) *gcli.Command {

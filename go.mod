@@ -7,7 +7,7 @@ require (
 	github.com/gookit/config/v2 v2.2.8
 	github.com/gookit/gcli/v3 v3.5.0
 	github.com/gookit/goutil v0.7.6
-	github.com/gookit/slog v0.6.0
+	github.com/gookit/slog v0.7.1
 	golang.org/x/term v0.44.0
 )
 

@@ -1377,6 +1377,7 @@ func TestSourceAddLocalCommand_PrintsNextSyncHint(t *testing.T) {
 
 func TestSourceAddCommandAcceptsDirectPathWithCustomIDAndName(t *testing.T) {
 	baseDir := t.TempDir()
+	writeLocalTestConfig(t, baseDir)
 	sourceDir := filepath.Join(baseDir, "skills")
 	assert.NoErr(t, os.MkdirAll(sourceDir, 0o755))
 
@@ -1394,8 +1395,33 @@ func TestSourceAddCommandAcceptsDirectPathWithCustomIDAndName(t *testing.T) {
 	assert.Eq(t, "GStack Skills", config.Sources[0].Name)
 }
 
+func TestSourceAddUsesGlobalConfigWhenLocalMissing(t *testing.T) {
+	baseDir := t.TempDir()
+	homeDir := filepath.Join(baseDir, "home")
+	workDir := filepath.Join(baseDir, "work")
+	sourceDir := filepath.Join(baseDir, "skills")
+	xassert.NoErr(t, os.MkdirAll(homeDir, 0o755))
+	xassert.NoErr(t, os.MkdirAll(workDir, 0o755))
+	xassert.NoErr(t, os.MkdirAll(sourceDir, 0o755))
+	t.Setenv("HOME", homeDir)
+	t.Setenv("USERPROFILE", homeDir)
+
+	output := runAppInDirWithStdout(t, workDir, []string{"source", "add", "--id", "gstack", sourceDir})
+
+	xassert.Contains(t, output, "gstack added")
+	_, err := os.Stat(filepath.Join(workDir, "skillc.yaml"))
+	xassert.True(t, os.IsNotExist(err))
+	config, err := configstore.NewYAMLStore().Load(filepath.Join(homeDir, ".config", "skillc", "config.yaml"), workDir)
+	xassert.NoErr(t, err)
+	xassert.Len(t, config.Sources, 1)
+	if len(config.Sources) == 1 {
+		xassert.Eq(t, "gstack", config.Sources[0].ID)
+	}
+}
+
 func TestSourceAddGitCommandAcceptsCustomIDAndName(t *testing.T) {
 	baseDir := t.TempDir()
+	writeLocalTestConfig(t, baseDir)
 
 	output := runAppInDirWithStdout(t, baseDir, []string{"source", "add", "git", "--id", "acme", "--name", "Acme Skills", "https://example.com/skills.git", "main"})
 
@@ -1405,6 +1431,7 @@ func TestSourceAddGitCommandAcceptsCustomIDAndName(t *testing.T) {
 
 func TestSourceInfoCommandPrintsDetails(t *testing.T) {
 	baseDir := t.TempDir()
+	writeLocalTestConfig(t, baseDir)
 	sourceDir := filepath.Join(baseDir, "skills")
 	assert.NoErr(t, os.MkdirAll(sourceDir, 0o755))
 	runAppInDirWithStdout(t, baseDir, []string{"source", "add", "--id", "gstack", "--name", "GStack Skills", sourceDir})

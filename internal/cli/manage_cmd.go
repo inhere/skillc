@@ -273,6 +273,13 @@ func buildInstallCommand() *gcli.Command {
 			if err != nil {
 				return err
 			}
+			if len(searchResult.Resolved) == 0 {
+				if len(searchResult.Failed) == 0 {
+					ccolor.Warnln("no skills found")
+					return nil
+				}
+				return printInstallResult(installapp.CommandResult{ResolveFailed: searchResult.Failed})
+			}
 
 			ok, err := printInstallPlanAndConfirm(searchResult.Resolved, opts)
 			if err != nil {

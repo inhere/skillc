@@ -948,6 +948,28 @@ func TestInstallCommand_BatchTargetsWithYesReportsResolveAndInstallFailures(t *t
 	assert.True(t, os.IsNotExist(err))
 }
 
+func TestInstallCommand_NoResolvedTargetsDoesNotPrompt(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	indexPath := filepath.Join(baseDir, "cache", "index.json")
+	lockFile := filepath.Join(baseDir, "skillc-install.lock")
+
+	config := cfg.DefaultConfig()
+	config.LockFile = lockFile
+	config.IndexFile = indexPath
+	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, ".agents")}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
+	assert.NoErr(t, repoindex.NewStore().Save(indexPath, []skill.Skill{}))
+
+	output := runAppInDirWithInput(t, baseDir, []string{"ins", "--agent", "universal", "codebase"}, "y\n")
+
+	assert.Contains(t, output, "resolve failed codebase skill not found: codebase")
+	assert.NotContains(t, output, "Will install skills:")
+	assert.NotContains(t, output, "Continue? [y/N]")
+	_, err := os.Stat(lockFile)
+	assert.True(t, os.IsNotExist(err))
+}
+
 func TestInstallCommand_DoesNotAcceptCollectionFlag(t *testing.T) {
 	app := newTestApp()
 	install := findCommandByName(app, "install")

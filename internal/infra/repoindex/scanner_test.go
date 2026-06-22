@@ -42,6 +42,28 @@ name: Skill A
 	assert.Eq(t, "workflow-repo/skill-a", items[0].SourceQualifiedName)
 }
 
+func TestScanner_ScanIndexesSkillAtSourceRoot(t *testing.T) {
+	root := t.TempDir()
+	assert.NoErr(t, os.WriteFile(filepath.Join(root, "SKILL.md"), []byte(`---
+id: codebase-to-course
+name: Codebase To Course
+---
+# Codebase To Course`), 0o644))
+	assert.NoErr(t, os.MkdirAll(filepath.Join(root, "references"), 0o755))
+
+	items, err := NewScanner().Scan(source.Source{ID: "codebase-to-course", Name: "codebase-to-course", Type: source.TypeGit, Path: root, ResolvedRef: "deadbeefcafebabe"})
+	assert.NoErr(t, err)
+	assert.Len(t, items, 1)
+	if len(items) == 0 {
+		return
+	}
+	assert.Eq(t, "codebase-to-course", items[0].ID)
+	assert.Eq(t, "", items[0].Collection)
+	assert.Eq(t, "codebase-to-course", items[0].QualifiedName)
+	assert.Eq(t, "codebase-to-course/codebase-to-course", items[0].SourceQualifiedName)
+	assert.Eq(t, "deadbeef", items[0].Version)
+}
+
 func TestScanner_ScanAssignsSourceNameCollectionWhenRootHasMultipleSkills(t *testing.T) {
 	root := t.TempDir()
 	assert.NoErr(t, os.MkdirAll(filepath.Join(root, "skill-a"), 0o755))

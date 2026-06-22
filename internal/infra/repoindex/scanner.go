@@ -22,6 +22,10 @@ func NewScanner() *Scanner {
 }
 
 func (s *Scanner) Scan(src sourcepkg.Source) ([]skill.Skill, error) {
+	if parsed, ok := scanSkillDir(src, src.Path, ""); ok {
+		return []skill.Skill{parsed}, nil
+	}
+
 	groups, err := s.scanGroups(src)
 	if err != nil {
 		return nil, err
@@ -39,25 +43,10 @@ func (s *Scanner) Scan(src sourcepkg.Source) ([]skill.Skill, error) {
 				continue
 			}
 			skillDir := filepath.Join(group.RootDir, entry.Name())
-			mdPath := filepath.Join(skillDir, "SKILL.md")
-			content, err := os.ReadFile(mdPath)
-			if err != nil {
+			parsed, ok := scanSkillDir(src, skillDir, group.Collection)
+			if !ok {
 				continue
 			}
-			candidate := src
-			candidate.Path = skillDir
-			parsed, err := skill.ParseSkillMarkdown(string(content), candidate)
-			if err != nil {
-				continue
-			}
-			parsed.Path = skillDir
-			if checksum, err := hashx.SumDir(filepath.Join(skillDir, parsed.InstallEntry)); err == nil {
-				parsed.Checksum = checksum
-			}
-			parsed.Collection = group.Collection
-			parsed.SourceName = src.Name
-			parsed.QualifiedName = qualifiedName(group.Collection, parsed.ID)
-			parsed.SourceQualifiedName = sourceQualifiedName(src.Name, group.Collection, parsed.ID)
 			if _, ok := seen[parsed.SourceQualifiedName]; ok {
 				continue
 			}
@@ -70,6 +59,28 @@ func (s *Scanner) Scan(src sourcepkg.Source) ([]skill.Skill, error) {
 		return items[i].QualifiedName < items[j].QualifiedName
 	})
 	return items, nil
+}
+
+func scanSkillDir(src sourcepkg.Source, skillDir string, collection string) (skill.Skill, bool) {
+	content, err := os.ReadFile(filepath.Join(skillDir, "SKILL.md"))
+	if err != nil {
+		return skill.Skill{}, false
+	}
+	candidate := src
+	candidate.Path = skillDir
+	parsed, err := skill.ParseSkillMarkdown(string(content), candidate)
+	if err != nil {
+		return skill.Skill{}, false
+	}
+	parsed.Path = skillDir
+	if checksum, err := hashx.SumDir(filepath.Join(skillDir, parsed.InstallEntry)); err == nil {
+		parsed.Checksum = checksum
+	}
+	parsed.Collection = collection
+	parsed.SourceName = src.Name
+	parsed.QualifiedName = qualifiedName(collection, parsed.ID)
+	parsed.SourceQualifiedName = sourceQualifiedName(src.Name, collection, parsed.ID)
+	return parsed, true
 }
 
 func (s *Scanner) scanGroups(src sourcepkg.Source) ([]scanGroup, error) {

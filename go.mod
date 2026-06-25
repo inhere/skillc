@@ -6,7 +6,7 @@ require (
 	github.com/gookit/cliui v0.3.1
 	github.com/gookit/config/v2 v2.2.8
 	github.com/gookit/gcli/v3 v3.5.0
-	github.com/gookit/goutil v0.7.6
+	github.com/gookit/goutil v0.8.0
 	github.com/gookit/slog v0.6.0
 	golang.org/x/term v0.44.0
 )

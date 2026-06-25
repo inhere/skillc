@@ -143,19 +143,21 @@ func (mo *ManageOptions) resolveInstallMode(config cfg.Config) agentfs.Mode {
 
 func buildInstallCommand() *gcli.Command {
 	var opts ManageOptions
-	var sourceArg string
+	var sourceArg, skillId string
 	var interactive bool
+
 	return &gcli.Command{
 		Name:    "install",
 		Desc:    "Install skills",
-		Aliases: []string{"ins"},
+		Aliases: []string{"ins", "add"},
 		Config: func(c *gcli.Command) {
 			opts.bindCommand(c)
 			opts.bindInstallModeFlags(c)
 			c.BoolOpt(&opts.Yes, "yes", "y", false, "skip confirmation prompt")
 			c.BoolOpt(&interactive, "interactive", "i", false, "interactively select skills to install")
 			c.StrOpt(&sourceArg, "source", "S", "", "git url or local path: add & sync source before installing")
-			c.AddArg("skill", "skill id. if empty, restore from lock file")
+			c.StrOpt(&skillId, "skill", "", "", "Skill ID for install")
+			c.AddArg("skill", "skill ID, same --skill. if empty, restore from lock file")
 		},
 		Func: func(c *gcli.Command, _ []string) error {
 			config, cwd, err := loadConfig()
@@ -198,7 +200,10 @@ func buildInstallCommand() *gcli.Command {
 				ccolor.Warnf("symlink not supported, fallback to copy for %s: %v\n", target, err)
 			}
 
-			targetArg := c.Arg("skill").String()
+			targetArg := skillId
+			if targetArg == "" {
+				targetArg = c.Arg("skill").String()
+			}
 			if interactive {
 				items, err := newSearchService().Search(targetArg, opts.Agent, "")
 				if err != nil {

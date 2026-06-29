@@ -16,6 +16,7 @@ import (
 	"github.com/inhere/skillc/internal/app/listapp"
 	"github.com/inhere/skillc/internal/app/projectupdateapp"
 	"github.com/inhere/skillc/internal/app/registryapp"
+	"github.com/inhere/skillc/internal/app/searchapp"
 	"github.com/inhere/skillc/internal/app/statusapp"
 	"github.com/inhere/skillc/internal/app/updateapp"
 	"github.com/inhere/skillc/internal/app/webapp"
@@ -151,7 +152,8 @@ func buildInstallCommand() *gcli.Command {
 		Desc:    "Install skills",
 		Aliases: []string{"ins", "add"},
 		Config: func(c *gcli.Command) {
-			opts.bindCommand(c)
+			c.StrOpt(&opts.Scope, "scope", "s", string(agent.ScopeProject), "scope name")
+			c.StrOpt(&opts.Agent, "agent", "a", "", "agent name or directory; select interactively when empty")
 			opts.bindInstallModeFlags(c)
 			c.BoolOpt(&opts.Yes, "yes", "y", false, "skip confirmation prompt")
 			c.BoolOpt(&interactive, "interactive", "i", false, "interactively select skills to install")
@@ -205,7 +207,8 @@ func buildInstallCommand() *gcli.Command {
 				targetArg = c.Arg("skill").String()
 			}
 			if interactive {
-				items, err := newSearchService().Search(targetArg, opts.Agent, "")
+				searchAgent := opts.Agent
+				items, err := newSearchService().Search(targetArg, searchAgent, "")
 				if err != nil {
 					return err
 				}
@@ -226,6 +229,14 @@ func buildInstallCommand() *gcli.Command {
 					ccolor.Warnln("no skills selected")
 					return nil
 				}
+				agentNames, err := selectInstallAgents(config, opts.Agent)
+				if err != nil {
+					return err
+				}
+				if len(agentNames) == 0 {
+					return nil
+				}
+				opts.Agent = strings.Join(agentNames, ", ")
 				ok, err := printInstallPlanAndConfirm(resolved, opts)
 				if err != nil {
 					return err
@@ -234,18 +245,7 @@ func buildInstallCommand() *gcli.Command {
 					return nil
 				}
 
-				result, err := installapp.NewService(config.LockFile).
-					WithInstallMode(installMode).
-					WithSymlinkFallbackNotifier(fallbackNotifier).
-					RunResolved(config, installapp.InstallReq{
-						Agent:   opts.Agent,
-						Scope:   opts.Scope,
-						WorkDir: cwd,
-					}, resolved, nil)
-				if err != nil {
-					return err
-				}
-				return printInstallResult(result)
+				return runResolvedInstall(config, cwd, installMode, fallbackNotifier, opts, agentNames, resolved, nil)
 			}
 
 			if targetArg == "" {
@@ -286,6 +286,14 @@ func buildInstallCommand() *gcli.Command {
 				return printInstallResult(installapp.CommandResult{ResolveFailed: searchResult.Failed})
 			}
 
+			agentNames, err := selectInstallAgents(config, opts.Agent)
+			if err != nil {
+				return err
+			}
+			if len(agentNames) == 0 {
+				return nil
+			}
+			opts.Agent = strings.Join(agentNames, ", ")
 			ok, err := printInstallPlanAndConfirm(searchResult.Resolved, opts)
 			if err != nil {
 				return err
@@ -294,20 +302,48 @@ func buildInstallCommand() *gcli.Command {
 				return nil
 			}
 
-			result, err := installapp.NewService(config.LockFile).
-				WithInstallMode(installMode).
-				WithSymlinkFallbackNotifier(fallbackNotifier).
-				RunResolved(config, installapp.InstallReq{
-					Agent:   opts.Agent,
-					Scope:   opts.Scope,
-					WorkDir: cwd,
-				}, searchResult.Resolved, searchResult.Failed)
-			if err != nil {
-				return err
-			}
-			return printInstallResult(result)
+			return runResolvedInstall(config, cwd, installMode, fallbackNotifier, opts, agentNames, searchResult.Resolved, searchResult.Failed)
 		},
 	}
+}
+
+func selectInstallAgents(config cfg.Config, agentName string) ([]string, error) {
+	if strings.TrimSpace(agentName) != "" {
+		return []string{agentName}, nil
+	}
+	selected, err := newMultiSelector().SelectMulti(context.Background(), termselect.Options{
+		Title:        "Install agents",
+		Items:        agentSelectItems(config),
+		FilterPrompt: "filter agents",
+	})
+	if err != nil {
+		return nil, err
+	}
+	agentNames := selectedAgentNames(selected)
+	if len(agentNames) == 0 {
+		ccolor.Warnln("no agents selected")
+	}
+	return agentNames, nil
+}
+
+func runResolvedInstall(config cfg.Config, cwd string, installMode agentfs.Mode, fallbackNotifier agentfs.FallbackNotifier, opts ManageOptions, agentNames []string, items []skill.Skill, resolveFailed []searchapp.TargetError) error {
+	result := installapp.CommandResult{ResolveFailed: resolveFailed}
+	for _, agentName := range agentNames {
+		next, err := installapp.NewService(config.LockFile).
+			WithInstallMode(installMode).
+			WithSymlinkFallbackNotifier(fallbackNotifier).
+			RunResolved(config, installapp.InstallReq{
+				Agent:   agentName,
+				Scope:   opts.Scope,
+				WorkDir: cwd,
+			}, items, nil)
+		if err != nil {
+			return err
+		}
+		result.Installed = append(result.Installed, next.Installed...)
+		result.InstallFailed = append(result.InstallFailed, next.InstallFailed...)
+	}
+	return printInstallResult(result)
 }
 
 func printInstallPlan(items []skill.Skill, opts ManageOptions) {

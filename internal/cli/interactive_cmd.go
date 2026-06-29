@@ -3,10 +3,12 @@ package cli
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/inhere/skillc/internal/app/statusapp"
+	cfg "github.com/inhere/skillc/internal/domain/config"
 	"github.com/inhere/skillc/internal/domain/skill"
 	"github.com/inhere/skillc/internal/infra/termselect"
 )
@@ -69,6 +71,36 @@ func selectedUpdateTargets(items []statusapp.Item, selected []termselect.Item) [
 		}
 	}
 	return out
+}
+
+func agentSelectItems(config cfg.Config) []termselect.Item {
+	names := make([]string, 0, len(config.AgentTools))
+	for name := range config.AgentTools {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	items := make([]termselect.Item, 0, len(names))
+	for _, name := range names {
+		tool := config.AgentTools[name]
+		items = append(items, termselect.Item{
+			Key:    strconv.Itoa(len(items) + 1),
+			Label:  name,
+			Value:  name,
+			Detail: "dir=" + tool.Dirname,
+		})
+	}
+	return items
+}
+
+func selectedAgentNames(selected []termselect.Item) []string {
+	names := make([]string, 0, len(selected))
+	for _, item := range selected {
+		if item.Value != "" {
+			names = append(names, item.Value)
+		}
+	}
+	return names
 }
 
 func skillTarget(item skill.Skill) string {

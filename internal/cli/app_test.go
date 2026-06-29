@@ -70,14 +70,22 @@ func (s *webServerStub) Serve(host string, port int) error {
 }
 
 type selectorStub struct {
-	items  []termselect.Item
-	got    termselect.Options
-	called bool
+	items     []termselect.Item
+	responses [][]termselect.Item
+	got       termselect.Options
+	calls     []termselect.Options
+	called    bool
 }
 
 func (s *selectorStub) SelectMulti(_ context.Context, opts termselect.Options) ([]termselect.Item, error) {
 	s.called = true
 	s.got = opts
+	s.calls = append(s.calls, opts)
+	if len(s.responses) > 0 {
+		items := s.responses[0]
+		s.responses = s.responses[1:]
+		return items, nil
+	}
 	return s.items, nil
 }
 
@@ -769,6 +777,37 @@ func TestInstallCommand_InstallsIndexedSkill(t *testing.T) {
 	assert.Eq(t, "hello", string(data))
 }
 
+func TestInstallCommandWithoutAgentInteractivelySelectsAgents(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	indexPath := filepath.Join(baseDir, "cache", "index.json")
+	sourceDir := filepath.Join(baseDir, "source", "hello-skill")
+	assert.NoErr(t, os.MkdirAll(filepath.Join(sourceDir, "commands"), 0o755))
+	assert.NoErr(t, os.WriteFile(filepath.Join(sourceDir, "commands", "hello.txt"), []byte("hello"), 0o644))
+
+	config := cfg.DefaultConfig()
+	config.LockFile = filepath.Join(baseDir, "skillc-install.lock")
+	config.IndexFile = indexPath
+	config.AgentTools["codex"] = cfg.AgentToolConfig{Dirname: ".codex", ProjectDir: filepath.Join(baseDir, ".codex")}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
+	assert.NoErr(t, repoindex.NewStore().Save(indexPath, []skill.Skill{{
+		ID: "hello-skill", Name: "Hello Skill", Version: "1.0.0", SourceID: "local-demo", SourceType: sourcepkg.TypeLocal, InstallEntry: "commands", Path: sourceDir,
+	}}))
+
+	stub := &selectorStub{items: []termselect.Item{{Value: "codex"}}}
+	prevSelector := newMultiSelector
+	newMultiSelector = func() multiSelector { return stub }
+	defer func() { newMultiSelector = prevSelector }()
+
+	output := runAppInDirWithStdout(t, baseDir, []string{"install", "--yes", "hello-skill"})
+
+	assert.Contains(t, stub.got.Title, "Install agents")
+	assert.Contains(t, output, "agent: codex")
+	data, err := os.ReadFile(filepath.Join(baseDir, ".codex", "skills", "hello-skill", "hello.txt"))
+	assert.NoErr(t, err)
+	assert.Eq(t, "hello", string(data))
+}
+
 func TestInstallCommandInteractiveSelectsAndInstallsSkills(t *testing.T) {
 	baseDir := t.TempDir()
 	configFile := filepath.Join(baseDir, "skillc.yaml")
@@ -847,6 +886,46 @@ func TestInstallCommandInteractiveUsesSkillArgAsSearchKeyword(t *testing.T) {
 	assert.Eq(t, "repo-a/tools/go-pro", stub.got.Items[0].Value)
 	_, err := os.Stat(filepath.Join(baseDir, ".agents", "skills", "review", "review.txt"))
 	assert.True(t, os.IsNotExist(err))
+}
+
+func TestInstallCommandInteractiveKeywordWithoutAgentSelectsSkillAndAgents(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	indexPath := filepath.Join(baseDir, "cache", "index.json")
+	sourceDir := filepath.Join(baseDir, "source", "go-pro")
+	assert.NoErr(t, os.MkdirAll(filepath.Join(sourceDir, "commands"), 0o755))
+	assert.NoErr(t, os.WriteFile(filepath.Join(sourceDir, "commands", "go.txt"), []byte("go"), 0o644))
+
+	config := cfg.DefaultConfig()
+	config.LockFile = filepath.Join(baseDir, "skillc-install.lock")
+	config.IndexFile = indexPath
+	config.AgentTools["codex"] = cfg.AgentToolConfig{Dirname: ".codex", ProjectDir: filepath.Join(baseDir, ".codex")}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
+	assert.NoErr(t, repoindex.NewStore().Save(indexPath, []skill.Skill{{
+		ID: "go-pro", Name: "Go Pro", Version: "1.0.0", SourceID: "repo-a", SourceType: sourcepkg.TypeLocal, Collection: "tools", QualifiedName: "tools/go-pro", SourceQualifiedName: "repo-a/tools/go-pro", InstallEntry: "commands", Path: sourceDir,
+	}}))
+
+	stub := &selectorStub{responses: [][]termselect.Item{
+		{{Value: "repo-a/tools/go-pro"}},
+		{{Value: "codex"}},
+	}}
+	prevSelector := newMultiSelector
+	newMultiSelector = func() multiSelector { return stub }
+	defer func() { newMultiSelector = prevSelector }()
+
+	output := runAppInDirWithStdout(t, baseDir, []string{"ins", "-i", "--yes", "go"})
+
+	assert.Len(t, stub.calls, 2)
+	if len(stub.calls) < 2 {
+		return
+	}
+	assert.Contains(t, stub.calls[0].Title, "Install skills")
+	assert.Eq(t, "repo-a/tools/go-pro", stub.calls[0].Items[0].Value)
+	assert.Contains(t, stub.calls[1].Title, "Install agents")
+	assert.NotContains(t, output, "no skills found")
+	data, err := os.ReadFile(filepath.Join(baseDir, ".codex", "skills", "go-pro", "go.txt"))
+	assert.NoErr(t, err)
+	assert.Eq(t, "go", string(data))
 }
 
 func TestInstallCommandInteractiveNoCandidatesDoesNotOpenSelector(t *testing.T) {

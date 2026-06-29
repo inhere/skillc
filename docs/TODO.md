@@ -6,6 +6,17 @@
 -->
 
 - [x] 支持链接方式安装 skill，方便多项目维护更新（Windows 默认 junction，其他系统默认 symlink；显式 symlink 在 Windows 无权限时自动回退到 copy）
+
+## skillc 使用问题
+
+
+## skillc 使用优化
+
+- [ ] skillc ins 去掉 --agent 选项的默认值，没有设置时通过 cliui 的 interact newui 交互让用户选择(可以多选)
+- [ ] skillc ins -i keyword 会直接输出 no skills found. 修复并优化为使用 interact newui 交互让用户选择(可以多选)确认
+
+## [x] skillc 增强重构
+
 - [x] 支持快速检测已经安装到项目的 skill 是否需要更新（当前项目维度已支持 `skillc update --check`）
   - [x] 支持一键批量更新所有下游项目的 skills 版本
     - 七期计划：`docs/superpowers/plans/2026-06-16-skillc-v0-phase7-cross-project-update.md`
@@ -36,8 +47,6 @@
 - [x] 支持 Git resolved ref / local checksum 的精确 drift 判断
   - 八期计划：`docs/superpowers/plans/2026-06-16-skillc-v0-phase8-registry-source-drift.md`
   - 八期状态：index/lock/status/Web 已记录并展示 checksum/ref drift，版本相同时也能通过 `status` / `update --check` 标记 outdated。
-
-## [ ] skillc 增强重构
 
 设计草案：`docs/design/skillc-v0-enhance-design.md`
 参考分析：`docs/design/skillc-reference-projects-analysis.md`

@@ -137,9 +137,9 @@ func skillDetail(item skill.Skill) string {
 	if item.SourceID != "" {
 		parts = append(parts, "source="+item.SourceID)
 	}
-	if item.Collection != "" {
-		parts = append(parts, "collection="+item.Collection)
-	}
+	// if item.Collection != "" {
+	// 	parts = append(parts, "collection="+item.Collection)
+	// }
 	if item.Version != "" {
 		parts = append(parts, "version="+item.Version)
 	}

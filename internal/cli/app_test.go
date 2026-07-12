@@ -1752,6 +1752,28 @@ func TestUninstallCommand_RemovesInstalledSkill(t *testing.T) {
 	assert.Len(t, locks, 0)
 }
 
+func TestUninstallCommand_PrintsSuccessAfterEarlierFailure(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	lockFile := filepath.Join(baseDir, "skillc-install.lock")
+	installedPath := filepath.Join(baseDir, "project-claude", "skills", "hello-skill")
+	assert.NoErr(t, os.MkdirAll(installedPath, 0o755))
+
+	config := cfg.DefaultConfig()
+	config.LockFile = lockFile
+	config.AgentTools["claude-code"] = cfg.AgentToolConfig{Dirname: ".claude", ProjectDir: filepath.Join(baseDir, "project-claude")}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
+	assert.NoErr(t, lockstore.NewStore().Save(lockFile, lockpkg.File{
+		filepath.Clean(baseDir): {{SkillID: "hello-skill", SourceID: "local-demo", Agents: []string{"claude-code"}}},
+	}))
+
+	output := runAppInDirWithStdout(t, baseDir, []string{"rm", "--agent", "claude-code", "missing", "hello-skill"})
+
+	assert.Contains(t, output, "uninstalled hello-skill")
+	_, err := os.Stat(installedPath)
+	assert.True(t, os.IsNotExist(err))
+}
+
 func TestUpdateCommand_PrintsUpdatedSkippedAndFailedItems(t *testing.T) {
 	baseDir := t.TempDir()
 	configFile := filepath.Join(baseDir, "skillc.yaml")

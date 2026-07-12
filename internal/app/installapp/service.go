@@ -308,14 +308,17 @@ func (s *Service) ReinstallAtPath(item skill.Skill, agentName string, scope agen
 }
 
 // UninstallMulti uninstalls multiple skills.
-func (s *Service) UninstallMulti(skillIDs []string, agentName string, scope agent.Scope) error {
+func (s *Service) UninstallMulti(skillIDs []string, agentName string, scope agent.Scope) ([]string, error) {
+	removed := make([]string, 0, len(skillIDs))
 	var errs []error
 	for _, skillID := range skillIDs {
 		if err := s.Uninstall(skillID, agentName, scope); err != nil {
 			errs = append(errs, fmt.Errorf("%s: %w", skillID, err))
+			continue
 		}
+		removed = append(removed, skillID)
 	}
-	return errors.Join(errs...)
+	return removed, errors.Join(errs...)
 }
 
 func (s *Service) PlanUninstall(req UninstallReq) (UninstallPlan, error) {
@@ -399,7 +402,7 @@ func (s *Service) RunUninstall(req UninstallReq) (UninstallResult, error) {
 		return result, err
 	}
 	runtimeSvc := s.WithRuntime(s.runtimeConfig(), firstNonEmpty(req.WorkDir, s.runtimeWorkDir()))
-	if err := runtimeSvc.UninstallMulti(req.Skills, plan.Agent, scope); err != nil {
+	if _, err := runtimeSvc.UninstallMulti(req.Skills, plan.Agent, scope); err != nil {
 		return result, err
 	}
 	result.Removed = append(result.Removed, plan.Items...)

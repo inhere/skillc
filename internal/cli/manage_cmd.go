@@ -704,11 +704,14 @@ func buildUninstallCommand() *gcli.Command {
 			}
 
 			svc := installapp.NewService(config.LockFile).WithRuntime(config, cwd)
-			if err := svc.UninstallMulti(skillIDs, opts.Agent, scope); err != nil {
+			removed, err := svc.UninstallMulti(skillIDs, opts.Agent, scope)
+			for _, skillID := range removed {
+				ccolor.Successf("uninstalled %s\n", skillID)
+			}
+			if err != nil {
 				slog.Error(err)
 				return err
 			}
-			ccolor.Successln("uninstalled")
 			return nil
 		},
 	}

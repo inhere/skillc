@@ -336,6 +336,27 @@ func TestService_InstallForceReplacesOnlyRequestedAgent(t *testing.T) {
 	}
 }
 
+func TestService_InstallForceFailureKeepsOldLockRecord(t *testing.T) {
+	baseDir := t.TempDir()
+	lockFile := filepath.Join(baseDir, "skillc-install.lock")
+	service := NewService(lockFile)
+	projectKey, err := resolveScopeKey(agent.ScopeProject, baseDir)
+	assert.NoErr(t, err)
+	targetRoot := filepath.Join(baseDir, "codex", "skills")
+	firstSourceDir := createSkillSource(t, baseDir, filepath.Join("source-a", "ship"), "source.txt", "repo-a")
+	first := skill.Skill{ID: "ship", SourceQualifiedName: "repo-a/ship", SourceID: "src-a", SourceType: sourcepkg.TypeLocal, InstallEntry: "commands", Path: firstSourceDir}
+	broken := skill.Skill{ID: "ship", SourceQualifiedName: "repo-b/ship", SourceID: "src-b", SourceType: sourcepkg.TypeLocal, InstallEntry: "commands", Path: filepath.Join(baseDir, "missing")}
+	_, err = service.Install(first, "codex", agent.ScopeProject, projectKey, targetRoot)
+	assert.NoErr(t, err)
+
+	_, err = service.WithForce(true).Install(broken, "codex", agent.ScopeProject, projectKey, targetRoot)
+
+	assert.Err(t, err)
+	locks := mustLoadLockFile(t, service, lockFile)
+	assert.Len(t, locks[projectKey], 1)
+	assert.Eq(t, "src-a", locks[projectKey][0].SourceID)
+}
+
 func TestService_InstallWritesDriftMetadataToLock(t *testing.T) {
 	baseDir := t.TempDir()
 	lockFile := filepath.Join(baseDir, "skillc.lock.json")
@@ -490,10 +511,11 @@ func TestService_UninstallMultiContinuesAfterFailure(t *testing.T) {
 	_, err = service.Install(testSkill(sourceDir, "existing", "repo/existing", "repo"), "codex", agent.ScopeProject, projectKey, targetRoot)
 	assert.NoErr(t, err)
 
-	err = service.WithRuntime(testConfig(baseDir), baseDir).UninstallMulti([]string{"missing", "existing"}, "codex", agent.ScopeProject)
+	removed, err := service.WithRuntime(testConfig(baseDir), baseDir).UninstallMulti([]string{"missing", "existing"}, "codex", agent.ScopeProject)
 
 	assert.Err(t, err)
 	assert.Contains(t, err.Error(), "missing")
+	assert.Eq(t, []string{"existing"}, removed)
 	_, statErr := os.Stat(filepath.Join(targetRoot, "existing"))
 	assert.True(t, os.IsNotExist(statErr))
 	locks := mustLoadLockFile(t, service, lockFile)

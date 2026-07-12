@@ -21,17 +21,17 @@
 
 ### Task 1: install 多 skill 与多 agent 参数
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 在 `internal/cli/app_test.go` 增加命令测试：执行 `install --yes --agent universal,claude-code hello world`，断言两个 skill 均在两个 agent 目录安装。测试配置复用当前 install 测试的临时 index、source 与 agent tool 设置。
 
-- [ ] **Step 2: 验证 RED**
+- [x] **Step 2: 验证 RED**
 
 运行：`go test ./internal/cli -run 'TestInstallCommand.*Multiple' -count=1`
 
 预期：FAIL，当前 install 位置参数不接受多个值，且逗号 agent 被当成单个名称。
 
-- [ ] **Step 3: 最小实现**
+- [x] **Step 3: 最小实现**
 
 在 `buildInstallCommand` 中将位置参数改为多值：
 
@@ -41,13 +41,13 @@ c.AddArg("skill", "skill ID/name, allow multiple", false, true)
 
 新增一个包内 helper，输入 `[]string`，对每一项再按逗号拆分、`TrimSpace`、忽略空项并按首次出现顺序去重；skill 位置参数和显式 agent 都复用此 helper。显式 `--skill` 仍优先且作为单个输入传入 helper。
 
-- [ ] **Step 4: 验证 GREEN**
+- [x] **Step 4: 验证 GREEN**
 
 运行：`go test ./internal/cli -run 'TestInstallCommand.*Multiple' -count=1`
 
 预期：PASS。
 
-- [ ] **Step 5: 更新计划并提交**
+- [x] **Step 5: 更新计划并提交**
 
 勾选 Task 1，提交 `internal/cli/manage_cmd.go`、`internal/cli/app_test.go` 和本计划：
 
@@ -168,4 +168,3 @@ fix(skillc): continue batch uninstall after failures
 - [ ] **Step 4: 完成跟踪与提交**
 
 勾选 Task 4，提交计划最终状态，关闭 `lite-tools-84c`；随后执行 `git pull --rebase`、`git push`、`git status --short --branch`，确认分支与 origin 同步且仅保留用户原有修改。
-

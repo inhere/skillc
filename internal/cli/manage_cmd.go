@@ -159,7 +159,7 @@ func buildInstallCommand() *gcli.Command {
 			c.BoolOpt(&interactive, "interactive", "i", false, "interactively select skills to install")
 			c.StrOpt(&sourceArg, "source", "S", "", "git url or local path: add & sync source before installing")
 			c.StrOpt(&skillId, "skill", "", "", "Skill ID for install")
-			c.AddArg("skill", "skill ID, same --skill. if empty, restore from lock file")
+			c.AddArg("skill", "skill ID/name, allow multiple. if empty, restore from lock file", false, true)
 		},
 		Func: func(c *gcli.Command, _ []string) error {
 			config, cwd, err := loadConfig()
@@ -204,7 +204,7 @@ func buildInstallCommand() *gcli.Command {
 
 			targetArg := skillId
 			if targetArg == "" {
-				targetArg = c.Arg("skill").String()
+				targetArg = strings.Join(c.Arg("skill").Strings(), ",")
 			}
 			if interactive {
 				searchAgent := opts.Agent
@@ -309,7 +309,7 @@ func buildInstallCommand() *gcli.Command {
 
 func selectInstallAgents(config cfg.Config, agentName string) ([]string, error) {
 	if strings.TrimSpace(agentName) != "" {
-		return []string{agentName}, nil
+		return splitInstallTargets(agentName), nil
 	}
 	selected, err := newMultiSelector().SelectMulti(context.Background(), termselect.Options{
 		Title:        "Install agents",
@@ -387,11 +387,16 @@ func printInstallResult(result installapp.CommandResult) error {
 func splitInstallTargets(value string) []string {
 	parts := strings.Split(value, ",")
 	targets := make([]string, 0, len(parts))
+	seen := make(map[string]struct{}, len(parts))
 	for _, part := range parts {
 		part = strings.TrimSpace(part)
 		if part == "" {
 			continue
 		}
+		if _, ok := seen[part]; ok {
+			continue
+		}
+		seen[part] = struct{}{}
 		targets = append(targets, part)
 	}
 	return targets

@@ -1027,6 +1027,39 @@ func TestInstallCommand_BatchTargetsWithYesReportsResolveAndInstallFailures(t *t
 	assert.True(t, os.IsNotExist(err))
 }
 
+func TestInstallCommand_MultipleTargetsAndAgents(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	indexPath := filepath.Join(baseDir, "cache", "index.json")
+	helloDir := filepath.Join(baseDir, "source", "hello-skill")
+	worldDir := filepath.Join(baseDir, "source", "world-skill")
+	for _, sourceDir := range []string{helloDir, worldDir} {
+		assert.NoErr(t, os.MkdirAll(filepath.Join(sourceDir, "commands"), 0o755))
+		assert.NoErr(t, os.WriteFile(filepath.Join(sourceDir, "commands", "skill.txt"), []byte(filepath.Base(sourceDir)), 0o644))
+	}
+
+	config := cfg.DefaultConfig()
+	config.LockFile = filepath.Join(baseDir, "skillc-install.lock")
+	config.IndexFile = indexPath
+	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, "project-universal")}
+	config.AgentTools["claude-code"] = cfg.AgentToolConfig{Dirname: ".claude", ProjectDir: filepath.Join(baseDir, "project-claude")}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
+	assert.NoErr(t, repoindex.NewStore().Save(indexPath, []skill.Skill{
+		{ID: "hello-skill", SourceID: "local-demo", SourceType: sourcepkg.TypeLocal, InstallEntry: "commands", Path: helloDir},
+		{ID: "world-skill", SourceID: "local-demo", SourceType: sourcepkg.TypeLocal, InstallEntry: "commands", Path: worldDir},
+	}))
+
+	runAppInDirWithStdout(t, baseDir, []string{"install", "--yes", "--agent", "universal, claude-code", "hello-skill", "world-skill"})
+
+	for _, root := range []string{"project-universal", "project-claude"} {
+		for _, skillID := range []string{"hello-skill", "world-skill"} {
+			data, err := os.ReadFile(filepath.Join(baseDir, root, "skills", skillID, "skill.txt"))
+			assert.NoErr(t, err)
+			assert.Eq(t, skillID, string(data))
+		}
+	}
+}
+
 func TestInstallCommand_NoResolvedTargetsDoesNotPrompt(t *testing.T) {
 	baseDir := t.TempDir()
 	configFile := filepath.Join(baseDir, "skillc.yaml")

@@ -17,7 +17,7 @@
 **Files:**
 - Modify: `internal/cli/app_test.go:188-224`
 
-- [ ] **Step 1: 验证现有 RED**
+- [x] **Step 1: 验证现有 RED**
 
 运行：
 
@@ -27,7 +27,7 @@ go test ./internal/cli -run 'TestSkillSelectItems(UseStableSourceQualifiedTarget
 
 预期：两个测试 FAIL，实际 Detail 为 `source=repo-a version=1.2.3`，旧断言仍要求 collection。
 
-- [ ] **Step 2: 更新最小断言**
+- [x] **Step 2: 更新最小断言**
 
 保持 target 与 Label 断言，详情断言调整为：
 
@@ -43,11 +43,11 @@ assert.NotContains(t, items[0].Detail, "collection=")
 assert.Eq(t, "source=repo-a version=1.2.3", items[0].Detail)
 ```
 
-- [ ] **Step 3: 验证 GREEN**
+- [x] **Step 3: 验证 GREEN**
 
 运行相同聚焦命令，预期 PASS。
 
-- [ ] **Step 4: 运行完整门禁**
+- [x] **Step 4: 运行完整门禁**
 
 运行：
 
@@ -59,7 +59,7 @@ git diff --check
 
 预期全部 PASS。
 
-- [ ] **Step 5: 完成跟踪并提交推送**
+- [x] **Step 5: 完成跟踪并提交推送**
 
 勾选全部步骤，关闭 `lite-tools-3zo`，提交：
 

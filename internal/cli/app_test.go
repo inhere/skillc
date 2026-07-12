@@ -201,9 +201,9 @@ func TestSkillSelectItemsUseStableSourceQualifiedTargets(t *testing.T) {
 	assert.Eq(t, "1", items[0].Key)
 	assert.Eq(t, "repo-a/tools/go-pro", items[0].Value)
 	assert.Contains(t, items[0].Label, "Go Pro")
-	assert.Contains(t, items[0].Detail, "repo-a")
-	assert.Contains(t, items[0].Detail, "tools")
-	assert.Contains(t, items[0].Detail, "1.2.3")
+	assert.Contains(t, items[0].Detail, "source=repo-a")
+	assert.Contains(t, items[0].Detail, "version=1.2.3")
+	assert.NotContains(t, items[0].Detail, "collection=")
 }
 
 func TestSkillSelectItemsKeepLabelAndDetailSeparate(t *testing.T) {
@@ -219,7 +219,7 @@ func TestSkillSelectItemsKeepLabelAndDetailSeparate(t *testing.T) {
 
 	assert.Len(t, items, 1)
 	assert.Eq(t, "Go Pro (go-pro)", items[0].Label)
-	assert.Eq(t, "source=repo-a collection=tools version=1.2.3", items[0].Detail)
+	assert.Eq(t, "source=repo-a version=1.2.3", items[0].Detail)
 }
 
 func TestSkillTargetFallsBackToQualifiedNameWhenSourceQualifiedNameIsMissing(t *testing.T) {

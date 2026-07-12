@@ -888,6 +888,38 @@ func TestInstallCommandInteractiveUsesSkillArgAsSearchKeyword(t *testing.T) {
 	assert.True(t, os.IsNotExist(err))
 }
 
+func TestInstallCommandInteractiveUsesGlobCandidates(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	indexPath := filepath.Join(baseDir, "cache", "index.json")
+	config := cfg.DefaultConfig()
+	config.LockFile = filepath.Join(baseDir, "skillc-install.lock")
+	config.IndexFile = indexPath
+	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, ".agents")}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
+	assert.NoErr(t, repoindex.NewStore().Save(indexPath, []skill.Skill{
+		{ID: "flutter-core", Name: "Flutter Core", SupportedAgents: []string{"universal"}, SourceID: "repo-a", QualifiedName: "mobile/flutter-core", SourceQualifiedName: "repo-a/mobile/flutter-core"},
+		{ID: "flutter-testing", Name: "Flutter Testing", SupportedAgents: []string{"universal"}, SourceID: "repo-a", QualifiedName: "mobile/flutter-testing", SourceQualifiedName: "repo-a/mobile/flutter-testing"},
+		{ID: "review", Name: "Review", SupportedAgents: []string{"universal"}, SourceID: "repo-a", QualifiedName: "tools/review", SourceQualifiedName: "repo-a/tools/review"},
+	}))
+
+	stub := &selectorStub{}
+	prevSelector := newMultiSelector
+	newMultiSelector = func() multiSelector { return stub }
+	defer func() { newMultiSelector = prevSelector }()
+
+	output := runAppInDirWithStdout(t, baseDir, []string{"install", "--interactive", "--yes", "--agent", "universal", "flutter-*"})
+
+	assert.True(t, stub.called)
+	assert.NotContains(t, output, "no skills found")
+	assert.Len(t, stub.got.Items, 2)
+	if len(stub.got.Items) != 2 {
+		return
+	}
+	assert.Eq(t, "repo-a/mobile/flutter-core", stub.got.Items[0].Value)
+	assert.Eq(t, "repo-a/mobile/flutter-testing", stub.got.Items[1].Value)
+}
+
 func TestInstallCommandInteractiveKeywordWithoutAgentSelectsSkillAndAgents(t *testing.T) {
 	baseDir := t.TempDir()
 	configFile := filepath.Join(baseDir, "skillc.yaml")

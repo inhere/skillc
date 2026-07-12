@@ -58,11 +58,11 @@ feat(skillc): support glob install targets
 - Test: `internal/app/searchapp/service_test.go`
 - Test: `internal/cli/app_test.go`
 
-- [ ] **Step 1: 写交互失败测试**
+- [x] **Step 1: 写交互失败测试**
 
 新增命令级测试，索引含多个 `flutter-` skill 和无关 skill，执行 `install -i 'flutter-*' --agent universal --yes`，用现有 selector stub 断言候选只包含匹配项且进入 multi-select。另加普通 `-i flutter` 测试保护模糊 Search。
 
-- [ ] **Step 2: 验证 RED**
+- [x] **Step 2: 验证 RED**
 
 运行：
 
@@ -72,11 +72,11 @@ go test ./internal/cli -run 'TestInstallCommandInteractive.*(Glob|Keyword)' -cou
 
 预期 glob 用例 FAIL 并输出 `no skills found`，普通关键词用例保持 PASS。
 
-- [ ] **Step 3: 最小实现**
+- [x] **Step 3: 最小实现**
 
 新增 `SearchInstallCandidates(targets []string, agent string)`：一次加载索引；glob target 调共享 matcher后应用 agent filter，普通 target 调现有 repoindex Filter；结果按 `skillIdentityKey` 去重。CLI 交互分支把 `splitInstallTargets(targetArg)` 传入该方法。
 
-- [ ] **Step 4: 验证 GREEN 并提交**
+- [x] **Step 4: 验证 GREEN 并提交**
 
 运行：
 

@@ -210,7 +210,7 @@ func buildInstallCommand() *gcli.Command {
 			}
 			if interactive {
 				searchAgent := opts.Agent
-				items, err := newSearchService().Search(targetArg, searchAgent, "")
+				items, err := newSearchService().SearchInstallCandidates(splitInstallTargets(targetArg), searchAgent)
 				if err != nil {
 					return err
 				}

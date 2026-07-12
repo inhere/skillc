@@ -48,6 +48,41 @@ func (s *Service) Search(keyword string, agent string, sourceType sourcepkg.Type
 	}), nil
 }
 
+func (s *Service) SearchInstallCandidates(targets []string, agent string) ([]skill.Skill, error) {
+	items, err := s.store.Load(s.indexPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return []skill.Skill{}, nil
+		}
+		return nil, err
+	}
+	if len(targets) == 0 {
+		targets = []string{""}
+	}
+
+	result := make([]skill.Skill, 0)
+	seen := make(map[string]struct{})
+	for _, target := range targets {
+		matches := repoindex.Filter(items, repoindex.Query{Keyword: target, Agent: agent})
+		if strings.ContainsAny(target, "*?[") {
+			matches, err = resolveInstallTargetMatches(items, target, false)
+			if err != nil {
+				return nil, err
+			}
+			matches = repoindex.Filter(matches, repoindex.Query{Agent: agent})
+		}
+		for _, item := range matches {
+			key := skillIdentityKey(item)
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			seen[key] = struct{}{}
+			result = append(result, item)
+		}
+	}
+	return result, nil
+}
+
 func (s *Service) ListCollections() ([]repoindex.CollectionSummary, error) {
 	items, err := s.store.Load(s.indexPath)
 	if err != nil {

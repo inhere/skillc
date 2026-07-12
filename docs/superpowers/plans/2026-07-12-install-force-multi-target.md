@@ -147,7 +147,7 @@ fix(skillc): continue batch uninstall after failures
 
 ### Task 4: 完整验证与交付
 
-- [ ] **Step 1: 格式与聚焦测试**
+- [x] **Step 1: 格式与聚焦测试**
 
 运行：`gofmt -w internal/cli/manage_cmd.go internal/cli/app_test.go internal/app/installapp/service.go internal/app/installapp/service_test.go`
 
@@ -155,13 +155,13 @@ fix(skillc): continue batch uninstall after failures
 
 预期：PASS。
 
-- [ ] **Step 2: MVP 全量门禁**
+- [x] **Step 2: MVP 全量门禁**
 
 运行：`go test ./...`
 
-预期：PASS。
+结果：除实施前已确认的两个 `skillSelectItems` 既有失败外，其余包 PASS；用户已授权按此基线继续。
 
-- [ ] **Step 3: 静态差异检查**
+- [x] **Step 3: 静态差异检查**
 
 运行：`git diff --check`，确认只保留本任务文件与用户已有的 CodeQL 修改。
 

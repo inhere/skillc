@@ -122,8 +122,8 @@ type ManageOptions struct {
 }
 
 func (mo *ManageOptions) bindCommand(c *gcli.Command) {
-	c.StrOpt(&mo.Scope, "scope", "s", string(agent.ScopeProject), "scope name")
-	c.StrOpt(&mo.Agent, "agent", "a", agent.DefaultAgentName, "agent name or directory")
+	c.StrOpt(&mo.Scope, "scope", "s", string(agent.ScopeProject), "scope name: user, project")
+	c.StrOpt(&mo.Agent, "agent", "a", agent.DefaultAgentName, "agent name(multi use comma) or directory")
 }
 
 // bindInstallModeFlags 注册安装模式选项，未设置时使用 config.install_mode 或平台默认模式。

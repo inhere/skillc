@@ -1,6 +1,7 @@
 package installapp
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -308,12 +309,13 @@ func (s *Service) ReinstallAtPath(item skill.Skill, agentName string, scope agen
 
 // UninstallMulti uninstalls multiple skills.
 func (s *Service) UninstallMulti(skillIDs []string, agentName string, scope agent.Scope) error {
+	var errs []error
 	for _, skillID := range skillIDs {
 		if err := s.Uninstall(skillID, agentName, scope); err != nil {
-			return err
+			errs = append(errs, fmt.Errorf("%s: %w", skillID, err))
 		}
 	}
-	return nil
+	return errors.Join(errs...)
 }
 
 func (s *Service) PlanUninstall(req UninstallReq) (UninstallPlan, error) {

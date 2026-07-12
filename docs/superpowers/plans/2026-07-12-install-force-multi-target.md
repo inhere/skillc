@@ -109,17 +109,17 @@ feat(skillc): add force install across sources
 
 ### Task 3: rm 批量失败后继续
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 在 `internal/app/installapp/service_test.go` 新增测试：安装 `existing` 后调用 `UninstallMulti([]string{"missing", "existing"}, ...)`，断言返回错误，同时 `existing` 的安装目录和锁记录已删除。
 
-- [ ] **Step 2: 验证 RED**
+- [x] **Step 2: 验证 RED**
 
 运行：`go test ./internal/app/installapp -run TestService_UninstallMultiContinuesAfterFailure -count=1`
 
 预期：FAIL，当前实现遇到 `missing` 后立即返回，`existing` 未卸载。
 
-- [ ] **Step 3: 最小实现**
+- [x] **Step 3: 最小实现**
 
 使用标准库 `errors.Join` 聚合逐项错误：
 
@@ -135,7 +135,7 @@ return errors.Join(errs...)
 
 CLI 保持返回该汇总错误，不把部分失败误报为成功。
 
-- [ ] **Step 4: 验证 GREEN 并提交**
+- [x] **Step 4: 验证 GREEN 并提交**
 
 运行：`go test ./internal/app/installapp -run TestService_UninstallMultiContinuesAfterFailure -count=1`
 

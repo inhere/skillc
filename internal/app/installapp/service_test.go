@@ -481,6 +481,28 @@ func TestService_UninstallProjectScopeDoesNotTouchOtherProjectKeys(t *testing.T)
 	assert.Eq(t, []string{"claude-code"}, locks[projectBKey][0].Agents)
 }
 
+func TestService_UninstallMultiContinuesAfterFailure(t *testing.T) {
+	baseDir := t.TempDir()
+	lockFile := filepath.Join(baseDir, "skillc-install.lock")
+	service := NewService(lockFile)
+	projectKey, err := resolveScopeKey(agent.ScopeProject, baseDir)
+	assert.NoErr(t, err)
+	targetRoot, err := agent.ResolveInstallPath(testConfig(baseDir), baseDir, "codex", agent.ScopeProject)
+	assert.NoErr(t, err)
+	sourceDir := createSkillSource(t, baseDir, filepath.Join("source", "existing"), "skill.txt", "existing")
+	_, err = service.Install(testSkill(sourceDir, "existing", "repo/existing", "repo"), "codex", agent.ScopeProject, projectKey, targetRoot)
+	assert.NoErr(t, err)
+
+	err = service.WithRuntime(testConfig(baseDir), baseDir).UninstallMulti([]string{"missing", "existing"}, "codex", agent.ScopeProject)
+
+	assert.Err(t, err)
+	assert.Contains(t, err.Error(), "missing")
+	_, statErr := os.Stat(filepath.Join(targetRoot, "existing"))
+	assert.True(t, os.IsNotExist(statErr))
+	locks := mustLoadLockFile(t, service, lockFile)
+	assert.Len(t, locks[projectKey], 0)
+}
+
 func TestService_PlanUninstallReportsInstalledTargets(t *testing.T) {
 	baseDir := t.TempDir()
 	lockFile := filepath.Join(baseDir, "skillc-install.lock")

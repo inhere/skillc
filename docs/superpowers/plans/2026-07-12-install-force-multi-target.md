@@ -165,6 +165,6 @@ fix(skillc): continue batch uninstall after failures
 
 运行：`git diff --check`，确认只保留本任务文件与用户已有的 CodeQL 修改。
 
-- [ ] **Step 4: 完成跟踪与提交**
+- [x] **Step 4: 完成跟踪与提交**
 
 勾选 Task 4，提交计划最终状态，关闭 `lite-tools-84c`；随后执行 `git pull --rebase`、`git push`、`git status --short --branch`，确认分支与 origin 同步且仅保留用户原有修改。

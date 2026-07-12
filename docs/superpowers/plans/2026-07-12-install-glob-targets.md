@@ -92,7 +92,7 @@ fix(skillc): apply glob matching to interactive install
 
 ### Task 3: 完整验证与交付
 
-- [ ] **Step 1: 运行格式、相关包和全仓门禁**
+- [x] **Step 1: 运行格式、相关包和全仓门禁**
 
 ```text
 gofmt -w internal/app/searchapp/service.go internal/app/searchapp/service_test.go internal/cli/manage_cmd.go internal/cli/app_test.go
@@ -103,6 +103,6 @@ git diff --check
 
 预期全部 PASS。
 
-- [ ] **Step 2: 独立审查、跟踪和推送**
+- [x] **Step 2: 独立审查、跟踪和推送**
 
 检查完整 git diff，修复 Critical/Important；勾选计划，关闭 `lite-tools-0c4`，提交计划状态。执行 `git pull --rebase`、`git push`，确认 `main` 与 `origin/main` 同步。

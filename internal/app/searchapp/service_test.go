@@ -280,6 +280,46 @@ func TestService_ResolveInstallTargetsGlobPatterns(t *testing.T) {
 	})
 }
 
+func TestService_SearchInstallCandidatesGlob(t *testing.T) {
+	indexPath := filepath.Join(t.TempDir(), "index.json")
+	assert.NoErr(t, repoindex.NewStore().Save(indexPath, []skill.Skill{
+		{ID: "flutter-core", SourceID: "repo-a", QualifiedName: "mobile/flutter-core", SourceQualifiedName: "repo-a/mobile/flutter-core", SupportedAgents: []string{"universal"}},
+		{ID: "flutter-testing", SourceID: "repo-a", QualifiedName: "mobile/flutter-testing", SourceQualifiedName: "repo-a/mobile/flutter-testing", SupportedAgents: []string{"codex"}},
+		{ID: "review", SourceID: "superpowers", QualifiedName: "testing/review", SourceQualifiedName: "superpowers/testing/review", SupportedAgents: []string{"universal"}},
+		{ID: "brainstorming", SourceID: "superpowers", QualifiedName: "core/brainstorming", SourceQualifiedName: "superpowers/core/brainstorming", SupportedAgents: []string{"codex"}},
+	}))
+	service := NewService(indexPath)
+
+	t.Run("source and agent filter", func(t *testing.T) {
+		items, err := service.SearchInstallCandidates([]string{"superpowers/*"}, "universal")
+		assert.NoErr(t, err)
+		assert.Len(t, items, 1)
+		assert.Eq(t, "review", items[0].ID)
+	})
+
+	t.Run("multiple targets deduplicate", func(t *testing.T) {
+		items, err := service.SearchInstallCandidates([]string{"flutter-*", "*-core"}, "")
+		assert.NoErr(t, err)
+		assert.Len(t, items, 2)
+		assert.Eq(t, "flutter-core", items[0].ID)
+		assert.Eq(t, "flutter-testing", items[1].ID)
+	})
+
+	t.Run("empty targets list all", func(t *testing.T) {
+		items, err := service.SearchInstallCandidates(nil, "")
+		assert.NoErr(t, err)
+		assert.Len(t, items, 4)
+	})
+
+	for _, pattern := range []string{"*", "flutter-["} {
+		t.Run("reject "+pattern, func(t *testing.T) {
+			items, err := service.SearchInstallCandidates([]string{pattern}, "")
+			assert.Err(t, err)
+			assert.Len(t, items, 0)
+		})
+	}
+}
+
 func TestService_ResolveInstallTargetsRejectsBareWildcard(t *testing.T) {
 	baseDir := t.TempDir()
 	indexPath := filepath.Join(baseDir, "index.json")

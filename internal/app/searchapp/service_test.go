@@ -230,6 +230,56 @@ func TestService_ResolveInstallTargetsPrefixMatchesOnlySkillID(t *testing.T) {
 	assert.Contains(t, result.Failed[0].Reason, "skill not found")
 }
 
+func TestService_ResolveInstallTargetsGlobPatterns(t *testing.T) {
+	baseDir := t.TempDir()
+	indexPath := filepath.Join(baseDir, "index.json")
+	store := repoindex.NewStore()
+	assert.NoErr(t, store.Save(indexPath, []skill.Skill{
+		{ID: "flutter-core", QualifiedName: "mobile/flutter-core", SourceQualifiedName: "repo-a/mobile/flutter-core", SourceID: "repo-a"},
+		{ID: "flutter-x-pro", QualifiedName: "mobile/flutter-x-pro", SourceQualifiedName: "repo-a/mobile/flutter-x-pro", SourceID: "repo-a"},
+		{ID: "dart-testing", QualifiedName: "mobile/dart-testing", SourceQualifiedName: "repo-a/mobile/dart-testing", SourceID: "repo-a"},
+		{ID: "review", QualifiedName: "testing/review", SourceQualifiedName: "superpowers/testing/review", SourceID: "superpowers"},
+		{ID: "brainstorming", QualifiedName: "core/brainstorming", SourceQualifiedName: "superpowers/core/brainstorming", SourceID: "superpowers"},
+	}))
+	service := NewService(indexPath)
+
+	tests := []struct {
+		name     string
+		targets  []string
+		expected []string
+	}{
+		{name: "id prefix", targets: []string{"flutter-*"}, expected: []string{"flutter-core", "flutter-x-pro"}},
+		{name: "id suffix", targets: []string{"*-testing"}, expected: []string{"dart-testing"}},
+		{name: "question", targets: []string{"flutter-?-pro"}, expected: []string{"flutter-x-pro"}},
+		{name: "character range", targets: []string{"flutter-[a-z]*"}, expected: []string{"flutter-core", "flutter-x-pro"}},
+		{name: "qualified name", targets: []string{"mobile/flutter-*"}, expected: []string{"flutter-core", "flutter-x-pro"}},
+		{name: "source qualified name", targets: []string{"repo-a/mobile/*"}, expected: []string{"flutter-core", "flutter-x-pro", "dart-testing"}},
+		{name: "all source skills", targets: []string{"superpowers/*"}, expected: []string{"review", "brainstorming"}},
+		{name: "deduplicate patterns", targets: []string{"flutter-*", "mobile/flutter-core"}, expected: []string{"flutter-core", "flutter-x-pro"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := service.ResolveInstallTargets(tt.targets, false)
+			assert.NoErr(t, err)
+			assert.Len(t, result.Failed, 0)
+			ids := make([]string, 0, len(result.Resolved))
+			for _, item := range result.Resolved {
+				ids = append(ids, item.ID)
+			}
+			assert.Eq(t, tt.expected, ids)
+		})
+	}
+
+	t.Run("invalid pattern", func(t *testing.T) {
+		result, err := service.ResolveInstallTargets([]string{"flutter-["}, false)
+		assert.NoErr(t, err)
+		assert.Len(t, result.Resolved, 0)
+		assert.Len(t, result.Failed, 1)
+		assert.Contains(t, result.Failed[0].Reason, "glob")
+	})
+}
+
 func TestService_ResolveInstallTargetsRejectsBareWildcard(t *testing.T) {
 	baseDir := t.TempDir()
 	indexPath := filepath.Join(baseDir, "index.json")
@@ -243,7 +293,7 @@ func TestService_ResolveInstallTargetsRejectsBareWildcard(t *testing.T) {
 	assert.NoErr(t, err)
 	assert.Len(t, result.Resolved, 0)
 	assert.Len(t, result.Failed, 1)
-	assert.Contains(t, result.Failed[0].Reason, "skill not found")
+	assert.Contains(t, result.Failed[0].Reason, "bare wildcard")
 }
 
 func TestService_ResolveInstallTargetsFailsAmbiguousPlainTarget(t *testing.T) {

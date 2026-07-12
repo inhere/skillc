@@ -3,6 +3,7 @@ package searchapp
 import (
 	"fmt"
 	"os"
+	"path"
 	"strings"
 
 	"github.com/inhere/skillc/internal/domain/skill"
@@ -143,11 +144,50 @@ func resolveInstallTargetMatches(items []skill.Skill, target string, collectionM
 	if collectionMode {
 		return resolveCollectionTargets(items, target)
 	}
-	if prefix, ok := strings.CutSuffix(target, "*"); ok {
-		return resolveSkillIDPrefix(items, prefix, target)
+	if target == "*" {
+		return nil, fmt.Errorf("bare wildcard is not allowed")
+	}
+	if strings.ContainsAny(target, "*?[") {
+		return resolveGlobTarget(items, target)
 	}
 
 	return resolveSingleSkillTarget(items, target)
+}
+
+func resolveGlobTarget(items []skill.Skill, pattern string) ([]skill.Skill, error) {
+	if _, err := path.Match(pattern, ""); err != nil {
+		return nil, fmt.Errorf("invalid glob %q: %w", pattern, err)
+	}
+
+	matches := make([]skill.Skill, 0)
+	if sourceID, ok := strings.CutSuffix(pattern, "/*"); ok && sourceID != "" && !strings.ContainsAny(sourceID, "*?[") {
+		for _, item := range items {
+			if item.SourceID == sourceID {
+				matches = append(matches, item)
+			}
+		}
+		if len(matches) > 0 {
+			return matches, nil
+		}
+	}
+	for _, item := range items {
+		if globMatches(pattern, item.ID, item.QualifiedName, item.SourceQualifiedName) {
+			matches = append(matches, item)
+		}
+	}
+	if len(matches) == 0 {
+		return nil, fmt.Errorf("skill not found: %s", pattern)
+	}
+	return matches, nil
+}
+
+func globMatches(pattern string, values ...string) bool {
+	for _, value := range values {
+		if matched, _ := path.Match(pattern, value); matched {
+			return true
+		}
+	}
+	return false
 }
 
 func resolveSingleSkillTarget(items []skill.Skill, target string) ([]skill.Skill, error) {

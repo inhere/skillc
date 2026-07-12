@@ -18,11 +18,11 @@
 - Modify: `internal/app/searchapp/service.go`
 - Test: `internal/app/searchapp/service_test.go`
 
-- [ ] **Step 1: 写服务层失败测试**
+- [x] **Step 1: 写服务层失败测试**
 
 用 `t.Run()` 覆盖 `flutter-*`、`*testing`、`flutter-?-pro`、字符范围、QualifiedName、SourceQualifiedName、`superpowers/*` 跨 collection、裸 `*`、非法 `[`、多 pattern 去重。测试通过 `ResolveInstallTargets` 调用真实 matcher。
 
-- [ ] **Step 2: 验证 RED**
+- [x] **Step 2: 验证 RED**
 
 运行：
 
@@ -32,11 +32,11 @@ go test ./internal/app/searchapp -run 'TestService_ResolveInstallTargets.*Glob' 
 
 预期：完整 glob 与 source 全量场景 FAIL；现有代码只支持 Skill ID 末尾前缀。
 
-- [ ] **Step 3: 最小实现**
+- [x] **Step 3: 最小实现**
 
 在 `resolveInstallTargetMatches` 中按以下顺序处理：collection mode、裸 `*` 拒绝、精确 `source/*`、含 glob 元字符的 `path.Match`、普通精确 target。matcher 对 `ID`、`QualifiedName`、`SourceQualifiedName` 任一字段命中即加入结果，无匹配返回现有 `skill not found`。
 
-- [ ] **Step 4: 验证 GREEN 并提交**
+- [x] **Step 4: 验证 GREEN 并提交**
 
 运行：
 

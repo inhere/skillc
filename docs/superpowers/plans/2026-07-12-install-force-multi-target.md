@@ -57,7 +57,7 @@ feat(skillc): support multiple install targets and agents
 
 ### Task 2: force 覆盖当前 agent/scope 的跨源同名 skill
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 在 `internal/app/installapp/service_test.go` 用 `t.Run()` 覆盖：
 
@@ -67,13 +67,13 @@ service := NewService(lockFile).WithForce(true)
 
 先从 source-a 安装 `ship` 到 `universal` 和 `claude-code`，再从 source-b 强制安装到 `universal`。断言 universal 内容和锁记录切到 source-b，claude-code 仍指向 source-a。另保留既有“不带 force 拒绝跨源同名”的测试。
 
-- [ ] **Step 2: 验证 RED**
+- [x] **Step 2: 验证 RED**
 
 运行：`go test ./internal/app/installapp -run 'TestService_Install.*DifferentSources' -count=1`
 
 预期：FAIL，`WithForce` 尚不存在。
 
-- [ ] **Step 3: 最小服务实现**
+- [x] **Step 3: 最小服务实现**
 
 在 `Service` 增加 `force bool` 和链式方法：
 
@@ -87,17 +87,17 @@ func (s *Service) WithForce(force bool) *Service {
 
 `installInto` 找到冲突且 `force=false` 时保持原错误；`force=true` 时先执行文件安装，成功后从冲突记录移除当前 agent，空 agent 记录删除，再 `upsertRecord` 新来源记录。这样文件安装失败不会提前改锁数据。
 
-- [ ] **Step 4: 验证服务 GREEN**
+- [x] **Step 4: 验证服务 GREEN**
 
 运行：`go test ./internal/app/installapp -run 'TestService_Install.*DifferentSources' -count=1`
 
 预期：PASS。
 
-- [ ] **Step 5: 写 CLI RED 并透传 force**
+- [x] **Step 5: 写 CLI RED 并透传 force**
 
 在 `internal/cli/app_test.go` 增加 `install --force --yes --agent universal source-b/ship` 命令测试，先确认 FAIL。然后给 `ManageOptions` 增加 `Force bool`，绑定 `c.BoolOpt(&opts.Force, "force", "f", false, "overwrite same skill installed from another source")`，并在 `runResolvedInstall` 创建服务时调用 `.WithForce(opts.Force)`。
 
-- [ ] **Step 6: 验证 CLI GREEN 并提交**
+- [x] **Step 6: 验证 CLI GREEN 并提交**
 
 运行：`go test ./internal/app/installapp ./internal/cli -run 'Test.*(Force|DifferentSources)' -count=1`
 

@@ -1060,6 +1060,35 @@ func TestInstallCommand_MultipleTargetsAndAgents(t *testing.T) {
 	}
 }
 
+func TestInstallCommand_ForceReplacesSkillFromAnotherSource(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	indexPath := filepath.Join(baseDir, "cache", "index.json")
+	firstDir := filepath.Join(baseDir, "source-a", "ship")
+	secondDir := filepath.Join(baseDir, "source-b", "ship")
+	for sourceDir, content := range map[string]string{firstDir: "repo-a", secondDir: "repo-b"} {
+		assert.NoErr(t, os.MkdirAll(filepath.Join(sourceDir, "commands"), 0o755))
+		assert.NoErr(t, os.WriteFile(filepath.Join(sourceDir, "commands", "source.txt"), []byte(content), 0o644))
+	}
+
+	config := cfg.DefaultConfig()
+	config.LockFile = filepath.Join(baseDir, "skillc-install.lock")
+	config.IndexFile = indexPath
+	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, "project-universal")}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
+	assert.NoErr(t, repoindex.NewStore().Save(indexPath, []skill.Skill{
+		{ID: "ship", QualifiedName: "shared/ship", SourceQualifiedName: "repo-a/shared/ship", SourceID: "repo-a", SourceType: sourcepkg.TypeLocal, InstallEntry: "commands", Path: firstDir},
+		{ID: "ship", QualifiedName: "shared/ship", SourceQualifiedName: "repo-b/shared/ship", SourceID: "repo-b", SourceType: sourcepkg.TypeLocal, InstallEntry: "commands", Path: secondDir},
+	}))
+
+	runAppInDirWithStdout(t, baseDir, []string{"install", "--yes", "--agent", "universal", "repo-a/shared/ship"})
+	runAppInDirWithStdout(t, baseDir, []string{"install", "--force", "--yes", "--agent", "universal", "repo-b/shared/ship"})
+
+	data, err := os.ReadFile(filepath.Join(baseDir, "project-universal", "skills", "ship", "source.txt"))
+	assert.NoErr(t, err)
+	assert.Eq(t, "repo-b", string(data))
+}
+
 func TestInstallCommand_NoResolvedTargetsDoesNotPrompt(t *testing.T) {
 	baseDir := t.TempDir()
 	configFile := filepath.Join(baseDir, "skillc.yaml")

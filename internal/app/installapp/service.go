@@ -90,6 +90,13 @@ type Service struct {
 	installerExplicit bool
 	fallbackNotifier  agentfs.FallbackNotifier
 	restoreResolver   RestoreResolver
+	force             bool
+}
+
+func (s *Service) WithForce(force bool) *Service {
+	clone := *s
+	clone.force = force
+	return &clone
 }
 
 func NewService(lockFile string) *Service {
@@ -251,7 +258,8 @@ func (s *Service) installInto(item skill.Skill, agentName string, scope agent.Sc
 	records := append([]lockpkg.Record(nil), locks[scopeKey]...)
 	now := s.now()
 	record := newLockRecord(item, agentName, profileName, now)
-	if conflict, ok := findConflictingSkillSource(records, record); ok {
+	conflict, hasConflict := findConflictingSkillSource(records, record)
+	if hasConflict && !s.force {
 		return RuntimeRecord{}, fmt.Errorf("skill already installed from another source: %s (%s)", item.ID, conflict.SourceQualifiedName)
 	}
 
@@ -260,6 +268,9 @@ func (s *Service) installInto(item skill.Skill, agentName string, scope agent.Sc
 		return RuntimeRecord{}, err
 	}
 
+	if hasConflict {
+		records = removeConflictingAgent(records, record)
+	}
 	records, record = upsertRecord(records, record)
 	if len(records) == 0 {
 		delete(locks, scopeKey)
@@ -630,7 +641,7 @@ func installTargetPath(item skill.Skill, targetRoot string) string {
 
 func findConflictingSkillSource(records []lockpkg.Record, next lockpkg.Record) (lockpkg.Record, bool) {
 	for _, record := range records {
-		if record.SkillID != next.SkillID {
+		if record.SkillID != next.SkillID || !containsAgent(record.Agents, next.Agents[0]) {
 			continue
 		}
 		if sameInstallIdentity(record, next) {
@@ -639,6 +650,20 @@ func findConflictingSkillSource(records []lockpkg.Record, next lockpkg.Record) (
 		return record, true
 	}
 	return lockpkg.Record{}, false
+}
+
+func removeConflictingAgent(records []lockpkg.Record, next lockpkg.Record) []lockpkg.Record {
+	result := make([]lockpkg.Record, 0, len(records))
+	for _, record := range records {
+		if record.SkillID == next.SkillID && !sameInstallIdentity(record, next) {
+			record.Agents = removeAgent(record.Agents, next.Agents[0])
+			if len(record.Agents) == 0 {
+				continue
+			}
+		}
+		result = append(result, record)
+	}
+	return result
 }
 
 func sourcePathMap(config cfg.Config) map[string]string {

@@ -298,6 +298,47 @@ func TestService_InstallRejectsSameIDFromDifferentSources(t *testing.T) {
 	assert.Eq(t, "repo-a/shared/ship", locks[projectKey][0].SourceQualifiedName)
 }
 
+func TestService_InstallForceReplacesOnlyRequestedAgent(t *testing.T) {
+	baseDir := t.TempDir()
+	lockFile := filepath.Join(baseDir, "skillc-install.lock")
+	service := NewService(lockFile)
+	projectKey, err := resolveScopeKey(agent.ScopeProject, baseDir)
+	assert.NoErr(t, err)
+	config := testConfig(baseDir)
+	codexRoot, err := agent.ResolveInstallPath(config, baseDir, "codex", agent.ScopeProject)
+	assert.NoErr(t, err)
+	claudeRoot, err := agent.ResolveInstallPath(config, baseDir, "claude-code", agent.ScopeProject)
+	assert.NoErr(t, err)
+	firstSourceDir := createSkillSource(t, baseDir, filepath.Join("source-a", "ship"), "source.txt", "repo-a")
+	secondSourceDir := createSkillSource(t, baseDir, filepath.Join("source-b", "ship"), "source.txt", "repo-b")
+	first := skill.Skill{ID: "ship", QualifiedName: "shared/ship", SourceQualifiedName: "repo-a/shared/ship", SourceID: "src-a", SourceType: sourcepkg.TypeLocal, InstallEntry: "commands", Path: firstSourceDir}
+	second := skill.Skill{ID: "ship", QualifiedName: "shared/ship", SourceQualifiedName: "repo-b/shared/ship", SourceID: "src-b", SourceType: sourcepkg.TypeLocal, InstallEntry: "commands", Path: secondSourceDir}
+
+	_, err = service.Install(first, "codex", agent.ScopeProject, projectKey, codexRoot)
+	assert.NoErr(t, err)
+	_, err = service.Install(first, "claude-code", agent.ScopeProject, projectKey, claudeRoot)
+	assert.NoErr(t, err)
+	_, err = service.WithForce(true).Install(second, "codex", agent.ScopeProject, projectKey, codexRoot)
+	assert.NoErr(t, err)
+
+	data, err := os.ReadFile(filepath.Join(codexRoot, "ship", "source.txt"))
+	assert.NoErr(t, err)
+	assert.Eq(t, "repo-b", string(data))
+	data, err = os.ReadFile(filepath.Join(claudeRoot, "ship", "source.txt"))
+	assert.NoErr(t, err)
+	assert.Eq(t, "repo-a", string(data))
+	locks := mustLoadLockFile(t, service, lockFile)
+	assert.Len(t, locks[projectKey], 2)
+	for _, record := range locks[projectKey] {
+		if record.SourceID == "src-a" {
+			assert.Eq(t, []string{"claude-code"}, record.Agents)
+		} else {
+			assert.Eq(t, "src-b", record.SourceID)
+			assert.Eq(t, []string{"codex"}, record.Agents)
+		}
+	}
+}
+
 func TestService_InstallWritesDriftMetadataToLock(t *testing.T) {
 	baseDir := t.TempDir()
 	lockFile := filepath.Join(baseDir, "skillc.lock.json")

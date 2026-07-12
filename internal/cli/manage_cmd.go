@@ -116,6 +116,7 @@ type ManageOptions struct {
 	Scope       string
 	Agent       string
 	Yes         bool
+	Force       bool
 	UseCopy     bool
 	InstallMode string
 }
@@ -156,6 +157,7 @@ func buildInstallCommand() *gcli.Command {
 			c.StrOpt(&opts.Agent, "agent", "a", "", "agent name or directory; select interactively when empty")
 			opts.bindInstallModeFlags(c)
 			c.BoolOpt(&opts.Yes, "yes", "y", false, "skip confirmation prompt")
+			c.BoolOpt(&opts.Force, "force", "f", false, "overwrite same skill installed from another source")
 			c.BoolOpt(&interactive, "interactive", "i", false, "interactively select skills to install")
 			c.StrOpt(&sourceArg, "source", "S", "", "git url or local path: add & sync source before installing")
 			c.StrOpt(&skillId, "skill", "", "", "Skill ID for install")
@@ -332,6 +334,7 @@ func runResolvedInstall(config cfg.Config, cwd string, installMode agentfs.Mode,
 		next, err := installapp.NewService(config.LockFile).
 			WithInstallMode(installMode).
 			WithSymlinkFallbackNotifier(fallbackNotifier).
+			WithForce(opts.Force).
 			RunResolved(config, installapp.InstallReq{
 				Agent:   agentName,
 				Scope:   opts.Scope,

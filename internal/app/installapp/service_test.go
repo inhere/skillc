@@ -304,11 +304,8 @@ func TestService_InstallForceReplacesOnlyRequestedAgent(t *testing.T) {
 	service := NewService(lockFile)
 	projectKey, err := resolveScopeKey(agent.ScopeProject, baseDir)
 	assert.NoErr(t, err)
-	config := testConfig(baseDir)
-	codexRoot, err := agent.ResolveInstallPath(config, baseDir, "codex", agent.ScopeProject)
-	assert.NoErr(t, err)
-	claudeRoot, err := agent.ResolveInstallPath(config, baseDir, "claude-code", agent.ScopeProject)
-	assert.NoErr(t, err)
+	codexRoot := filepath.Join(baseDir, "codex", "skills")
+	claudeRoot := filepath.Join(baseDir, "claude", "skills")
 	firstSourceDir := createSkillSource(t, baseDir, filepath.Join("source-a", "ship"), "source.txt", "repo-a")
 	secondSourceDir := createSkillSource(t, baseDir, filepath.Join("source-b", "ship"), "source.txt", "repo-b")
 	first := skill.Skill{ID: "ship", QualifiedName: "shared/ship", SourceQualifiedName: "repo-a/shared/ship", SourceID: "src-a", SourceType: sourcepkg.TypeLocal, InstallEntry: "commands", Path: firstSourceDir}

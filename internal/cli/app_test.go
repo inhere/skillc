@@ -1185,7 +1185,7 @@ func TestInstallCommand_PromptsBeforeInstallWithoutYes(t *testing.T) {
 	assert.True(t, os.IsNotExist(err))
 }
 
-func TestInstallCommand_RestoresFromLockFileWhenNoArgs(t *testing.T) {
+func TestInstallCommand_RestoresFromLockFileWithRestoreFlag(t *testing.T) {
 	baseDir := t.TempDir()
 	configFile := filepath.Join(baseDir, "skillc.yaml")
 	lockFile := filepath.Join(baseDir, "skillc-install.lock")
@@ -1211,7 +1211,7 @@ func TestInstallCommand_RestoresFromLockFileWhenNoArgs(t *testing.T) {
 		}},
 	}))
 
-	output := runAppInDirWithStdout(t, baseDir, []string{"install"})
+	output := runAppInDirWithStdout(t, baseDir, []string{"install", "--restore"})
 
 	assert.Contains(t, output, "restored hello-skill  agent=universal scope=project")
 	assert.Contains(t, output, "restored hello-skill  agent=claude-code scope=project")

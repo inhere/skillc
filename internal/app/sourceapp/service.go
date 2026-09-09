@@ -314,9 +314,14 @@ func (s *Service) Sync(id string) error {
 			gitDir := filepath.Join(src.Path, ".git")
 			if info, statErr := os.Stat(gitDir); statErr == nil && info.IsDir() {
 				ccolor.Infof("- Local source %s has .git, pulling updates ...\n", src.ID)
-				if _, pullErr := s.localPull.Pull(src.Path, gitOpts); pullErr != nil {
+				resolvedRef, pullErr := s.localPull.Pull(src.Path, gitOpts)
+				if pullErr != nil {
 					ccolor.Warnf("Warning: git pull failed for %s: %v\n", src.Path, pullErr)
+				} else {
+					data.Sources[i].ResolvedRef = resolvedRef
 				}
+			} else {
+				data.Sources[i].ResolvedRef = ""
 			}
 			data.Sources[i].Status = "ready"
 			data.Sources[i].ErrorMessage = ""

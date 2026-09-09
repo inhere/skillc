@@ -12,8 +12,9 @@ import (
 
 func buildProjectCommand() *gcli.Command {
 	cmd := &gcli.Command{
-		Name: "project",
-		Desc: "Manage registered projects",
+		Name:    "project",
+		Aliases: []string{"proj"},
+		Desc:    "Manage registered projects",
 	}
 	cmd.Add(buildProjectListCommand())
 	cmd.Add(buildProjectAddCommand())

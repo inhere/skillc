@@ -13,6 +13,7 @@ import (
 	"github.com/inhere/skillc/internal/app/searchapp"
 	"github.com/inhere/skillc/internal/domain/agent"
 	cfg "github.com/inhere/skillc/internal/domain/config"
+	installpkg "github.com/inhere/skillc/internal/domain/install"
 	lockpkg "github.com/inhere/skillc/internal/domain/lock"
 	"github.com/inhere/skillc/internal/domain/skill"
 	"github.com/inhere/skillc/internal/infra/agentfs"
@@ -628,16 +629,7 @@ func upsertRecord(records []lockpkg.Record, next lockpkg.Record) ([]lockpkg.Reco
 }
 
 func sameInstallIdentity(current lockpkg.Record, next lockpkg.Record) bool {
-	if current.SkillID != next.SkillID {
-		return false
-	}
-	if current.SourceID != "" || next.SourceID != "" {
-		return current.SourceID != "" && current.SourceID == next.SourceID
-	}
-	if current.SourceQualifiedName != "" || next.SourceQualifiedName != "" {
-		return current.SourceQualifiedName != "" && current.SourceQualifiedName == next.SourceQualifiedName
-	}
-	return current.QualifiedName == next.QualifiedName
+	return installpkg.SameIdentity(current, skill.Skill{ID: next.SkillID, SourceID: next.SourceID, SourceQualifiedName: next.SourceQualifiedName, QualifiedName: next.QualifiedName})
 }
 
 func installTargetPath(item skill.Skill, targetRoot string) string {

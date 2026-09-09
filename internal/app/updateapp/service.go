@@ -13,6 +13,7 @@ import (
 	"github.com/inhere/skillc/internal/app/sourceapp"
 	"github.com/inhere/skillc/internal/domain/agent"
 	cfg "github.com/inhere/skillc/internal/domain/config"
+	installpkg "github.com/inhere/skillc/internal/domain/install"
 	lockpkg "github.com/inhere/skillc/internal/domain/lock"
 	"github.com/inhere/skillc/internal/domain/skill"
 	sourcepkg "github.com/inhere/skillc/internal/domain/source"
@@ -418,19 +419,7 @@ func findLatest(items []skill.Skill, record lockpkg.Record) (skill.Skill, bool) 
 }
 
 func sameCandidateIdentity(record lockpkg.Record, item skill.Skill) bool {
-	if record.SkillID != item.ID {
-		return false
-	}
-	if record.SourceID != "" || item.SourceID != "" {
-		return record.SourceID != "" && record.SourceID == item.SourceID
-	}
-	if record.SourceQualifiedName != "" || item.SourceQualifiedName != "" {
-		return record.SourceQualifiedName != "" && record.SourceQualifiedName == item.SourceQualifiedName
-	}
-	if record.QualifiedName != "" || item.QualifiedName != "" {
-		return record.QualifiedName != "" && record.QualifiedName == item.QualifiedName
-	}
-	return false
+	return installpkg.SameIdentity(record, item)
 }
 
 func parseScope(value string) (agent.Scope, error) {

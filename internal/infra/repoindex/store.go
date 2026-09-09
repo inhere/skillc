@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/inhere/skillc/internal/domain/skill"
+	"github.com/inhere/skillc/internal/infra/fsx"
 )
 
 type Store struct{}
@@ -22,7 +23,7 @@ func (s *Store) Save(path string, items []skill.Skill) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, data, 0o644)
+	return fsx.WriteFileAtomically(path, data, 0o644)
 }
 
 func (s *Store) Load(path string) ([]skill.Skill, error) {

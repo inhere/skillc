@@ -17,6 +17,7 @@ import (
 	lockpkg "github.com/inhere/skillc/internal/domain/lock"
 	"github.com/inhere/skillc/internal/domain/skill"
 	"github.com/inhere/skillc/internal/infra/agentfs"
+	"github.com/inhere/skillc/internal/infra/filelock"
 	"github.com/inhere/skillc/internal/infra/lockstore"
 )
 
@@ -212,6 +213,11 @@ func (s *Service) RunResolved(config cfg.Config, req InstallReq, items []skill.S
 
 // InstallMulti installs multiple skills with a single lock file load/save.
 func (s *Service) InstallMulti(items []skill.Skill, agentName string, scope agent.Scope, scopeKey string, targetRoot string, profileName string) (BatchInstallResult, error) {
+	unlock, err := s.lockState()
+	if err != nil {
+		return BatchInstallResult{}, err
+	}
+	defer unlock()
 	result := BatchInstallResult{
 		Installed: make([]RuntimeRecord, 0, len(items)),
 		Failed:    make([]InstallItemError, 0),
@@ -241,6 +247,11 @@ func (s *Service) InstallMulti(items []skill.Skill, agentName string, scope agen
 
 // Install installs a single skill.
 func (s *Service) Install(item skill.Skill, agentName string, scope agent.Scope, scopeKey string, targetRoot string) (RuntimeRecord, error) {
+	unlock, err := s.lockState()
+	if err != nil {
+		return RuntimeRecord{}, err
+	}
+	defer unlock()
 	locks, err := s.loadLockFile()
 	if err != nil {
 		return RuntimeRecord{}, err
@@ -284,6 +295,11 @@ func (s *Service) installInto(item skill.Skill, agentName string, scope agent.Sc
 }
 
 func (s *Service) ReinstallAtPath(item skill.Skill, agentName string, scope agent.Scope, scopeKey string, targetPath string) (RuntimeRecord, error) {
+	unlock, err := s.lockState()
+	if err != nil {
+		return RuntimeRecord{}, err
+	}
+	defer unlock()
 	locks, err := s.loadLockFile()
 	if err != nil {
 		return RuntimeRecord{}, err
@@ -413,6 +429,11 @@ func (s *Service) RunUninstall(req UninstallReq) (UninstallResult, error) {
 }
 
 func (s *Service) Uninstall(skillID string, agentName string, scope agent.Scope) error {
+	unlock, err := s.lockState()
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	locks, err := s.loadLockFile()
 	if err != nil {
 		return err
@@ -529,6 +550,14 @@ func (s *Service) loadLockFile() (lockpkg.File, error) {
 		return lockpkg.File{}, nil
 	}
 	return nil, err
+}
+
+func (s *Service) lockState() (func(), error) {
+	l := filelock.New(s.lockFile + ".lck")
+	if err := l.Lock(); err != nil {
+		return nil, err
+	}
+	return func() { _ = l.Unlock() }, nil
 }
 
 func (s *Service) matchScopeKeys(locks lockpkg.File, scope agent.Scope) []string {

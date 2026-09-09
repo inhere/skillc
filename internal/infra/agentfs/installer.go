@@ -92,6 +92,7 @@ func (i *Installer) Install(sourceDir string, targetDir string) error {
 			if i.OnSymlinkFallback != nil {
 				i.OnSymlinkFallback(sourceDir, targetDir, err)
 			}
+			i.Mode = ModeCopy
 			return installCopy(sourceDir, targetDir)
 		}
 		return err

@@ -269,6 +269,7 @@ func (s *Service) installInto(item skill.Skill, agentName string, scope agent.Sc
 	if err := s.installer.Install(filepath.Join(item.Path, item.InstallEntry), targetPath); err != nil {
 		return RuntimeRecord{}, err
 	}
+	record.InstallMode = string(s.installer.Mode)
 
 	if hasConflict {
 		records = removeConflictingAgent(records, record)
@@ -295,6 +296,7 @@ func (s *Service) ReinstallAtPath(item skill.Skill, agentName string, scope agen
 
 	now := s.now()
 	record := newLockRecord(item, agentName, "", now)
+	record.InstallMode = string(s.installer.Mode)
 
 	records, record = upsertRecord(records, record)
 	if len(records) == 0 {

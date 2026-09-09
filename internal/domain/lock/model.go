@@ -26,4 +26,5 @@ type Record struct {
 	InstalledAt         time.Time `json:"installed_at"`
 	UpdatedAt           time.Time `json:"updated_at"`
 	Pinned              bool      `json:"pinned"`
+	InstallMode         string    `json:"install_mode,omitempty"`
 }

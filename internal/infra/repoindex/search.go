@@ -131,11 +131,17 @@ func ResolveSkill(items []skill.Skill, target string) (skill.Skill, error) {
 }
 
 func FindByID(items []skill.Skill, id string) (skill.Skill, bool) {
-	item, err := ResolveSkill(items, id)
-	if err != nil {
-		return skill.Skill{}, false
+	var found skill.Skill
+	for _, item := range items {
+		if item.ID != id {
+			continue
+		}
+		if found.ID != "" {
+			return skill.Skill{}, false
+		}
+		found = item
 	}
-	return item, true
+	return found, found.ID != ""
 }
 
 func hasMultipleSources(items []skill.Skill) bool {

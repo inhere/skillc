@@ -744,6 +744,8 @@ func buildListCommand() *gcli.Command {
 		Aliases: []string{"ls"},
 		Config: func(c *gcli.Command) {
 			opts.bindCommand(c)
+			// list 默认展示 lock 中的所有 agent；按 agent 过滤需显式传 --agent。
+			opts.Agent = ""
 		},
 		Func: func(c *gcli.Command, _ []string) error {
 			config, cwd, err := loadConfig()

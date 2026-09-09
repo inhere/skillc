@@ -53,6 +53,9 @@ func (s *Service) WithRuntime(config cfg.Config, workDir string) *Service {
 }
 
 func (s *Service) List(agentName string, scope string) ([]Item, error) {
+	if canonical, _, ok := s.runtimeConfig().ResolveAgentTool(agentName); ok {
+		agentName = canonical
+	}
 	records, err := s.store.Load(s.lockFile)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -74,6 +77,9 @@ func (s *Service) List(agentName string, scope string) ([]Item, error) {
 		}
 		for _, record := range grouped {
 			for _, currentAgent := range record.Agents {
+				if canonical, _, ok := s.runtimeConfig().ResolveAgentTool(currentAgent); ok {
+					currentAgent = canonical
+				}
 				if agentName != "" && currentAgent != agentName {
 					continue
 				}

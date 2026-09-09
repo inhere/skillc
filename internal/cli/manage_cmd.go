@@ -330,7 +330,15 @@ func buildInstallCommand() *gcli.Command {
 
 func selectInstallAgents(config cfg.Config, agentName string) ([]string, error) {
 	if strings.TrimSpace(agentName) != "" {
-		return splitInstallTargets(agentName), nil
+		names := splitInstallTargets(agentName)
+		for i, name := range names {
+			canonical, _, ok := config.ResolveAgentTool(name)
+			if !ok {
+				return nil, fmt.Errorf("unknown agent: %s", name)
+			}
+			names[i] = canonical
+		}
+		return names, nil
 	}
 	selected, err := newMultiSelector().SelectMulti(context.Background(), termselect.Options{
 		Title:        "Install agents",

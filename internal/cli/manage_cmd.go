@@ -146,7 +146,7 @@ func (mo *ManageOptions) resolveInstallMode(config cfg.Config) agentfs.Mode {
 func buildInstallCommand() *gcli.Command {
 	var opts ManageOptions
 	var sourceArg, skillId string
-	var interactive bool
+	var interactive, restore bool
 
 	return &gcli.Command{
 		Name:    "install",
@@ -159,9 +159,10 @@ func buildInstallCommand() *gcli.Command {
 			c.BoolOpt(&opts.Yes, "yes", "y", false, "skip confirmation prompt")
 			c.BoolOpt(&opts.Force, "force", "f", false, "overwrite same skill installed from another source")
 			c.BoolOpt(&interactive, "interactive", "i", false, "interactively select skills to install")
+			c.BoolOpt(&restore, "restore", "", false, "restore installations from lock file")
 			c.StrOpt(&sourceArg, "source", "S", "", "git url or local path: add & sync source before installing")
 			c.StrOpt(&skillId, "skill", "", "", "Skill ID for install")
-			c.AddArg("skill", "skill ID/name, allow multiple. if empty, restore from lock file", false, true)
+			c.AddArg("skill", "skill ID/name, allow multiple", false, true)
 		},
 		Func: func(c *gcli.Command, _ []string) error {
 			config, cwd, err := loadConfig()
@@ -207,6 +208,24 @@ func buildInstallCommand() *gcli.Command {
 			targetArg := skillId
 			if targetArg == "" {
 				targetArg = strings.Join(c.Arg("skill").Strings(), ",")
+			}
+			if restore {
+				if targetArg != "" || interactive {
+					return fmt.Errorf("--restore cannot be combined with skill targets or --interactive")
+				}
+				svc := installapp.NewService(config.LockFile).WithInstallMode(installMode).WithSymlinkFallbackNotifier(fallbackNotifier).WithRestoreResolver(registryapp.NewLockedResolver(defaultConfigFile(cwd), cwd).Resolve)
+				result, err := svc.Run(config, installapp.InstallReq{Agent: opts.Agent, Scope: opts.Scope, WorkDir: cwd}, nil)
+				if err != nil {
+					return err
+				}
+				for _, record := range result.Restored {
+					ccolor.Infof("- restored %s  agent=%s scope=%s path=%s\n", record.SkillID, record.Agent, record.Scope, record.InstalledPath)
+				}
+				ccolor.Successf("restore complete: %d skill(s) restored\n", len(result.Restored))
+				return nil
+			}
+			if strings.TrimSpace(targetArg) == "" {
+				interactive = true
 			}
 			if interactive {
 				searchAgent := opts.Agent

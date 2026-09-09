@@ -768,9 +768,19 @@ func buildListCommand() *gcli.Command {
 			if len(items) == 0 {
 				ccolor.Warnln("no skills found")
 			} else {
-				tb := table.New("List Skills").SetHeads("Skill ID", "Agent", "Scope", "Status")
+				tb := table.New("List Skills").SetHeads("Skill ID", "Scope", "Status", "Agent")
+				groups := make(map[string][]string)
+				order := make([]string, 0, len(items))
 				for _, item := range items {
-					tb.AddRow(item.SkillID, item.Agent, item.Scope, item.Status)
+					key := item.SkillID + "\x00" + item.Scope + "\x00" + item.Status
+					if _, ok := groups[key]; !ok {
+						order = append(order, key)
+					}
+					groups[key] = append(groups[key], item.Agent)
+				}
+				for _, key := range order {
+					parts := strings.Split(key, "\x00")
+					tb.AddRow(parts[0], parts[1], parts[2], strings.Join(groups[key], ", "))
 				}
 				_, err = fmt.Fprint(os.Stdout, tb.Render())
 				if err != nil {

@@ -486,6 +486,11 @@ func (s *Service) Uninstall(skillID string, agentName string, scope agent.Scope)
 }
 
 func (s *Service) Restore(sourcePaths map[string]string) ([]RuntimeRecord, error) {
+	unlock, err := s.lockState()
+	if err != nil {
+		return nil, err
+	}
+	defer unlock()
 	locks, err := s.loadLockFile()
 	if err != nil {
 		return nil, err
@@ -503,21 +508,28 @@ func (s *Service) Restore(sourcePaths map[string]string) ([]RuntimeRecord, error
 	restored := make([]RuntimeRecord, 0)
 	for _, scopeKey := range scopeKeys {
 		scope := scopeFromKey(scopeKey)
-		for _, record := range locks[scopeKey] {
-			sourcePath, err := s.restoreSourcePath(record, sourcePaths)
+		for recordIndex := range locks[scopeKey] {
+			record := &locks[scopeKey][recordIndex]
+			sourcePath, err := s.restoreSourcePath(*record, sourcePaths)
 			if err != nil {
 				return nil, err
 			}
 			for _, agentName := range record.Agents {
-				targetPath, err := s.resolveInstalledPath(scopeKey, scope, agentName, record)
+				targetPath, err := s.resolveInstalledPath(scopeKey, scope, agentName, *record)
 				if err != nil {
 					return nil, err
 				}
 				if err := s.installer.Install(sourcePath, targetPath); err != nil {
 					return nil, err
 				}
-				restored = append(restored, newRuntimeRecord(record, agentName, scope, targetPath))
+				record.InstallMode = string(s.installer.Mode)
+				restored = append(restored, newRuntimeRecord(*record, agentName, scope, targetPath))
 			}
+		}
+	}
+	if len(restored) > 0 {
+		if err := s.store.Save(s.lockFile, locks); err != nil {
+			return nil, err
 		}
 	}
 	return restored, nil

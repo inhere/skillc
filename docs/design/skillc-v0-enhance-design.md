@@ -29,6 +29,7 @@
 | 2026-06-19 | v0.25 | Codex | 增加 Phase 11 SkillsMP provider adapter 实施计划链接 |
 | 2026-06-19 | v0.26 | Codex | 记录 Phase 11 已落地 SkillsMP provider adapter |
 | 2026-09-24 | v0.27 | Codex | 落地本地改动保护：lock 记录部署指纹、覆盖前备份、git 缓存脏检查与 uninstall 拦截 |
+| 2026-09-24 | v0.28 | Codex | 落地 Phase 12：逐文件三方合并、`adopt` 回写源、Web force/merge 入口与 agent 名称统一 |
 
 状态：Draft
 

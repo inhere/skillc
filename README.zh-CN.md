@@ -202,9 +202,36 @@ skillc update --interactive             # 交互式过滤并多选可更新项
 skillc update --all-projects --check    # 预览已登记项目的更新候选
 skillc update --all-projects --projects my-project,api --target go-pro --yes
 skillc update --force                   # 覆盖含本地改动的 skill（覆盖前先备份）
+skillc update --merge                   # 按文件三方合并上游改动，保留本地改动
 ```
 
 `update --check` 和 `status` 会报告精确 drift：版本相同但来源元数据变化时，Git source 比较 resolved ref，本地 source 比较目录级 checksum。
+
+### 按文件三方合并
+
+copy 模式安装会在 `installed_files` 里记录逐文件哈希，`update --merge` 据此在「安装时的源内容 / 安装目录现状 / 当前源内容」之间做三方合并：
+
+| 本地 | 上游 | 结果 |
+|------|------|------|
+| 未改 | 已改 | 写入上游内容 |
+| 已改 | 未改 | 保留本地内容 |
+| 已改 | 已改 | 冲突：保留本地，上游版本写成 `<file>.incoming` |
+| 本地新增 | - | 保留 |
+| 上游新增 | - | 写入 |
+| 本地删除 | - | 保持删除 |
+| 未改 | 上游删除 | 删除 |
+
+`update --merge --force` 会在整目录备份后按上游解决冲突。没有文件清单的 skill（旧版本安装或 link 安装）仍走原来的覆盖/备份语义。
+
+### `adopt` — 把本地改动回写源
+
+```bash
+skillc adopt <skill-id>              # 把安装目录里的本地改动写回源目录
+skillc adopt <skill-id> --dry-run    # 只看计划
+skillc adopt <skill-id> --yes        # 跳过确认
+```
+
+`adopt` 对比安装目录与记录的文件清单，把本地版本复制回 skill 源目录，便于在 skills 仓库里提交。写回前先备份源目录，写回后重建索引并刷新 lock 基线（该 skill 不再显示为 `modified`）。本地删除的文件只提示、不删源文件；Git source（缓存 clone）和 registry skill 会被拒绝。
 
 ### 本地改动保护
 
@@ -242,6 +269,8 @@ skillc web --host 127.0.0.1 --port 8090
 ```
 
 Web 管理界面默认监听 `127.0.0.1`，当前支持查看 source/profile/status/install-map/version-drift、Registry 搜索/同步/安装/add-source，计划后确认执行当前项目 profile apply/update、source add/sync/remove、profile save/from-installed/from-collection、uninstall，以及已登记项目的跨项目 update plan/run。所有 Web 写操作都会先展示 plan，执行请求必须包含 `confirm:true`，写入本地 `skillc-web-history.jsonl` 历史记录，并且只操作当前项目或显式选择的 registered projects。
+
+操作栏提供 `force`（覆盖含本地改动的 skill，覆盖前先备份）和 `merge`（按文件三方合并）勾选项，作用于 update / uninstall；状态视图会标出含本地改动的 skill。
 
 在 `skillc web` 的 Registry 页面可以搜索已同步的 registry Skills，预览安装计划，把 registry Skill 安装到当前项目，同步 registry catalog，或把 registry source 结果转换为已配置 source。
 

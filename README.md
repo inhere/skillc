@@ -198,9 +198,26 @@ skillc update --interactive          # filter and multi-select update candidates
 skillc update --all-projects --check # preview registered project updates
 skillc update --all-projects --projects my-project,api --target go-pro --yes
 skillc update --force                # overwrite skills that have local changes (backup first)
+skillc update --merge                # merge upstream changes per file, keeping local edits
 ```
 
 `update --check` and `status` report precise drift when the version is unchanged but the source metadata changed: Git sources compare resolved refs, and local sources compare directory-level checksums.
+
+### Per-file merge
+
+Copy installs record a file manifest (`installed_files`) next to the deployed fingerprint, so `update --merge` can plan a three-way merge between the source content at install time, the installed directory, and the current source content:
+
+| Local | Upstream | Result |
+|-------|----------|--------|
+| unchanged | changed | upstream content is written |
+| changed | unchanged | local content is kept |
+| changed | changed | conflict: local is kept and the upstream version is written as `<file>.incoming` |
+| file added locally | - | kept |
+| file added upstream | - | written |
+| file deleted locally | - | stays deleted |
+| unchanged | deleted upstream | deleted |
+
+`update --merge --force` resolves conflicts in favour of upstream after backing up the whole installed directory. Skills without a manifest (installed by older versions, or link installs) fall back to the overwrite/backup behaviour.
 
 ### Local change protection
 
@@ -218,6 +235,16 @@ Git sources are synced by `git fetch` + `reset --hard` + `clean -fd` in the repo
 ### Project Registry and Cross-Project Updates
 
 `skillc project` registers local projects that are allowed to be managed by Web and `update --all-projects`. Cross-project updates only operate on registered projects; they do not blindly scan unknown lock entries. Use `skillc project add . --id <id>` or `skillc project import-lock`, inspect with `skillc update --all-projects --check`, then execute with `skillc update --all-projects --yes`.
+
+### `adopt` — Write local changes back to the source
+
+```bash
+skillc adopt <skill-id>              # write the installed skill's local changes into its source
+skillc adopt <skill-id> --dry-run    # print the plan only
+skillc adopt <skill-id> --yes        # skip the confirmation prompt
+```
+
+`adopt` compares the installed directory with the recorded file manifest and copies the local versions back into the source skill directory, so the change can be committed in the skills repository. The source directory is backed up first, the source index is rebuilt, and the lock baseline is refreshed (the skill stops being reported as `modified`). Files deleted locally are reported for manual deletion instead of deleting source files, and Git sources (cache clone) and registry skills are refused.
 
 ### `status` — Skill health
 
@@ -238,6 +265,8 @@ skillc web --host 127.0.0.1 --port 8090
 ```
 
 The web manager runs on `127.0.0.1` by default and supports source/profile/status/install-map/version-drift views, Registry search/sync/install/add-source, guarded current-project profile apply and update, source add/sync/remove, profile save/from-installed/from-collection, uninstall, and registered-project cross-project update plan/run. Every Web write action is plan-first, requires `confirm:true` on the run request, appends a local `skillc-web-history.jsonl` record, and only operates on the current project or explicitly selected registered projects.
+
+The action bar has `force` (overwrite locally modified skills after backing them up) and `merge` (per-file merge) checkboxes for update and uninstall, and the status view marks locally modified skills.
 
 Open the Registry view in `skillc web` to search synced registry Skills, preview install plans, install a registry Skill into the current project, sync registry catalogs, or convert a registry source result into a configured source.
 

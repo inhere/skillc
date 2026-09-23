@@ -19,6 +19,12 @@
   - [x] git 源缓存有本地改动时拒绝 `source sync`（不再 `reset --hard` / 删除重建）
   - [x] `uninstall` 删除前检测本地改动，`--force` 才删
   - 实施记录：`docs/superpowers/plans/2026-09-24-skillc-local-change-protection.md`
+- [x] 本地改动保护进阶：按文件三方合并、改动回写源、Web force 入口、agent 名称统一
+  - [x] `installed_files` 记录逐文件哈希，`update --merge` 按文件三方合并（冲突保留本地并输出 `.incoming`，`--force` 时按上游解决）
+  - [x] `skillc adopt` 把安装目录的本地改动写回 local source，并重建索引、刷新 lock 基线
+  - [x] Web 操作栏新增 force/merge 勾选，update/uninstall 结果暴露 `backed_up`/`merged`
+  - [x] agent 名称在所有入口统一为正式名称（别名 `claude`/`agents` 归一化为 `claude-code`/`universal`）
+  - 实施记录：`docs/superpowers/plans/2026-09-24-skillc-v0-phase12-merge-adopt-web-force.md`
 - [ ] skillc ins 去掉 --agent 选项的默认值，没有设置时通过 cliui 的 interact newui 交互让用户选择(可以多选)
 - [ ] skillc ins -i keyword 会直接输出 no skills found. 修复并优化为使用 interact newui 交互让用户选择(可以多选)确认
 

@@ -165,6 +165,9 @@ func updateDetail(item statusapp.Item) string {
 	if item.CurrentVersion != "" || item.LatestVersion != "" {
 		parts = append(parts, fmt.Sprintf("version=%s->%s", item.CurrentVersion, item.LatestVersion))
 	}
+	if item.LocallyModified {
+		parts = append(parts, "local=modified")
+	}
 	return strings.Join(parts, " ")
 }
 

@@ -13,6 +13,7 @@ import (
 	"github.com/inhere/skillc/internal/app/registryapp"
 	"github.com/inhere/skillc/internal/app/sourceapp"
 	"github.com/inhere/skillc/internal/domain/agent"
+	installpkg "github.com/inhere/skillc/internal/domain/install"
 	lockpkg "github.com/inhere/skillc/internal/domain/lock"
 	"github.com/inhere/skillc/internal/domain/skill"
 	sourcepkg "github.com/inhere/skillc/internal/domain/source"
@@ -63,6 +64,8 @@ type Item struct {
 	LatestSourceResolvedRef  string
 	InstalledPath            string
 	Reason                   string
+	// LocallyModified 表示安装目录内容与部署指纹不一致（被本地改动）。
+	LocallyModified bool
 }
 
 type Summary struct {
@@ -72,6 +75,8 @@ type Summary struct {
 	Orphan      int
 	Unmanaged   int
 	SourceError int
+	// Modified 统计安装目录存在本地改动的技能。
+	Modified int
 }
 
 type SourceSyncError struct {
@@ -202,6 +207,7 @@ func (s *Service) classifyListItem(current listapp.Item, indexItems []skill.Skil
 		CurrentSourceResolvedRef: current.SourceResolvedRef,
 		InstalledPath:            current.InstalledPath,
 	}
+	item.LocallyModified = deployedModified(current)
 	if current.SourceType == string(sourcepkg.TypeRegistry) {
 		return s.classifyRegistryListItem(current, item)
 	}
@@ -399,9 +405,26 @@ func sortItems(items []Item) {
 	})
 }
 
+// deployedModified 判断安装目录内容是否偏离部署指纹（被本地改动）。
+// 无法判断时（旧记录、link 安装、目录不存在）返回 false，status 不因此报错。
+func deployedModified(current listapp.Item) bool {
+	drift, err := installpkg.DetectDrift(lockpkg.Record{
+		SkillID:           current.SkillID,
+		InstallMode:       current.InstallMode,
+		InstalledChecksum: current.InstalledChecksum,
+	}, current.InstalledPath)
+	if err != nil {
+		return false
+	}
+	return drift.Tracked && drift.Modified
+}
+
 func summarize(items []Item) Summary {
 	var summary Summary
 	for _, item := range items {
+		if item.LocallyModified {
+			summary.Modified++
+		}
 		switch item.Status {
 		case StatusInstalled:
 			summary.Installed++

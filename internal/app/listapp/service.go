@@ -27,8 +27,11 @@ type Item struct {
 	Profile             string
 	InstalledPath       string
 	Checksum            string
-	UpdatedAt           string
-	Status              string
+	// InstalledChecksum 是安装时记录的部署目录指纹，用于检测本地改动。
+	InstalledChecksum string
+	InstallMode       string
+	UpdatedAt         string
+	Status            string
 }
 
 type Service struct {
@@ -137,6 +140,8 @@ func (s *Service) toItem(scopeKey string, scope agent.Scope, record lockpkg.Reco
 		Profile:             record.Profile,
 		InstalledPath:       installedPath,
 		Checksum:            record.Checksum,
+		InstalledChecksum:   record.InstalledChecksum,
+		InstallMode:         record.InstallMode,
 		UpdatedAt:           record.UpdatedAt.UTC().Format("2006-01-02T15:04:05Z07:00"),
 		Status:              status,
 	}, nil

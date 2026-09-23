@@ -124,6 +124,7 @@ func TestManager_MissingLockAndIndexAreEmptyForDerivedViews(t *testing.T) {
 	config := cfg.DefaultConfig()
 	config.LockFile = filepath.Join(baseDir, "missing.lock.json")
 	config.IndexFile = filepath.Join(baseDir, "missing-index.json")
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.Sources = []sourcepkg.Source{}
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config, baseDir))
 
@@ -152,6 +153,7 @@ func writeWebManagerFixture(t *testing.T, baseDir string) (string, cfg.Config) {
 	config := cfg.DefaultConfig()
 	config.LockFile = lockFile
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.RegistryCacheDir = filepath.Join(baseDir, "cache", "registry")
 	config.AgentTools["universal"] = cfg.AgentToolConfig{
 		Dirname:    ".agents",

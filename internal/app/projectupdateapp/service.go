@@ -19,6 +19,8 @@ type Req struct {
 	ProjectIDs []string
 	Sync       bool
 	Confirm    bool
+	// Force 为 true 时允许覆盖安装目录里的本地改动（覆盖前仍会备份）。
+	Force bool
 }
 
 type Plan struct {
@@ -47,6 +49,7 @@ type ProjectResult struct {
 	ProjectID     string                      `json:"project_id"`
 	Path          string                      `json:"path"`
 	Updated       []installapp.RuntimeRecord  `json:"updated,omitempty"`
+	BackedUp      []updateapp.BackupItem      `json:"backed_up,omitempty"`
 	Skipped       []updateapp.SkippedItem     `json:"skipped,omitempty"`
 	Failed        []updateapp.FailedItem      `json:"failed,omitempty"`
 	SyncFailed    []updateapp.SourceSyncError `json:"sync_failed,omitempty"`
@@ -137,8 +140,10 @@ func (s *Service) Run(req Req) (Result, error) {
 				Scope:        plan.Scope,
 				WorkDir:      projectPlan.Path,
 				ProjectPaths: []string{projectPlan.Path},
+				Force:        req.Force,
 			})
 			projectResult.Updated = append(projectResult.Updated, updateResult.Updated...)
+			projectResult.BackedUp = append(projectResult.BackedUp, updateResult.BackedUp...)
 			projectResult.Skipped = append(projectResult.Skipped, updateResult.Skipped...)
 			projectResult.Failed = append(projectResult.Failed, updateResult.Failed...)
 			projectResult.SyncFailed = append(projectResult.SyncFailed, updateResult.SyncFailed...)

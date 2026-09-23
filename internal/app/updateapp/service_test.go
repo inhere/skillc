@@ -57,6 +57,7 @@ func TestService_RunExpandsGroupedLockRecordsPerAgentAndProjectScopePath(t *test
 	config := cfg.DefaultConfig()
 	config.LockFile = lockFile
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.AgentTools["claude-code"] = cfg.AgentToolConfig{Dirname: ".claude", UserDir: filepath.Join(baseDir, "user-claude"), ProjectDir: filepath.Join(baseDir, "project-claude")}
 	config.AgentTools["codex"] = cfg.AgentToolConfig{Dirname: ".codex", UserDir: filepath.Join(baseDir, "user-codex"), ProjectDir: filepath.Join(baseDir, "project-codex")}
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
@@ -84,7 +85,7 @@ func TestService_RunExpandsGroupedLockRecordsPerAgentAndProjectScopePath(t *test
 		return nil
 	}}
 	installCalls := make([]string, 0)
-	service.newInstaller = func(path string, _ cfg.Config) reinstallService {
+	service.newInstaller = func(path string, _ cfg.Config, _ bool) reinstallService {
 		assert.Eq(t, lockFile, path)
 		return reinstallServiceStub{reinstallFn: func(item skill.Skill, agentName string, scope agent.Scope, scopeKey string, targetPath string) (installapp.RuntimeRecord, error) {
 			installCalls = append(installCalls, agentName+"|"+string(scope)+"|"+scopeKey+"|"+targetPath)
@@ -121,6 +122,7 @@ func TestService_RunUsesSourceAwareCandidateMatchingForGroupedRecords(t *testing
 	config := cfg.DefaultConfig()
 	config.LockFile = lockFile
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.AgentTools["claude-code"] = cfg.AgentToolConfig{Dirname: ".claude", UserDir: filepath.Join(baseDir, "user-claude"), ProjectDir: filepath.Join(baseDir, "project-claude")}
 	config.AgentTools["codex"] = cfg.AgentToolConfig{Dirname: ".codex", UserDir: filepath.Join(baseDir, "user-codex"), ProjectDir: filepath.Join(baseDir, "project-codex")}
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
@@ -149,7 +151,7 @@ func TestService_RunUsesSourceAwareCandidateMatchingForGroupedRecords(t *testing
 		return nil
 	}}
 	installCalls := make([]string, 0)
-	service.newInstaller = func(path string, _ cfg.Config) reinstallService {
+	service.newInstaller = func(path string, _ cfg.Config, _ bool) reinstallService {
 		return reinstallServiceStub{reinstallFn: func(item skill.Skill, agentName string, scope agent.Scope, scopeKey string, targetPath string) (installapp.RuntimeRecord, error) {
 			installCalls = append(installCalls, item.SourceID+"|"+item.Version+"|"+agentName)
 			return installapp.RuntimeRecord{Record: lockpkg.Record{SkillID: item.ID, Version: item.Version, SourceID: item.SourceID}, Agent: agentName, Scope: string(scope), InstalledPath: targetPath}, nil
@@ -175,6 +177,7 @@ func TestService_RunUsesGlobalScopeKeyForUserScopeUpdates(t *testing.T) {
 	config := cfg.DefaultConfig()
 	config.LockFile = lockFile
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.AgentTools["claude-code"] = cfg.AgentToolConfig{Dirname: ".claude", UserDir: filepath.Join(baseDir, "user-claude"), ProjectDir: filepath.Join(baseDir, "project-claude")}
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
 	assert.NoErr(t, lockstore.NewStore().Save(lockFile, lockpkg.File{
@@ -197,7 +200,7 @@ func TestService_RunUsesGlobalScopeKeyForUserScopeUpdates(t *testing.T) {
 	service := NewService(configFile, baseDir)
 	installCalls := make([]string, 0)
 	service.syncer = sourceSyncerStub{syncFn: func(id string) error { return nil }}
-	service.newInstaller = func(path string, _ cfg.Config) reinstallService {
+	service.newInstaller = func(path string, _ cfg.Config, _ bool) reinstallService {
 		return reinstallServiceStub{reinstallFn: func(item skill.Skill, agentName string, scope agent.Scope, scopeKey string, targetPath string) (installapp.RuntimeRecord, error) {
 			installCalls = append(installCalls, string(scope)+"|"+scopeKey+"|"+targetPath)
 			return installapp.RuntimeRecord{Record: lockpkg.Record{SkillID: item.ID, Version: item.Version}, Agent: agentName, Scope: string(scope), InstalledPath: targetPath}, nil
@@ -225,6 +228,7 @@ func TestService_RunKeepsInstalledPathWhenQualifiedNameChanges(t *testing.T) {
 	config := cfg.DefaultConfig()
 	config.LockFile = lockFile
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.AgentTools["claude-code"] = cfg.AgentToolConfig{Dirname: ".claude", UserDir: filepath.Join(baseDir, "user-claude"), ProjectDir: filepath.Join(baseDir, "project-claude")}
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
 	assert.NoErr(t, lockstore.NewStore().Save(lockFile, lockpkg.File{
@@ -284,6 +288,7 @@ func TestService_RunKeepsInstalledPathWhenReinstallFailsAfterQualifiedNameChange
 	config := cfg.DefaultConfig()
 	config.LockFile = lockFile
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.AgentTools["claude-code"] = cfg.AgentToolConfig{Dirname: ".claude", UserDir: filepath.Join(baseDir, "user-claude"), ProjectDir: filepath.Join(baseDir, "project-claude")}
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
 	assert.NoErr(t, lockstore.NewStore().Save(lockFile, lockpkg.File{
@@ -312,7 +317,7 @@ func TestService_RunKeepsInstalledPathWhenReinstallFailsAfterQualifiedNameChange
 
 	service := NewService(configFile, baseDir)
 	service.syncer = sourceSyncerStub{syncFn: func(id string) error { return nil }}
-	service.newInstaller = func(path string, _ cfg.Config) reinstallService {
+	service.newInstaller = func(path string, _ cfg.Config, _ bool) reinstallService {
 		return reinstallServiceStub{reinstallFn: func(item skill.Skill, agentName string, scope agent.Scope, scopeKey string, targetPath string) (installapp.RuntimeRecord, error) {
 			return installapp.RuntimeRecord{}, errors.New("copy failed")
 		}}
@@ -349,6 +354,7 @@ func TestService_RunReportsCleanupFailureWhenInstalledPathChanges(t *testing.T) 
 	config := cfg.DefaultConfig()
 	config.LockFile = lockFile
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.AgentTools["claude-code"] = cfg.AgentToolConfig{Dirname: ".claude", UserDir: filepath.Join(baseDir, "user-claude"), ProjectDir: filepath.Join(baseDir, "project-claude")}
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
 	assert.NoErr(t, lockstore.NewStore().Save(lockFile, lockpkg.File{
@@ -410,6 +416,7 @@ func TestService_RunSkipsPinnedGroupedRecordForRequestedAgent(t *testing.T) {
 	config := cfg.DefaultConfig()
 	config.LockFile = lockFile
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
 	assert.NoErr(t, lockstore.NewStore().Save(lockFile, lockpkg.File{
 		projectKey: {
@@ -431,7 +438,7 @@ func TestService_RunSkipsPinnedGroupedRecordForRequestedAgent(t *testing.T) {
 		return nil
 	}}
 	installCalled := false
-	service.newInstaller = func(path string, _ cfg.Config) reinstallService {
+	service.newInstaller = func(path string, _ cfg.Config, _ bool) reinstallService {
 		return reinstallServiceStub{reinstallFn: func(item skill.Skill, agentName string, scope agent.Scope, scopeKey string, targetPath string) (installapp.RuntimeRecord, error) {
 			installCalled = true
 			return installapp.RuntimeRecord{}, nil
@@ -457,6 +464,7 @@ func TestService_RunAggregatesGroupedSyncAndReinstallFailures(t *testing.T) {
 	config := cfg.DefaultConfig()
 	config.LockFile = lockFile
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
 	assert.NoErr(t, lockstore.NewStore().Save(lockFile, lockpkg.File{
 		projectKey: {
@@ -480,7 +488,7 @@ func TestService_RunAggregatesGroupedSyncAndReinstallFailures(t *testing.T) {
 		return nil
 	}}
 	installCalls := make([]string, 0)
-	service.newInstaller = func(path string, _ cfg.Config) reinstallService {
+	service.newInstaller = func(path string, _ cfg.Config, _ bool) reinstallService {
 		return reinstallServiceStub{reinstallFn: func(item skill.Skill, agentName string, scope agent.Scope, scopeKey string, targetPath string) (installapp.RuntimeRecord, error) {
 			installCalls = append(installCalls, item.ID+"|"+agentName)
 			if item.ID == "world-skill" {
@@ -515,6 +523,7 @@ func TestService_RunProjectScopeDefaultsToCurrentWorkDirOnly(t *testing.T) {
 	config := cfg.DefaultConfig()
 	config.LockFile = lockFile
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config, baseDir))
 	assert.NoErr(t, lockstore.NewStore().Save(lockFile, lockpkg.File{
 		projectA: {{SkillID: "go-pro", SourceID: "source-a", Agents: []string{"universal"}}},
@@ -528,7 +537,7 @@ func TestService_RunProjectScopeDefaultsToCurrentWorkDirOnly(t *testing.T) {
 	service := NewService(configFile, baseDir)
 	service.syncer = sourceSyncerStub{syncFn: func(id string) error { return nil }}
 	updated := make([]string, 0)
-	service.newInstaller = func(path string, _ cfg.Config) reinstallService {
+	service.newInstaller = func(path string, _ cfg.Config, _ bool) reinstallService {
 		return reinstallServiceStub{reinstallFn: func(item skill.Skill, agentName string, scope agent.Scope, scopeKey string, targetPath string) (installapp.RuntimeRecord, error) {
 			updated = append(updated, scopeKey+"|"+item.ID)
 			return installapp.RuntimeRecord{Record: lockpkg.Record{SkillID: item.ID, Version: item.Version}, Agent: agentName, Scope: string(scope), InstalledPath: targetPath}, nil
@@ -555,6 +564,7 @@ func TestService_RunProjectScopeAllUsesExplicitProjectPaths(t *testing.T) {
 	config := cfg.DefaultConfig()
 	config.LockFile = lockFile
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config, baseDir))
 	assert.NoErr(t, lockstore.NewStore().Save(lockFile, lockpkg.File{
 		projectA: {{SkillID: "go-pro", SourceID: "source-a", Agents: []string{"universal"}}},
@@ -568,7 +578,7 @@ func TestService_RunProjectScopeAllUsesExplicitProjectPaths(t *testing.T) {
 	service := NewService(configFile, baseDir)
 	service.syncer = sourceSyncerStub{syncFn: func(id string) error { return nil }}
 	updated := make([]string, 0)
-	service.newInstaller = func(path string, _ cfg.Config) reinstallService {
+	service.newInstaller = func(path string, _ cfg.Config, _ bool) reinstallService {
 		return reinstallServiceStub{reinstallFn: func(item skill.Skill, agentName string, scope agent.Scope, scopeKey string, targetPath string) (installapp.RuntimeRecord, error) {
 			updated = append(updated, scopeKey+"|"+item.ID)
 			return installapp.RuntimeRecord{Record: lockpkg.Record{SkillID: item.ID, Version: item.Version}, Agent: agentName, Scope: string(scope), InstalledPath: targetPath}, nil
@@ -594,6 +604,7 @@ func TestService_RunRejectsAmbiguousDuplicatePlainDirs(t *testing.T) {
 	config := cfg.DefaultConfig()
 	config.LockFile = lockFile
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.AgentTools["claude-code"] = cfg.AgentToolConfig{Dirname: ".claude", UserDir: filepath.Join(baseDir, "user-claude"), ProjectDir: filepath.Join(baseDir, "project-claude")}
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
 	assert.NoErr(t, repoindex.NewStore().Save(indexFile, []skill.Skill{
@@ -608,7 +619,7 @@ func TestService_RunRejectsAmbiguousDuplicatePlainDirs(t *testing.T) {
 		return nil
 	}}
 	installCalls := make([]string, 0)
-	service.newInstaller = func(path string, _ cfg.Config) reinstallService {
+	service.newInstaller = func(path string, _ cfg.Config, _ bool) reinstallService {
 		return reinstallServiceStub{reinstallFn: func(item skill.Skill, agentName string, scope agent.Scope, scopeKey string, targetPath string) (installapp.RuntimeRecord, error) {
 			installCalls = append(installCalls, item.SourceID+"@"+targetPath)
 			return installapp.RuntimeRecord{Record: lockpkg.Record{SkillID: item.ID, Version: item.Version, SourceID: item.SourceID, SourceQualifiedName: item.SourceQualifiedName}, Agent: agentName, Scope: string(scope), InstalledPath: targetPath}, nil
@@ -655,7 +666,7 @@ func TestService_RunUpdatesRegistrySkillFromRegistryResolver(t *testing.T) {
 		}, true, nil
 	}}
 	var installed skill.Skill
-	service.newInstaller = func(path string, _ cfg.Config) reinstallService {
+	service.newInstaller = func(path string, _ cfg.Config, _ bool) reinstallService {
 		assert.Eq(t, lockFile, path)
 		return reinstallServiceStub{reinstallFn: func(item skill.Skill, agentName string, scope agent.Scope, scopeKey string, targetPath string) (installapp.RuntimeRecord, error) {
 			installed = item

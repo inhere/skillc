@@ -51,6 +51,7 @@ func TestService_RunClassifiesInstalledMissingOutdatedAndOrphan(t *testing.T) {
 	config := cfg.DefaultConfig()
 	config.LockFile = lockFile
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, ".agents")}
 	config.Sources = []sourcepkg.Source{{ID: "gstack", Type: sourcepkg.TypeLocal, Path: filepath.Join(baseDir, "source")}}
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config, baseDir))
@@ -92,6 +93,7 @@ func TestService_RunCarriesSourceQualifiedName(t *testing.T) {
 	config := cfg.DefaultConfig()
 	config.LockFile = lockFile
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, ".agents")}
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config, baseDir))
 	assert.NoErr(t, lockstore.NewStore().Save(lockFile, lockpkg.File{
@@ -123,6 +125,7 @@ func TestService_RunFillsIndexIdentityForMissingSkill(t *testing.T) {
 	config := cfg.DefaultConfig()
 	config.LockFile = lockFile
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, ".agents")}
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config, baseDir))
 	assert.NoErr(t, lockstore.NewStore().Save(lockFile, lockpkg.File{
@@ -161,6 +164,7 @@ func TestService_RunIncludesUnmanagedInstalledDirectories(t *testing.T) {
 	config := cfg.DefaultConfig()
 	config.LockFile = lockFile
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, ".agents")}
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config, baseDir))
 	assert.NoErr(t, repoindex.NewStore().Save(indexFile, []skill.Skill{}))
@@ -185,6 +189,7 @@ func TestService_RunFiltersByProfile(t *testing.T) {
 	config := cfg.DefaultConfig()
 	config.LockFile = lockFile
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, ".agents")}
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config, baseDir))
 	assert.NoErr(t, lockstore.NewStore().Save(lockFile, lockpkg.File{
@@ -216,6 +221,7 @@ func TestService_RunProfileFilterExcludesUnmanagedDirectories(t *testing.T) {
 	config := cfg.DefaultConfig()
 	config.LockFile = lockFile
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, ".agents")}
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config, baseDir))
 	assert.NoErr(t, lockstore.NewStore().Save(lockFile, lockpkg.File{
@@ -250,6 +256,7 @@ func TestService_RunFiltersByAgent(t *testing.T) {
 	config := cfg.DefaultConfig()
 	config.LockFile = lockFile
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, ".agents")}
 	config.AgentTools["codex"] = cfg.AgentToolConfig{Dirname: ".codex", ProjectDir: filepath.Join(baseDir, ".codex")}
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config, baseDir))
@@ -289,6 +296,7 @@ func TestService_RunFiltersByScope(t *testing.T) {
 	config := cfg.DefaultConfig()
 	config.LockFile = lockFile
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", UserDir: userDir, ProjectDir: projectDir}
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config, baseDir))
 	assert.NoErr(t, lockstore.NewStore().Save(lockFile, lockpkg.File{
@@ -326,6 +334,7 @@ func TestService_RunMatchesIndexByQualifiedIdentityWhenSourceIDIsMissing(t *test
 	config := cfg.DefaultConfig()
 	config.LockFile = lockFile
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, ".agents")}
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config, baseDir))
 	assert.NoErr(t, lockstore.NewStore().Save(lockFile, lockpkg.File{
@@ -367,6 +376,7 @@ func TestService_RunTreatsQualifiedOnlyLockAsOrphanWhenIndexHasAmbiguousSources(
 	config := cfg.DefaultConfig()
 	config.LockFile = lockFile
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, ".agents")}
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config, baseDir))
 	assert.NoErr(t, lockstore.NewStore().Save(lockFile, lockpkg.File{
@@ -416,6 +426,7 @@ func TestService_RunReportsSourceSyncErrorForQualifiedLockWithoutSourceID(t *tes
 	config := cfg.DefaultConfig()
 	config.LockFile = lockFile
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, ".agents")}
 	config.Sources = []sourcepkg.Source{{ID: "gstack", Type: sourcepkg.TypeLocal, Path: filepath.Join(baseDir, "source")}}
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config, baseDir))
@@ -468,6 +479,7 @@ func TestService_RunReportsSourceSyncErrorWhenSourceQualifiedNameUsesSourceName(
 	config := cfg.DefaultConfig()
 	config.LockFile = lockFile
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, ".agents")}
 	config.Sources = []sourcepkg.Source{{ID: "git-workflow-repo", Name: "workflow-repo", Type: sourcepkg.TypeGit, Path: filepath.Join(baseDir, "source")}}
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config, baseDir))
@@ -520,6 +532,7 @@ func TestService_RunReportsSourceSyncErrorsWithoutUpdatingLock(t *testing.T) {
 	config := cfg.DefaultConfig()
 	config.LockFile = lockFile
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, ".agents")}
 	config.Sources = []sourcepkg.Source{{ID: "gstack", Type: sourcepkg.TypeLocal, Path: filepath.Join(baseDir, "source")}}
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config, baseDir))
@@ -634,6 +647,7 @@ func writeStatusDriftFixture(t *testing.T, baseDir string) (string, cfg.Config) 
 	config := cfg.DefaultConfig()
 	config.LockFile = lockFile
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, ".agents")}
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config, baseDir))
 	return configFile, config

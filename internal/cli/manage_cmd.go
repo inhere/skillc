@@ -157,7 +157,7 @@ func buildInstallCommand() *gcli.Command {
 			c.StrOpt(&opts.Agent, "agent", "a", "", "agent name or directory; select interactively when empty")
 			opts.bindInstallModeFlags(c)
 			c.BoolOpt(&opts.Yes, "yes", "y", false, "skip confirmation prompt")
-			c.BoolOpt(&opts.Force, "force", "f", false, "overwrite same skill installed from another source")
+			c.BoolOpt(&opts.Force, "force", "f", false, "overwrite existing install: another source or local changes (backup first)")
 			c.BoolOpt(&interactive, "interactive", "i", false, "interactively select skills to install")
 			c.BoolOpt(&restore, "restore", "", false, "restore installations from lock file")
 			c.StrOpt(&sourceArg, "source", "S", "", "git url or local path: add & sync source before installing")
@@ -273,6 +273,7 @@ func buildInstallCommand() *gcli.Command {
 				svc := installapp.NewService(config.LockFile).
 					WithInstallMode(installMode).
 					WithSymlinkFallbackNotifier(fallbackNotifier).
+					WithForce(opts.Force).
 					WithRestoreResolver(registryapp.NewLockedResolver(defaultConfigFile(cwd), cwd).Resolve)
 				result, err := svc.Run(config, installapp.InstallReq{
 					Agent:   opts.Agent,
@@ -285,7 +286,10 @@ func buildInstallCommand() *gcli.Command {
 				for _, record := range result.Restored {
 					ccolor.Infof("- restored %s  agent=%s scope=%s path=%s\n", record.SkillID, record.Agent, record.Scope, record.InstalledPath)
 				}
-				ccolor.Successf("restore complete: %d skill(s) restored\n", len(result.Restored))
+				for _, skipped := range result.Skipped {
+					ccolor.Warnf("- skipped %s  %s\n", skipped.SkillID, skipped.Reason)
+				}
+				ccolor.Successf("restore complete: %d skill(s) restored, %d skill(s) skipped\n", len(result.Restored), len(result.Skipped))
 				return nil
 			}
 
@@ -465,6 +469,7 @@ func buildUpdateCommand() *gcli.Command {
 			c.BoolOpt(&checkOnly, "check", "", false, "check update candidates without installing")
 			c.BoolOpt(&interactive, "interactive", "i", false, "interactively select update candidates")
 			c.BoolOpt(&opts.Yes, "yes", "y", false, "skip confirmation prompt for cross-project update")
+			c.BoolOpt(&opts.Force, "force", "f", false, "overwrite skills with local changes (backup first)")
 			c.BoolOpt(&allProjects, "all-projects", "", false, "update registered projects")
 			c.StrOpt(&projectsRaw, "projects", "", "", "comma-separated project ids for --all-projects")
 			c.AddArg("skill", "skill id to update (same as --target)")
@@ -487,6 +492,7 @@ func buildUpdateCommand() *gcli.Command {
 					Target:     target,
 					ProjectIDs: splitProjectIDs(projectsRaw),
 					Sync:       true,
+					Force:      opts.Force,
 				}
 				service := newProjectUpdateService(defaultConfigFile(cwd), cwd)
 				plan, err := service.Plan(req)
@@ -567,6 +573,7 @@ func buildUpdateCommand() *gcli.Command {
 						Agent:   opts.Agent,
 						Scope:   opts.Scope,
 						WorkDir: cwd,
+						Force:   opts.Force,
 					})
 					if err != nil {
 						slog.Error(err)
@@ -582,6 +589,7 @@ func buildUpdateCommand() *gcli.Command {
 				Agent:   opts.Agent,
 				Scope:   opts.Scope,
 				WorkDir: cwd,
+				Force:   opts.Force,
 			})
 			if err != nil {
 				slog.Error(err)
@@ -641,6 +649,12 @@ func printCrossProjectUpdateResult(result projectupdateapp.Result) error {
 		for _, record := range projectResult.Updated {
 			ccolor.Infof("updated %s %s %s\n", projectResult.ProjectID, record.SkillID, record.Version)
 		}
+		for _, backup := range projectResult.BackedUp {
+			ccolor.Warnf("backed up %s %s -> %s\n", projectResult.ProjectID, backup.SkillID, backup.Path)
+		}
+		for _, skipped := range projectResult.Skipped {
+			ccolor.Infof("skipped %s %s %s\n", projectResult.ProjectID, skipped.SkillID, skipped.Reason)
+		}
 		for _, failed := range projectResult.Failed {
 			ccolor.Errorf("update failed %s %s %s\n", projectResult.ProjectID, failed.SkillID, failed.Reason)
 		}
@@ -656,7 +670,7 @@ func printUpdateCheckResult(result statusapp.Result, target string) error {
 	}
 	tb := table.New("Update Check").SetHeads("Status", "Skill", "Source", "Agent", "Current", "Latest", "Reason")
 	for _, item := range items {
-		tb.AddRow(item.Status, item.SkillID, item.SourceID, item.Agent, item.CurrentVersion, item.LatestVersion, item.Reason)
+		tb.AddRow(item.Status, item.SkillID, item.SourceID, item.Agent, item.CurrentVersion, item.LatestVersion, statusReason(item))
 	}
 	_, err := fmt.Fprint(os.Stdout, tb.Render())
 	return err
@@ -698,6 +712,9 @@ func printUpdateResult(result updateapp.Result) {
 	for _, record := range result.Updated {
 		ccolor.Infof("updated %s %s\n", record.SkillID, record.InstalledPath)
 	}
+	for _, backup := range result.BackedUp {
+		ccolor.Warnf("backed up %s -> %s\n", backup.SkillID, backup.Path)
+	}
 	for _, skipped := range result.Skipped {
 		ccolor.Infof("skipped %s %s\n", skipped.SkillID, skipped.Reason)
 	}
@@ -717,6 +734,7 @@ func buildUninstallCommand() *gcli.Command {
 		Aliases: []string{"uni", "remove", "rm"},
 		Config: func(c *gcli.Command) {
 			opts.bindCommand(c)
+			c.BoolOpt(&opts.Force, "force", "f", false, "remove skills with local changes")
 			c.AddArg("skill", "skill id, allow multiple", true, true)
 		},
 		Func: func(c *gcli.Command, _ []string) error {
@@ -730,7 +748,7 @@ func buildUninstallCommand() *gcli.Command {
 				return err
 			}
 
-			svc := installapp.NewService(config.LockFile).WithRuntime(config, cwd)
+			svc := installapp.NewService(config.LockFile).WithRuntime(config, cwd).WithForce(opts.Force)
 			removed, err := svc.UninstallMulti(skillIDs, opts.Agent, scope)
 			for _, skillID := range removed {
 				ccolor.Successf("uninstalled %s\n", skillID)
@@ -852,20 +870,32 @@ func printStatusResult(result statusapp.Result, _ cfg.Config) error {
 	}
 	tb := table.New("Skill Status").SetHeads("Status", "Skill", "Source", "Agent", "Scope", "Profile", "Current", "Latest", "Reason")
 	for _, item := range result.Items {
-		tb.AddRow(item.Status, item.SkillID, item.SourceID, item.Agent, item.Scope, item.Profile, item.CurrentVersion, item.LatestVersion, item.Reason)
+		tb.AddRow(item.Status, item.SkillID, item.SourceID, item.Agent, item.Scope, item.Profile, item.CurrentVersion, item.LatestVersion, statusReason(item))
 	}
 	if _, err := fmt.Fprint(os.Stdout, tb.Render()); err != nil {
 		return err
 	}
-	ccolor.Infof("summary installed=%d missing=%d outdated=%d orphan=%d unmanaged=%d source_error=%d\n",
+	ccolor.Infof("summary installed=%d missing=%d outdated=%d orphan=%d unmanaged=%d source_error=%d modified=%d\n",
 		result.Summary.Installed,
 		result.Summary.Missing,
 		result.Summary.Outdated,
 		result.Summary.Orphan,
 		result.Summary.Unmanaged,
 		result.Summary.SourceError,
+		result.Summary.Modified,
 	)
 	return nil
+}
+
+// statusReason 合并状态原因与本地改动提示。
+func statusReason(item statusapp.Item) string {
+	if !item.LocallyModified {
+		return item.Reason
+	}
+	if item.Reason == "" {
+		return "locally modified (update/install keeps it unless --force)"
+	}
+	return item.Reason + "; locally modified"
 }
 
 func buildDoctorCommand() *gcli.Command {

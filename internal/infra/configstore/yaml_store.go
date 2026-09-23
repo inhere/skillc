@@ -58,6 +58,7 @@ type rawConfig struct {
 	RepoCacheDir     string                     `yaml:"repo_cache_dir"`
 	SkillCacheDir    string                     `yaml:"skill_cache_dir"`
 	RegistryCacheDir string                     `yaml:"registry_cache_dir"`
+	BackupDir        string                     `yaml:"backup_dir"`
 	IndexFile        string                     `yaml:"index_file"`
 	Sources          []sourceRecord             `yaml:"sources"`
 	Registries       []registryRecord           `yaml:"registries,omitempty"`
@@ -134,6 +135,7 @@ func (s *YAMLStore) Save(path string, data cfg.Config, runtimeBaseDir ...string)
 		"repo_cache_dir":     persisted.RepoCacheDir,
 		"skill_cache_dir":    persisted.SkillCacheDir,
 		"registry_cache_dir": persisted.RegistryCacheDir,
+		"backup_dir":         persisted.BackupDir,
 		"index_file":         persisted.IndexFile,
 		"sources":            toSourceRecords(persisted.Sources),
 	}
@@ -168,6 +170,9 @@ func mergeDefaults(dst *cfg.Config, defaults cfg.Config) {
 	}
 	if dst.RegistryCacheDir == "" {
 		dst.RegistryCacheDir = defaults.RegistryCacheDir
+	}
+	if dst.BackupDir == "" {
+		dst.BackupDir = defaults.BackupDir
 	}
 	if dst.IndexFile == "" {
 		dst.IndexFile = defaults.IndexFile
@@ -246,6 +251,10 @@ func compactRuntimePaths(data cfg.Config, baseDir string, existing rawConfig, ha
 		return cfg.Config{}, err
 	}
 	data.RegistryCacheDir, err = compactPath(data.RegistryCacheDir, existing.RegistryCacheDir, defaults.RegistryCacheDir, baseDir, hasExisting)
+	if err != nil {
+		return cfg.Config{}, err
+	}
+	data.BackupDir, err = compactPath(data.BackupDir, existing.BackupDir, defaults.BackupDir, baseDir, hasExisting)
 	if err != nil {
 		return cfg.Config{}, err
 	}
@@ -363,6 +372,10 @@ func expandRuntimePaths(data cfg.Config, baseDir string) (cfg.Config, error) {
 		return cfg.Config{}, err
 	}
 	data.RegistryCacheDir, err = fsx.ExpandPath(data.RegistryCacheDir, baseDir)
+	if err != nil {
+		return cfg.Config{}, err
+	}
+	data.BackupDir, err = fsx.ExpandPath(data.BackupDir, baseDir)
 	if err != nil {
 		return cfg.Config{}, err
 	}
@@ -547,6 +560,7 @@ func fromRawConfig(raw rawConfig) (cfg.Config, error) {
 		RepoCacheDir:     raw.RepoCacheDir,
 		SkillCacheDir:    raw.SkillCacheDir,
 		RegistryCacheDir: raw.RegistryCacheDir,
+		BackupDir:        raw.BackupDir,
 		IndexFile:        raw.IndexFile,
 		Sources:          sources,
 		Registries:       fromRegistryRecords(raw.Registries),

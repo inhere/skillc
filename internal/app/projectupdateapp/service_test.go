@@ -91,6 +91,7 @@ func writeProjectUpdateFixture(t *testing.T, baseDir string) (string, cfg.Config
 	config := cfg.DefaultConfig()
 	config.LockFile = lockFile
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.Sources = []sourcepkg.Source{{
 		ID:     "gstack",
 		Name:   "gstack",

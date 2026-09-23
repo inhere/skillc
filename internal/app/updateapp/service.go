@@ -1,6 +1,7 @@
 package updateapp
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -36,6 +37,8 @@ type UpdateReq struct {
 	All          bool
 	WorkDir      string
 	ProjectPaths []string
+	// Force 为 true 时允许覆盖安装目录里的本地改动（覆盖前仍会备份）。
+	Force bool
 }
 
 type Req = UpdateReq
@@ -69,6 +72,12 @@ type FailedItem struct {
 	Reason  string
 }
 
+// BackupItem 记录覆盖前生成的备份目录。
+type BackupItem struct {
+	SkillID string
+	Path    string
+}
+
 type SkippedItem struct {
 	SkillID string
 	Reason  string
@@ -77,6 +86,7 @@ type SkippedItem struct {
 type Result struct {
 	Candidates    []Candidate
 	Updated       []installapp.RuntimeRecord
+	BackedUp      []BackupItem
 	SyncFailed    []SourceSyncError
 	UpdateFailed  []UpdateItemError
 	CleanupFailed []FailedItem
@@ -92,7 +102,7 @@ type Service struct {
 	indexStore       *repoindex.Store
 	syncer           sourceSyncer
 	registryResolver registryapp.RecordResolver
-	newInstaller     func(lockFile string, config cfg.Config) reinstallService
+	newInstaller     func(lockFile string, config cfg.Config, force bool) reinstallService
 	removeAll        func(path string) error
 }
 
@@ -105,9 +115,9 @@ func NewService(configFile string, baseDir string) *Service {
 		indexStore:       repoindex.NewStore(),
 		syncer:           sourceapp.NewService(configFile, baseDir),
 		registryResolver: registryapp.NewLockedResolver(configFile, baseDir),
-		newInstaller: func(lockFile string, config cfg.Config) reinstallService {
+		newInstaller: func(lockFile string, config cfg.Config, force bool) reinstallService {
 			// 默认 reinstall 服务遵循 config.InstallMode 的安装方式（symlink/junction/copy）
-			return installapp.NewService(lockFile).WithRuntime(config, baseDir)
+			return installapp.NewService(lockFile).WithRuntime(config, baseDir).WithForce(force)
 		},
 		removeAll: os.RemoveAll,
 	}
@@ -149,7 +159,7 @@ func (s *Service) Run(req UpdateReq) (Result, error) {
 		result.Failed = append(result.Failed, FailedItem{SkillID: item.SkillID, Reason: item.Reason})
 	}
 
-	worker := s.newInstaller(config.LockFile, config)
+	worker := s.newInstaller(config.LockFile, config, req.Force)
 	removeAll := s.removeAll
 	for _, candidate := range result.Candidates {
 		oldPath := candidate.Installed.InstalledPath
@@ -168,11 +178,22 @@ func (s *Service) Run(req UpdateReq) (Result, error) {
 			targetPath,
 		)
 		if err != nil {
+			// 本地改动默认不覆盖，只报告；--force 时由安装层先备份再覆盖。
+			if errors.Is(err, apputil.ErrLocalChanges) {
+				result.Skipped = append(result.Skipped, SkippedItem{
+					SkillID: candidate.Installed.SkillID,
+					Reason:  fmt.Sprintf("locally modified at %s (use --force to overwrite)", candidate.Installed.InstalledPath),
+				})
+				continue
+			}
 			result.UpdateFailed = append(result.UpdateFailed, UpdateItemError{SkillID: candidate.Installed.SkillID, Reason: err.Error()})
 			result.Failed = append(result.Failed, FailedItem{SkillID: candidate.Installed.SkillID, Reason: err.Error()})
 			continue
 		}
 		result.Updated = append(result.Updated, record)
+		if record.BackupPath != "" {
+			result.BackedUp = append(result.BackedUp, BackupItem{SkillID: record.SkillID, Path: record.BackupPath})
+		}
 		if removeOldPath {
 			if err := removeAll(oldPath); err != nil {
 				result.CleanupFailed = append(result.CleanupFailed, FailedItem{SkillID: candidate.Installed.SkillID, Reason: err.Error()})

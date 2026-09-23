@@ -68,7 +68,7 @@ func TestInstallListAndRestoreFlow(t *testing.T) {
 	assert.Len(t, listed, 1)
 	assert.Eq(t, "missing", listed[0].Status)
 
-	restored, err := installer.WithRuntime(config, baseDir).Restore(map[string]string{"local-demo": sourceDir})
+	restored, _, err := installer.WithRuntime(config, baseDir).Restore(map[string]string{"local-demo": sourceDir})
 	assert.NoErr(t, err)
 	assert.Len(t, restored, 1)
 	assert.Eq(t, "workflow-repo/marketplaces/hello-skill", restored[0].SourceQualifiedName)
@@ -103,7 +103,7 @@ func TestRestoreUsesProjectKeyAsWorkdir(t *testing.T) {
 		},
 	}))
 
-	restored, err := installapp.NewService(lockFile).WithRuntime(config, baseDir).Restore(map[string]string{"local-demo": sourceDir})
+	restored, _, err := installapp.NewService(lockFile).WithRuntime(config, baseDir).Restore(map[string]string{"local-demo": sourceDir})
 	assert.NoErr(t, err)
 	assert.Len(t, restored, 1)
 	data, err := os.ReadFile(filepath.Join(projectDir, ".claude", "skills", "hello-skill", "hello.txt"))
@@ -113,6 +113,7 @@ func TestRestoreUsesProjectKeyAsWorkdir(t *testing.T) {
 
 func installTestConfig(baseDir string) cfg.Config {
 	return cfg.Config{
+		BackupDir: filepath.Join(baseDir, "cache", "backups"),
 		AgentTools: map[string]cfg.AgentToolConfig{
 			"claude-code": {UserDir: filepath.Join(baseDir, ".claude-user"), ProjectDir: "./.claude"},
 			"codex":       {UserDir: filepath.Join(baseDir, ".codex-user"), ProjectDir: "./.codex"},

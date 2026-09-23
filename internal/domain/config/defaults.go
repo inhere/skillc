@@ -37,6 +37,7 @@ func DefaultConfig() Config {
 		RepoCacheDir:     "~/.cache/skillc/repos",
 		SkillCacheDir:    "~/.cache/skillc/skills",
 		RegistryCacheDir: "~/.cache/skillc/registry",
+		BackupDir:        "~/.cache/skillc/backups",
 		IndexFile:        "~/.cache/skillc/skillc-index.json",
 		Sources:          []domainsource.Source{},
 		Registries:       []registry.Registry{},

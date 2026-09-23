@@ -210,6 +210,7 @@ func TestService_CreateFromCollection(t *testing.T) {
 	indexFile := filepath.Join(baseDir, "index.json")
 	config := cfg.DefaultConfig()
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config, baseDir))
 	assert.NoErr(t, repoindex.NewStore().Save(indexFile, []skill.Skill{
 		{ID: "go-pro", SourceID: "gstack", Collection: "go"},
@@ -233,6 +234,7 @@ func TestService_BuildFromCollectionReturnsUnsavedProfile(t *testing.T) {
 	indexFile := filepath.Join(baseDir, "index.json")
 	config := cfg.DefaultConfig()
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config, baseDir))
 	assert.NoErr(t, repoindex.NewStore().Save(indexFile, []skill.Skill{
 		{ID: "go-pro", SourceID: "gstack", Collection: "go"},
@@ -301,6 +303,7 @@ func TestService_PlanApplySkipsInstalledAndInstallsMissing(t *testing.T) {
 
 	config := cfg.DefaultConfig()
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.LockFile = lockFile
 	config.Profiles = map[string]profile.Profile{
 		"go-dev": {Targets: []profile.Target{
@@ -341,6 +344,7 @@ func TestService_PlanApplyTreatsMissingLockRecordAsInstall(t *testing.T) {
 
 	config := cfg.DefaultConfig()
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.LockFile = lockFile
 	config.Profiles = map[string]profile.Profile{
 		"go-dev": {Targets: []profile.Target{{Source: "gstack", Skill: "go-pro"}}},
@@ -375,6 +379,7 @@ func TestService_PlanApplyReportsMissingTarget(t *testing.T) {
 
 	config := cfg.DefaultConfig()
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.Profiles = map[string]profile.Profile{
 		"go-dev": {Targets: []profile.Target{{Source: "gstack", Skill: "missing"}}},
 	}
@@ -402,6 +407,7 @@ func TestService_PlanApplyReportsAmbiguousUnqualifiedTarget(t *testing.T) {
 
 	config := cfg.DefaultConfig()
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.Profiles = map[string]profile.Profile{
 		"go-dev": {Targets: []profile.Target{{Skill: "shared-skill"}}},
 	}
@@ -430,6 +436,7 @@ func TestService_PlanApplyResolvesAgentAlias(t *testing.T) {
 
 	config := cfg.DefaultConfig()
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.AgentTools["claude-code"] = cfg.AgentToolConfig{
 		Dirname:    ".claude",
 		Aliases:    []string{"claude"},
@@ -465,6 +472,7 @@ func TestService_ApplyRefusesPlanWithErrors(t *testing.T) {
 
 	config := cfg.DefaultConfig()
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.LockFile = lockFile
 	config.Profiles = map[string]profile.Profile{
 		"go-dev": {Targets: []profile.Target{
@@ -508,6 +516,7 @@ func TestService_ApplyInstallsMissingSkillsWithProfile(t *testing.T) {
 
 	config := cfg.DefaultConfig()
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.LockFile = lockFile
 	config.Profiles = map[string]profile.Profile{
 		"go-dev": {Targets: []profile.Target{{Source: "gstack", Skill: "review"}}},
@@ -542,6 +551,7 @@ func TestService_ApplyUsesProfileInstallMode(t *testing.T) {
 	config := cfg.DefaultConfig()
 	config.InstallMode = "junction"
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.LockFile = lockFile
 	config.Profiles = map[string]profile.Profile{
 		"go-dev": {
@@ -579,6 +589,7 @@ func TestService_ApplyReportsInstallFailures(t *testing.T) {
 
 	config := cfg.DefaultConfig()
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.LockFile = lockFile
 	config.Profiles = map[string]profile.Profile{
 		"go-dev": {Targets: []profile.Target{
@@ -616,6 +627,7 @@ func TestService_ApplyRejectsInvalidProfileInstallMode(t *testing.T) {
 
 	config := cfg.DefaultConfig()
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.LockFile = lockFile
 	config.Profiles = map[string]profile.Profile{
 		"go-dev": {

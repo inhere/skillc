@@ -44,6 +44,7 @@ type managerStatusItem struct {
 	LatestSourceResolvedRef  string `json:"latest_source_resolved_ref,omitempty"`
 	InstalledPath            string `json:"installed_path,omitempty"`
 	Reason                   string `json:"reason,omitempty"`
+	LocalModified            bool   `json:"local_modified,omitempty"`
 }
 
 type errorResp struct {
@@ -857,5 +858,6 @@ func toManagerStatusItem(item statusapp.Item) managerStatusItem {
 		LatestSourceResolvedRef:  item.LatestSourceResolvedRef,
 		InstalledPath:            item.InstalledPath,
 		Reason:                   item.Reason,
+		LocalModified:            item.LocallyModified,
 	}
 }

@@ -351,6 +351,7 @@ func TestUpdateCommand_CheckPrintsCandidatesWithoutCallingUpdateRunner(t *testin
 	config := cfg.DefaultConfig()
 	config.LockFile = lockFile
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, ".agents")}
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
 	assert.NoErr(t, lockstore.NewStore().Save(lockFile, lockpkg.File{
@@ -388,6 +389,7 @@ func TestUpdateCommand_CheckPrintsPreciseDriftReason(t *testing.T) {
 	config := cfg.DefaultConfig()
 	config.LockFile = lockFile
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, ".agents")}
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
 	assert.NoErr(t, lockstore.NewStore().Save(lockFile, lockpkg.File{
@@ -413,6 +415,7 @@ func TestUpdateCommand_CheckHonorsTargetFilter(t *testing.T) {
 	config := cfg.DefaultConfig()
 	config.LockFile = lockFile
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, ".agents")}
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
 	assert.NoErr(t, lockstore.NewStore().Save(lockFile, lockpkg.File{
@@ -443,6 +446,7 @@ func TestUpdateCommand_CheckPrintsNoCandidatesWhenHealthy(t *testing.T) {
 	config := cfg.DefaultConfig()
 	config.LockFile = lockFile
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, ".agents")}
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
 	assert.NoErr(t, lockstore.NewStore().Save(lockFile, lockpkg.File{
@@ -467,6 +471,7 @@ func TestUpdateCommandInteractiveSelectsAndUpdatesCandidates(t *testing.T) {
 	config := cfg.DefaultConfig()
 	config.LockFile = lockFile
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, ".agents")}
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
 	assert.NoErr(t, lockstore.NewStore().Save(lockFile, lockpkg.File{
@@ -529,6 +534,7 @@ func TestUpdateCommandInteractiveUsesTargetFilterBeforeSelecting(t *testing.T) {
 	config := cfg.DefaultConfig()
 	config.LockFile = lockFile
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, ".agents")}
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
 	assert.NoErr(t, lockstore.NewStore().Save(lockFile, lockpkg.File{
@@ -574,6 +580,7 @@ func TestUpdateCommandInteractiveNoCandidatesDoesNotOpenSelector(t *testing.T) {
 	config := cfg.DefaultConfig()
 	config.LockFile = lockFile
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, ".agents")}
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
 	assert.NoErr(t, lockstore.NewStore().Save(lockFile, lockpkg.File{
@@ -609,6 +616,7 @@ func TestStatusCommand_PrintsSkillHealth(t *testing.T) {
 	config := cfg.DefaultConfig()
 	config.LockFile = lockFile
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, ".agents")}
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
 	assert.NoErr(t, lockstore.NewStore().Save(lockFile, lockpkg.File{
@@ -639,6 +647,7 @@ func TestStatusCommand_HonorsAgentAndScopeFilters(t *testing.T) {
 	config := cfg.DefaultConfig()
 	config.LockFile = lockFile
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.AgentTools["codex"] = cfg.AgentToolConfig{Dirname: ".codex", UserDir: codexUserDir, ProjectDir: filepath.Join(baseDir, ".codex")}
 	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: universalProjectDir}
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
@@ -674,6 +683,7 @@ func TestStatusCommand_PrintsNoSkillsFoundWhenEmpty(t *testing.T) {
 	config := cfg.DefaultConfig()
 	config.LockFile = lockFile
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, ".agents")}
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
 	assert.NoErr(t, repoindex.NewStore().Save(indexFile, []skill.Skill{}))
@@ -714,6 +724,7 @@ func TestInstallCommand_InstallModeFlagInstallsIndexedSkill(t *testing.T) {
 	config := cfg.DefaultConfig()
 	config.LockFile = filepath.Join(baseDir, "skillc-install.lock")
 	config.IndexFile = indexPath
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.AgentTools["codex"] = cfg.AgentToolConfig{Dirname: ".codex", ProjectDir: filepath.Join(baseDir, ".agents")}
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
 	assert.NoErr(t, repoindex.NewStore().Save(indexPath, []skill.Skill{{
@@ -756,6 +767,7 @@ func TestInstallCommand_InstallsIndexedSkill(t *testing.T) {
 	config := cfg.DefaultConfig()
 	config.LockFile = filepath.Join(baseDir, "skillc-install.lock")
 	config.IndexFile = indexPath
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.AgentTools["claude-code"] = cfg.AgentToolConfig{Dirname: ".claude", UserDir: filepath.Join(baseDir, "user-claude"), ProjectDir: filepath.Join(baseDir, "project-claude")}
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
 	assert.NoErr(t, repoindex.NewStore().Save(indexPath, []skill.Skill{{
@@ -788,6 +800,7 @@ func TestInstallCommandWithoutAgentInteractivelySelectsAgents(t *testing.T) {
 	config := cfg.DefaultConfig()
 	config.LockFile = filepath.Join(baseDir, "skillc-install.lock")
 	config.IndexFile = indexPath
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.AgentTools["codex"] = cfg.AgentToolConfig{Dirname: ".codex", ProjectDir: filepath.Join(baseDir, ".codex")}
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
 	assert.NoErr(t, repoindex.NewStore().Save(indexPath, []skill.Skill{{
@@ -819,6 +832,7 @@ func TestInstallCommandInteractiveSelectsAndInstallsSkills(t *testing.T) {
 	config := cfg.DefaultConfig()
 	config.LockFile = filepath.Join(baseDir, "skillc-install.lock")
 	config.IndexFile = indexPath
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, ".agents")}
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
 	assert.NoErr(t, repoindex.NewStore().Save(indexPath, []skill.Skill{{
@@ -864,6 +878,7 @@ func TestInstallCommandInteractiveUsesSkillArgAsSearchKeyword(t *testing.T) {
 	config := cfg.DefaultConfig()
 	config.LockFile = filepath.Join(baseDir, "skillc-install.lock")
 	config.IndexFile = indexPath
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, ".agents")}
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
 	assert.NoErr(t, repoindex.NewStore().Save(indexPath, []skill.Skill{
@@ -895,6 +910,7 @@ func TestInstallCommandInteractiveUsesGlobCandidates(t *testing.T) {
 	config := cfg.DefaultConfig()
 	config.LockFile = filepath.Join(baseDir, "skillc-install.lock")
 	config.IndexFile = indexPath
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, ".agents")}
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
 	assert.NoErr(t, repoindex.NewStore().Save(indexPath, []skill.Skill{
@@ -931,6 +947,7 @@ func TestInstallCommandInteractiveKeywordWithoutAgentSelectsSkillAndAgents(t *te
 	config := cfg.DefaultConfig()
 	config.LockFile = filepath.Join(baseDir, "skillc-install.lock")
 	config.IndexFile = indexPath
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.AgentTools["codex"] = cfg.AgentToolConfig{Dirname: ".codex", ProjectDir: filepath.Join(baseDir, ".codex")}
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
 	assert.NoErr(t, repoindex.NewStore().Save(indexPath, []skill.Skill{{
@@ -969,6 +986,7 @@ func TestInstallCommandInteractiveNoCandidatesDoesNotOpenSelector(t *testing.T) 
 	config := cfg.DefaultConfig()
 	config.LockFile = lockFile
 	config.IndexFile = indexPath
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, ".agents")}
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
 	assert.NoErr(t, repoindex.NewStore().Save(indexPath, []skill.Skill{}))
@@ -998,6 +1016,7 @@ func TestInstallCommandInteractiveNoSelectionDoesNotInstall(t *testing.T) {
 	config := cfg.DefaultConfig()
 	config.LockFile = lockFile
 	config.IndexFile = indexPath
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, ".agents")}
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
 	assert.NoErr(t, repoindex.NewStore().Save(indexPath, []skill.Skill{{
@@ -1040,6 +1059,7 @@ func TestInstallCommand_BatchTargetsWithYesReportsResolveAndInstallFailures(t *t
 	config := cfg.DefaultConfig()
 	config.LockFile = filepath.Join(baseDir, "skillc-install.lock")
 	config.IndexFile = indexPath
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.AgentTools["claude-code"] = cfg.AgentToolConfig{Dirname: ".claude", UserDir: filepath.Join(baseDir, "user-claude"), ProjectDir: filepath.Join(baseDir, "project-claude")}
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
 	assert.NoErr(t, repoindex.NewStore().Save(indexPath, []skill.Skill{
@@ -1073,6 +1093,7 @@ func TestInstallCommand_MultipleTargetsAndAgents(t *testing.T) {
 	config := cfg.DefaultConfig()
 	config.LockFile = filepath.Join(baseDir, "skillc-install.lock")
 	config.IndexFile = indexPath
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, "project-universal")}
 	config.AgentTools["claude-code"] = cfg.AgentToolConfig{Dirname: ".claude", ProjectDir: filepath.Join(baseDir, "project-claude")}
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
@@ -1106,6 +1127,7 @@ func TestInstallCommand_ForceReplacesSkillFromAnotherSource(t *testing.T) {
 	config := cfg.DefaultConfig()
 	config.LockFile = filepath.Join(baseDir, "skillc-install.lock")
 	config.IndexFile = indexPath
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, "project-universal")}
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
 	assert.NoErr(t, repoindex.NewStore().Save(indexPath, []skill.Skill{
@@ -1130,6 +1152,7 @@ func TestInstallCommand_NoResolvedTargetsDoesNotPrompt(t *testing.T) {
 	config := cfg.DefaultConfig()
 	config.LockFile = lockFile
 	config.IndexFile = indexPath
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, ".agents")}
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
 	assert.NoErr(t, repoindex.NewStore().Save(indexPath, []skill.Skill{}))
@@ -1165,6 +1188,7 @@ func TestInstallCommand_PromptsBeforeInstallWithoutYes(t *testing.T) {
 	config := cfg.DefaultConfig()
 	config.LockFile = filepath.Join(baseDir, "skillc-install.lock")
 	config.IndexFile = indexPath
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.AgentTools["claude-code"] = cfg.AgentToolConfig{Dirname: ".claude", UserDir: filepath.Join(baseDir, "user-claude"), ProjectDir: filepath.Join(baseDir, "project-claude")}
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
 	assert.NoErr(t, repoindex.NewStore().Save(indexPath, []skill.Skill{{
@@ -1227,6 +1251,7 @@ func TestSourceCollectionsCommand_PrintsSourceScopedCollectionSummary(t *testing
 	baseDir := t.TempDir()
 	config := cfg.DefaultConfig()
 	config.IndexFile = filepath.Join(baseDir, "cache", "index.json")
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	assert.NoErr(t, configstore.NewYAMLStore().Save(filepath.Join(baseDir, "skillc.yaml"), config))
 	assert.NoErr(t, repoindex.NewStore().Save(config.IndexFile, []skill.Skill{
 		{ID: "go-pro", Name: "Go Pro", Collection: "go", SourceID: "gstack", SourceName: "GStack"},
@@ -1246,6 +1271,7 @@ func TestSourceSkillsCommand_PrintsSourceScopedSkills(t *testing.T) {
 	baseDir := t.TempDir()
 	config := cfg.DefaultConfig()
 	config.IndexFile = filepath.Join(baseDir, "cache", "index.json")
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	assert.NoErr(t, configstore.NewYAMLStore().Save(filepath.Join(baseDir, "skillc.yaml"), config))
 	assert.NoErr(t, repoindex.NewStore().Save(config.IndexFile, []skill.Skill{
 		{ID: "go-pro", Name: "Go Pro", Description: "go helper", Collection: "go", SourceID: "gstack"},
@@ -1265,6 +1291,7 @@ func TestSourceSkillsCommand_DoesNotReusePreviousCollectionFlag(t *testing.T) {
 	baseDir := t.TempDir()
 	config := cfg.DefaultConfig()
 	config.IndexFile = filepath.Join(baseDir, "cache", "index.json")
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	assert.NoErr(t, configstore.NewYAMLStore().Save(filepath.Join(baseDir, "skillc.yaml"), config))
 	assert.NoErr(t, repoindex.NewStore().Save(config.IndexFile, []skill.Skill{
 		{ID: "go-pro", Name: "Go Pro", Description: "go helper", Collection: "go", SourceID: "gstack"},
@@ -1288,6 +1315,7 @@ func TestProfileCreateFromCollectionCommand(t *testing.T) {
 	indexFile := filepath.Join(baseDir, "index.json")
 	config := cfg.DefaultConfig()
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
 	assert.NoErr(t, repoindex.NewStore().Save(indexFile, []skill.Skill{
 		{ID: "go-pro", SourceID: "gstack", Collection: "go"},
@@ -1307,6 +1335,7 @@ func TestProfileCreateCommandRequiresExactlyOneSource(t *testing.T) {
 	indexFile := filepath.Join(baseDir, "index.json")
 	config := cfg.DefaultConfig()
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
 	assert.NoErr(t, repoindex.NewStore().Save(indexFile, []skill.Skill{
 		{ID: "go-pro", SourceID: "gstack", Collection: "go"},
@@ -1327,6 +1356,7 @@ func TestProfileCreateInteractiveSelectsSkills(t *testing.T) {
 	indexFile := filepath.Join(baseDir, "index.json")
 	config := cfg.DefaultConfig()
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, ".agents")}
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
 	assert.NoErr(t, repoindex.NewStore().Save(indexFile, []skill.Skill{
@@ -1376,6 +1406,7 @@ func TestProfileCreateInteractiveIsMutuallyExclusiveWithFromInstalled(t *testing
 	indexFile := filepath.Join(baseDir, "index.json")
 	config := cfg.DefaultConfig()
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
 	assert.NoErr(t, repoindex.NewStore().Save(indexFile, []skill.Skill{{ID: "go-pro", SourceID: "repo-a"}}))
 
@@ -1394,6 +1425,7 @@ func TestProfileCreateInteractiveIsMutuallyExclusiveWithFromCollection(t *testin
 	indexFile := filepath.Join(baseDir, "index.json")
 	config := cfg.DefaultConfig()
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
 	assert.NoErr(t, repoindex.NewStore().Save(indexFile, []skill.Skill{{ID: "go-pro", SourceID: "repo-a", Collection: "tools"}}))
 
@@ -1412,6 +1444,7 @@ func TestProfileCreateInteractiveNoCandidatesDoesNotOpenSelector(t *testing.T) {
 	indexFile := filepath.Join(baseDir, "index.json")
 	config := cfg.DefaultConfig()
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, ".agents")}
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
 	assert.NoErr(t, repoindex.NewStore().Save(indexFile, []skill.Skill{}))
@@ -1436,6 +1469,7 @@ func TestProfileCreateInteractiveNoSelectionDoesNotCreateProfile(t *testing.T) {
 	indexFile := filepath.Join(baseDir, "index.json")
 	config := cfg.DefaultConfig()
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.AgentTools["universal"] = cfg.AgentToolConfig{Dirname: ".agents", ProjectDir: filepath.Join(baseDir, ".agents")}
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
 	assert.NoErr(t, repoindex.NewStore().Save(indexFile, []skill.Skill{{
@@ -1464,6 +1498,7 @@ func TestProfileApplyDryRunPrintsPlan(t *testing.T) {
 	indexFile := filepath.Join(baseDir, "index.json")
 	config := cfg.DefaultConfig()
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.Profiles = map[string]profile.Profile{
 		"go-dev": {Targets: []profile.Target{{Source: "gstack", Skill: "go-pro"}}},
 	}
@@ -1490,6 +1525,7 @@ func TestProfileApplyCommandPrintsInstallFailures(t *testing.T) {
 
 	config := cfg.DefaultConfig()
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.LockFile = lockFile
 	config.Profiles = map[string]profile.Profile{
 		"go-dev": {
@@ -1519,6 +1555,7 @@ func TestSearchCommand_ReturnsMatchesForQueryArgument(t *testing.T) {
 	indexPath := filepath.Join(baseDir, "cache", "index.json")
 	config := cfg.DefaultConfig()
 	config.IndexFile = indexPath
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
 	assert.NoErr(t, repoindex.NewStore().Save(indexPath, []skill.Skill{{
 		ID:          "design-helper",
@@ -1539,6 +1576,7 @@ func TestSearchCommand_ShowsResolvableQualifiedName(t *testing.T) {
 	indexPath := filepath.Join(baseDir, "cache", "index.json")
 	config := cfg.DefaultConfig()
 	config.IndexFile = indexPath
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
 	assert.NoErr(t, repoindex.NewStore().Save(indexPath, []skill.Skill{{
 		ID:            "ship-skill",
@@ -1558,6 +1596,7 @@ func TestSourceAddLocalCommand_PrintsNextSyncHint(t *testing.T) {
 	configFile := filepath.Join(baseDir, "skillc.yaml")
 	config := cfg.DefaultConfig()
 	config.IndexFile = filepath.Join(baseDir, "cache", "index.json")
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
 
 	sourceRoot := filepath.Join(baseDir, "skills")
@@ -1656,6 +1695,7 @@ description: Friendly greeting helper
 
 	config := cfg.DefaultConfig()
 	config.IndexFile = indexPath
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
 
 	output := runAppInDirWithStdout(t, baseDir, []string{"source", "add", "local", "--sync", sourceRoot})
@@ -1675,6 +1715,7 @@ func TestSourceAddGitCommand_PrintsNextSyncHint(t *testing.T) {
 	configFile := filepath.Join(baseDir, "skillc.yaml")
 	config := cfg.DefaultConfig()
 	config.IndexFile = filepath.Join(baseDir, "cache", "index.json")
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
 
 	output := runAppInDirWithStdout(t, baseDir, []string{"source", "add", "git", "https://example.com/repo.git"})
@@ -1703,6 +1744,7 @@ description: Friendly greeting helper
 
 	config := cfg.DefaultConfig()
 	config.IndexFile = indexPath
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
 
 	addOutput := runAppInDirWithStdout(t, baseDir, []string{"source", "add", "local", sourceRoot})
@@ -1832,6 +1874,7 @@ install_entry: commands
 	config := cfg.DefaultConfig()
 	config.LockFile = lockFile
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.Sources = []sourcepkg.Source{{ID: "local-demo", Name: "local-demo", Type: sourcepkg.TypeLocal, Path: filepath.Join(baseDir, "source")}}
 	config.AgentTools["claude-code"] = cfg.AgentToolConfig{Dirname: ".claude", UserDir: filepath.Join(baseDir, "user-claude"), ProjectDir: filepath.Join(baseDir, "project-claude")}
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config))
@@ -2139,6 +2182,7 @@ func writeLocalTestConfig(t *testing.T, baseDir string) {
 	config.RepoCacheDir = filepath.Join(baseDir, "cache", "repos")
 	config.SkillCacheDir = filepath.Join(baseDir, "cache", "skills")
 	config.IndexFile = filepath.Join(baseDir, "cache", "skillc-index.json")
+	config.BackupDir = filepath.Join(baseDir, "cache", "backups")
 	config.LockFile = filepath.Join(baseDir, "skillc-install.lock")
 	xassert.NoErr(t, configstore.NewYAMLStore().Save(filepath.Join(baseDir, "skillc.yaml"), config, baseDir))
 }

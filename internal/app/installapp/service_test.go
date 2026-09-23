@@ -420,7 +420,7 @@ func TestService_RestoreUsesResolverForRegistryRecords(t *testing.T) {
 		return skill.Skill{ID: record.SkillID, SourceID: record.SourceID, SourceType: sourcepkg.TypeRegistry, InstallEntry: ".", Path: sourceDir}, true, nil
 	})
 
-	restored, err := service.WithRuntime(config, baseDir).Restore(map[string]string{})
+	restored, _, err := service.WithRuntime(config, baseDir).Restore(map[string]string{})
 
 	assert.NoErr(t, err)
 	assert.Len(t, restored, 1)
@@ -586,6 +586,7 @@ func TestService_RunUninstallReturnsRemovedTargets(t *testing.T) {
 
 func testConfig(baseDir string) cfg.Config {
 	return cfg.Config{
+		BackupDir: filepath.Join(baseDir, "cache", "backups"),
 		AgentTools: map[string]cfg.AgentToolConfig{
 			"claude-code": {
 				UserDir:    filepath.Join(baseDir, ".claude-user"),

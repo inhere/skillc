@@ -45,6 +45,7 @@ type StatusSummary struct {
 	Orphan      int `json:"orphan"`
 	Unmanaged   int `json:"unmanaged"`
 	SourceError int `json:"source_error"`
+	Modified    int `json:"modified"`
 }
 
 type Manager struct {
@@ -192,6 +193,7 @@ func (m *Manager) RunAllProjectsUpdate(req WebUpdateAllReq) (updateAllProjectsAc
 		ProjectIDs: req.ProjectIDs,
 		Sync:       true,
 		Confirm:    true,
+		Force:      req.Force,
 	})
 	out := toUpdateAllProjectsActionResult(result)
 	if err != nil {
@@ -264,5 +266,6 @@ func toStatusSummary(summary statusapp.Summary) StatusSummary {
 		Orphan:      summary.Orphan,
 		Unmanaged:   summary.Unmanaged,
 		SourceError: summary.SourceError,
+		Modified:    summary.Modified,
 	}
 }

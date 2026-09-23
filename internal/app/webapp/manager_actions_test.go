@@ -94,6 +94,7 @@ func writeWebActionFixture(t *testing.T, baseDir string) string {
 	config := cfg.DefaultConfig()
 	config.LockFile = lockFile
 	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(t.TempDir(), "backups")
 	config.RegistryCacheDir = filepath.Join(baseDir, "cache", "registry")
 	config.InstallMode = "copy"
 	config.AgentTools["universal"] = cfg.AgentToolConfig{
@@ -112,7 +113,7 @@ func writeWebActionFixture(t *testing.T, baseDir string) string {
 			Description:  "Go dev",
 			DefaultAgent: "universal",
 			DefaultScope: "project",
-			Targets:     []profile.Target{{Source: "gstack", Skill: "review"}},
+			Targets:      []profile.Target{{Source: "gstack", Skill: "review"}},
 		},
 	}
 	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config, baseDir))

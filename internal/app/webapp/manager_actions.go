@@ -11,12 +11,16 @@ import (
 type WebUpdateReq struct {
 	ManagerReq
 	Target string
+	// Force 覆盖安装目录里的本地改动（覆盖前仍会备份）。
+	Force bool
 }
 
 type WebUpdateAllReq struct {
 	ManagerReq
 	Target     string
 	ProjectIDs []string
+	// Force 覆盖安装目录里的本地改动（覆盖前仍会备份）。
+	Force bool
 }
 
 type updateAllProjectsReq struct {
@@ -104,6 +108,7 @@ func (m *Manager) RunUpdate(req WebUpdateReq) (updateRunActionResult, error) {
 		Agent:   req.Agent,
 		Scope:   req.Scope,
 		WorkDir: req.WorkDir,
+		Force:   req.Force,
 	})
 	out := updateRunActionResult{
 		Updated:       runtimeRecords(result.Updated),

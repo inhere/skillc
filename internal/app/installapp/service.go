@@ -32,11 +32,14 @@ type RuntimeRecord struct {
 	Agent         string
 	Scope         string
 	InstalledPath string
+	// BackupPath 是覆盖安装目录前生成的备份路径，未备份时为空。
+	BackupPath string `json:"backup_path,omitempty"`
 }
 
 type CommandResult struct {
 	Installed     []RuntimeRecord
 	Restored      []RuntimeRecord
+	Skipped       []InstallItemError
 	ResolveFailed []searchapp.TargetError
 	InstallFailed []InstallItemError
 }
@@ -75,6 +78,8 @@ type UninstallPlanItem struct {
 	Scope               string `json:"scope"`
 	InstalledPath       string `json:"installed_path,omitempty"`
 	Reason              string `json:"reason,omitempty"`
+	// LocalChanges 表示安装目录内容与部署指纹不一致，直接删除会丢失本地改动。
+	LocalChanges bool `json:"local_changes,omitempty"`
 }
 
 type UninstallResult struct {
@@ -167,11 +172,11 @@ type InstallReq struct {
 func (s *Service) Run(config cfg.Config, req InstallReq, lookup skillLookup) (CommandResult, error) {
 	runtimeSvc := s.WithRuntime(config, req.WorkDir)
 	if req.SkillID == "" {
-		restored, err := runtimeSvc.Restore(sourcePathMap(config))
+		restored, skipped, err := runtimeSvc.Restore(sourcePathMap(config))
 		if err != nil {
 			return CommandResult{}, err
 		}
-		return CommandResult{Restored: restored}, nil
+		return CommandResult{Restored: restored, Skipped: skipped}, nil
 	}
 
 	if lookup == nil {
@@ -277,10 +282,16 @@ func (s *Service) installInto(item skill.Skill, agentName string, scope agent.Sc
 	}
 
 	targetPath := installTargetPath(item, targetRoot)
+	backupPath, err := s.guardOverwrite(findInstalledRecord(records, record), scopeKey, targetPath)
+	if err != nil {
+		return RuntimeRecord{}, err
+	}
 	if err := s.installer.Install(filepath.Join(item.Path, item.InstallEntry), targetPath); err != nil {
 		return RuntimeRecord{}, err
 	}
-	record.InstallMode = string(s.installer.Mode)
+	if err := s.stampDeployed(&record, targetPath); err != nil {
+		return RuntimeRecord{}, err
+	}
 
 	if hasConflict {
 		records = removeConflictingAgent(records, record)
@@ -291,7 +302,9 @@ func (s *Service) installInto(item skill.Skill, agentName string, scope agent.Sc
 	} else {
 		locks[scopeKey] = records
 	}
-	return newRuntimeRecord(record, agentName, scope, targetPath), nil
+	runtime := newRuntimeRecord(record, agentName, scope, targetPath)
+	runtime.BackupPath = backupPath
+	return runtime, nil
 }
 
 func (s *Service) ReinstallAtPath(item skill.Skill, agentName string, scope agent.Scope, scopeKey string, targetPath string) (RuntimeRecord, error) {
@@ -306,13 +319,20 @@ func (s *Service) ReinstallAtPath(item skill.Skill, agentName string, scope agen
 	}
 
 	records := append([]lockpkg.Record(nil), locks[scopeKey]...)
+	next := newLockRecord(item, agentName, "", s.now())
+	backupPath, err := s.guardOverwrite(findInstalledRecord(records, next), scopeKey, targetPath)
+	if err != nil {
+		return RuntimeRecord{}, err
+	}
 	if err := s.installer.Install(filepath.Join(item.Path, item.InstallEntry), targetPath); err != nil {
 		return RuntimeRecord{}, err
 	}
 
 	now := s.now()
 	record := newLockRecord(item, agentName, "", now)
-	record.InstallMode = string(s.installer.Mode)
+	if err := s.stampDeployed(&record, targetPath); err != nil {
+		return RuntimeRecord{}, err
+	}
 
 	records, record = upsertRecord(records, record)
 	if len(records) == 0 {
@@ -323,7 +343,9 @@ func (s *Service) ReinstallAtPath(item skill.Skill, agentName string, scope agen
 	if err := s.store.Save(s.lockFile, locks); err != nil {
 		return RuntimeRecord{}, err
 	}
-	return newRuntimeRecord(record, agentName, scope, targetPath), nil
+	runtime := newRuntimeRecord(record, agentName, scope, targetPath)
+	runtime.BackupPath = backupPath
+	return runtime, nil
 }
 
 // UninstallMulti uninstalls multiple skills.
@@ -375,6 +397,10 @@ func (s *Service) PlanUninstall(req UninstallReq) (UninstallPlan, error) {
 				if len(record.Agents) == 1 {
 					action = "remove_record"
 				}
+				drift, err := installpkg.DetectDrift(record, path)
+				if err != nil {
+					return UninstallPlan{}, err
+				}
 				plan.Items = append(plan.Items, UninstallPlanItem{
 					Action:              action,
 					SkillID:             record.SkillID,
@@ -385,6 +411,7 @@ func (s *Service) PlanUninstall(req UninstallReq) (UninstallPlan, error) {
 					Agent:               agentName,
 					Scope:               string(scope),
 					InstalledPath:       path,
+					LocalChanges:        drift.Tracked && drift.Modified,
 				})
 				found = true
 			}
@@ -461,6 +488,9 @@ func (s *Service) Uninstall(skillID string, agentName string, scope agent.Scope)
 			if err != nil {
 				return err
 			}
+			if err := s.guardUninstall(record, targetPath); err != nil {
+				return err
+			}
 			if err := s.installer.Remove(targetPath); err != nil {
 				return err
 			}
@@ -485,18 +515,20 @@ func (s *Service) Uninstall(skillID string, agentName string, scope agent.Scope)
 	return s.store.Save(s.lockFile, locks)
 }
 
-func (s *Service) Restore(sourcePaths map[string]string) ([]RuntimeRecord, error) {
+// Restore 按 lock 记录重新安装所有技能。
+// 存在本地改动的目录会被跳过并返回，避免 restore 覆盖未提交的调整。
+func (s *Service) Restore(sourcePaths map[string]string) ([]RuntimeRecord, []InstallItemError, error) {
 	unlock, err := s.lockState()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	defer unlock()
 	locks, err := s.loadLockFile()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if len(locks) == 0 {
-		return []RuntimeRecord{}, nil
+		return []RuntimeRecord{}, nil, nil
 	}
 
 	scopeKeys := make([]string, 0, len(locks))
@@ -506,33 +538,46 @@ func (s *Service) Restore(sourcePaths map[string]string) ([]RuntimeRecord, error
 	sort.Strings(scopeKeys)
 
 	restored := make([]RuntimeRecord, 0)
+	skipped := make([]InstallItemError, 0)
 	for _, scopeKey := range scopeKeys {
 		scope := scopeFromKey(scopeKey)
 		for recordIndex := range locks[scopeKey] {
 			record := &locks[scopeKey][recordIndex]
 			sourcePath, err := s.restoreSourcePath(*record, sourcePaths)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			for _, agentName := range record.Agents {
 				targetPath, err := s.resolveInstalledPath(scopeKey, scope, agentName, *record)
 				if err != nil {
-					return nil, err
+					return nil, nil, err
+				}
+				backupPath, err := s.guardOverwrite(*record, scopeKey, targetPath)
+				if err != nil {
+					if errors.Is(err, apputil.ErrLocalChanges) {
+						skipped = append(skipped, InstallItemError{SkillID: record.SkillID, Reason: err.Error()})
+						continue
+					}
+					return nil, nil, err
 				}
 				if err := s.installer.Install(sourcePath, targetPath); err != nil {
-					return nil, err
+					return nil, nil, err
 				}
-				record.InstallMode = string(s.installer.Mode)
-				restored = append(restored, newRuntimeRecord(*record, agentName, scope, targetPath))
+				if err := s.stampDeployed(record, targetPath); err != nil {
+					return nil, nil, err
+				}
+				runtime := newRuntimeRecord(*record, agentName, scope, targetPath)
+				runtime.BackupPath = backupPath
+				restored = append(restored, runtime)
 			}
 		}
 	}
 	if len(restored) > 0 {
 		if err := s.store.Save(s.lockFile, locks); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
-	return restored, nil
+	return restored, skipped, nil
 }
 
 func (s *Service) restoreSourcePath(record lockpkg.Record, sourcePaths map[string]string) (string, error) {
@@ -677,6 +722,59 @@ func sameInstallIdentity(current lockpkg.Record, next lockpkg.Record) bool {
 
 func installTargetPath(item skill.Skill, targetRoot string) string {
 	return filepath.Join(targetRoot, item.ID)
+}
+
+// findInstalledRecord 找出同一技能、同一来源的已安装记录，用于读取部署指纹。
+func findInstalledRecord(records []lockpkg.Record, next lockpkg.Record) lockpkg.Record {
+	for _, record := range records {
+		if sameInstallIdentity(record, next) {
+			return record
+		}
+	}
+	return lockpkg.Record{}
+}
+
+// guardOverwrite 在覆盖已存在的安装目录前保护本地改动，需要时先备份旧目录。
+// 返回备份路径（未备份时为空）。
+func (s *Service) guardOverwrite(record lockpkg.Record, scopeKey string, targetPath string) (string, error) {
+	guard := apputil.OverwriteGuard{
+		BackupRoot: s.runtimeConfig().BackupDir,
+		Force:      s.force,
+	}
+	return guard.GuardOverwrite(record, scopeKey, targetPath)
+}
+
+// guardUninstall 在删除已安装目录前保护本地改动。
+func (s *Service) guardUninstall(record lockpkg.Record, targetPath string) error {
+	if s.force {
+		return nil
+	}
+	drift, err := installpkg.DetectDrift(record, targetPath)
+	if err != nil {
+		return err
+	}
+	if drift.Tracked && drift.Modified {
+		return fmt.Errorf("%w: %s (rerun with --force to remove)", apputil.ErrLocalChanges, targetPath)
+	}
+	return nil
+}
+
+// stampDeployed 记录安装后的目标目录指纹与生效的安装方式。
+// 只有 copy 模式的目标目录是独立内容，link 模式（symlink/junction）下目标目录就是源目录。
+func (s *Service) stampDeployed(record *lockpkg.Record, targetPath string) error {
+	record.InstallMode = string(s.installer.Mode)
+	if s.installer.Mode != agentfs.ModeCopy {
+		record.InstalledChecksum = ""
+		return nil
+	}
+	sum, ok, err := installpkg.Fingerprint(targetPath)
+	if err != nil {
+		return err
+	}
+	if ok {
+		record.InstalledChecksum = sum
+	}
+	return nil
 }
 
 func findConflictingSkillSource(records []lockpkg.Record, next lockpkg.Record) (lockpkg.Record, bool) {

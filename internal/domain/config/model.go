@@ -22,15 +22,17 @@ type Config struct {
 	// 平台默认：Windows 使用 junction，其他系统使用 symlink。
 	InstallMode string `yaml:"install_mode"`
 	// LockFile is the lock file path.
-	LockFile         string                     `yaml:"lock_file"`
-	RepoCacheDir     string                     `yaml:"repo_cache_dir"`
-	SkillCacheDir    string                     `yaml:"skill_cache_dir"`
-	RegistryCacheDir string                     `yaml:"registry_cache_dir"`
-	IndexFile        string                     `yaml:"index_file"`
-	Sources          []domainsource.Source      `yaml:"sources"`
-	Registries       []registry.Registry        `yaml:"registries,omitempty"`
-	Profiles         map[string]profile.Profile `yaml:"profiles,omitempty"`
-	Projects         []project.Project          `yaml:"projects,omitempty"`
+	LockFile         string `yaml:"lock_file"`
+	RepoCacheDir     string `yaml:"repo_cache_dir"`
+	SkillCacheDir    string `yaml:"skill_cache_dir"`
+	RegistryCacheDir string `yaml:"registry_cache_dir"`
+	// BackupDir 存放覆盖安装目录前的备份快照。
+	BackupDir  string                     `yaml:"backup_dir"`
+	IndexFile  string                     `yaml:"index_file"`
+	Sources    []domainsource.Source      `yaml:"sources"`
+	Registries []registry.Registry        `yaml:"registries,omitempty"`
+	Profiles   map[string]profile.Profile `yaml:"profiles,omitempty"`
+	Projects   []project.Project          `yaml:"projects,omitempty"`
 }
 
 type AgentToolConfig struct {

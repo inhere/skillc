@@ -50,6 +50,8 @@ func (s *Service) Get(key string) (string, error) {
 		return data.SkillCacheDir, nil
 	case "registry_cache_dir":
 		return data.RegistryCacheDir, nil
+	case "backup_dir":
+		return data.BackupDir, nil
 	case "index_file":
 		return data.IndexFile, nil
 	default:
@@ -74,6 +76,8 @@ func (s *Service) Set(key string, value string) error {
 		data.SkillCacheDir = value
 	case "registry_cache_dir":
 		data.RegistryCacheDir = value
+	case "backup_dir":
+		data.BackupDir = value
 	case "index_file":
 		data.IndexFile = value
 	default:

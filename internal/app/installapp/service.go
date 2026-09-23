@@ -18,9 +18,14 @@ import (
 	"github.com/inhere/skillc/internal/domain/skill"
 	"github.com/inhere/skillc/internal/infra/agentfs"
 	"github.com/inhere/skillc/internal/infra/filelock"
+	"github.com/inhere/skillc/internal/infra/fsx"
+	"github.com/inhere/skillc/internal/infra/hashx"
 	"github.com/inhere/skillc/internal/infra/lockstore"
 	"github.com/inhere/skillc/internal/infra/repoindex"
 )
+
+// MergeResult 是一次按文件合并的结果。
+type MergeResult = installpkg.MergeResult
 
 type skillLookup interface {
 	Resolve(target string) ([]skill.Skill, error)
@@ -759,6 +764,135 @@ func installTargetPath(item skill.Skill, targetRoot string) string {
 	return filepath.Join(targetRoot, item.ID)
 }
 
+// MergeAtPath 按文件三方合并源内容到目标目录。
+//
+// baseline 取记录里的 installed_files：本地未改的文件跟随上游，本地改过的文件保留，
+// 双方都改过的文件默认保留本地并把上游内容写成 <path>.incoming；force 为 true 时改为
+// 取上游内容，并在合并前整目录备份。没有文件清单（旧记录或 link 安装）时退回整体覆盖语义。
+func (s *Service) MergeAtPath(item skill.Skill, agentName string, scope agent.Scope, scopeKey string, targetPath string, force bool) (RuntimeRecord, MergeResult, error) {
+	agentName = s.canonicalAgent(agentName)
+	unlock, err := s.lockState()
+	if err != nil {
+		return RuntimeRecord{}, MergeResult{}, err
+	}
+	defer unlock()
+	locks, err := s.loadLockFile()
+	if err != nil {
+		return RuntimeRecord{}, MergeResult{}, err
+	}
+
+	records := append([]lockpkg.Record(nil), locks[scopeKey]...)
+	previous := findInstalledRecord(records, newLockRecord(item, agentName, "", s.now()))
+	sourceDir := filepath.Join(item.Path, item.InstallEntry)
+
+	if len(previous.InstalledFiles) == 0 {
+		// 缺少文件清单：退回整体覆盖（必要时先备份）
+		backupPath, err := s.guardOverwrite(previous, scopeKey, targetPath)
+		if err != nil {
+			return RuntimeRecord{}, MergeResult{}, err
+		}
+		if err := s.installer.Install(sourceDir, targetPath); err != nil {
+			return RuntimeRecord{}, MergeResult{}, err
+		}
+		record := newLockRecord(item, agentName, "", s.now())
+		if err := s.stampDeployed(&record, targetPath); err != nil {
+			return RuntimeRecord{}, MergeResult{}, err
+		}
+		records, record = upsertRecord(records, record)
+		if err := s.saveScopeRecords(locks, scopeKey, records); err != nil {
+			return RuntimeRecord{}, MergeResult{}, err
+		}
+		runtime := newRuntimeRecord(record, agentName, scope, targetPath)
+		runtime.BackupPath = backupPath
+		return runtime, MergeResult{}, nil
+	}
+
+	incoming, err := hashx.Deployed(sourceDir)
+	if err != nil {
+		return RuntimeRecord{}, MergeResult{}, err
+	}
+	current, err := hashx.Deployed(targetPath)
+	if err != nil {
+		return RuntimeRecord{}, MergeResult{}, err
+	}
+	plan := installpkg.PlanMerge(previous.InstalledFiles, current.Files, incoming.Files)
+	result := installpkg.Summarize(plan)
+
+	var backupPath string
+	if force && len(result.Conflicts) > 0 {
+		// 冲突按上游覆盖前先整目录备份
+		backupPath, err = apputil.OverwriteGuard{BackupRoot: s.runtimeConfig().BackupDir, Force: true}.
+			Backup(scopeKey, item.ID, targetPath)
+		if err != nil {
+			return RuntimeRecord{}, MergeResult{}, err
+		}
+		result.Updated = append(result.Updated, result.Conflicts...)
+		result.Conflicts = nil
+	}
+	if err := applyMerge(plan, sourceDir, targetPath, force); err != nil {
+		return RuntimeRecord{}, MergeResult{}, err
+	}
+
+	record := newLockRecord(item, agentName, "", s.now())
+	record.InstallMode = string(agentfs.ModeCopy)
+	// 基线记录源内容：被保留的本地改动在下次合并时仍然算 modified
+	record.InstalledChecksum = incoming.Sum
+	record.InstalledFiles = incoming.Files
+	records, record = upsertRecord(records, record)
+	if err := s.saveScopeRecords(locks, scopeKey, records); err != nil {
+		return RuntimeRecord{}, MergeResult{}, err
+	}
+	runtime := newRuntimeRecord(record, agentName, scope, targetPath)
+	runtime.BackupPath = backupPath
+	return runtime, result, nil
+}
+
+// saveScopeRecords 写回单个 scope 的记录并保存 lock 文件。
+func (s *Service) saveScopeRecords(locks lockpkg.File, scopeKey string, records []lockpkg.Record) error {
+	if len(records) == 0 {
+		delete(locks, scopeKey)
+	} else {
+		locks[scopeKey] = records
+	}
+	return s.store.Save(s.lockFile, locks)
+}
+
+// applyMerge 执行合并计划：写上游内容、删除跟随上游删除的文件，
+// 冲突文件默认保留本地并写入 <path>.incoming，force 时改为取上游内容。
+func applyMerge(plan []installpkg.MergeItem, sourceDir string, targetDir string, force bool) error {
+	for _, item := range plan {
+		switch item.Action {
+		case installpkg.MergeTakeIncoming, installpkg.MergeAddIncoming:
+			if err := copyMergeFile(sourceDir, targetDir, item.Path, item.Path); err != nil {
+				return err
+			}
+		case installpkg.MergeRemove:
+			if err := os.Remove(filepath.Join(targetDir, filepath.FromSlash(item.Path))); err != nil && !os.IsNotExist(err) {
+				return err
+			}
+		case installpkg.MergeConflict:
+			if force {
+				if err := copyMergeFile(sourceDir, targetDir, item.Path, item.Path); err != nil {
+					return err
+				}
+				continue
+			}
+			// 保留本地内容，把上游版本写到旁边供人工合并
+			if err := copyMergeFile(sourceDir, targetDir, item.Path, item.Path+".incoming"); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// copyMergeFile 把 sourceDir 下的文件复制到 targetDir 下的目标路径。
+func copyMergeFile(sourceDir string, targetDir string, sourceRel string, targetRel string) error {
+	sourcePath := filepath.Join(sourceDir, filepath.FromSlash(sourceRel))
+	targetPath := filepath.Join(targetDir, filepath.FromSlash(targetRel))
+	return fsx.CopyFile(sourcePath, targetPath)
+}
+
 // canonicalAgent 把 agent 名称/别名统一为正式名称，保证 lock 记录和匹配都使用正式名。
 func (s *Service) canonicalAgent(name string) string {
 	runtime := s.runtimeConfig()
@@ -800,21 +934,27 @@ func (s *Service) guardUninstall(record lockpkg.Record, targetPath string) error
 	return nil
 }
 
-// stampDeployed 记录安装后的目标目录指纹与生效的安装方式。
+// stampDeployed 记录安装后的目标目录指纹、逐文件哈希与生效的安装方式。
 // 只有 copy 模式的目标目录是独立内容，link 模式（symlink/junction）下目标目录就是源目录。
 func (s *Service) stampDeployed(record *lockpkg.Record, targetPath string) error {
 	record.InstallMode = string(s.installer.Mode)
 	if s.installer.Mode != agentfs.ModeCopy {
 		record.InstalledChecksum = ""
+		record.InstalledFiles = nil
 		return nil
 	}
-	sum, ok, err := installpkg.Fingerprint(targetPath)
+	return s.stampBaseline(record, targetPath)
+}
+
+// stampBaseline 把目录内容记为部署基线（指纹 + 逐文件哈希）。
+// 合并时基线取源内容，因此本地保留的改动会继续被识别为 modified。
+func (s *Service) stampBaseline(record *lockpkg.Record, dir string) error {
+	info, err := hashx.Deployed(dir)
 	if err != nil {
 		return err
 	}
-	if ok {
-		record.InstalledChecksum = sum
-	}
+	record.InstalledChecksum = info.Sum
+	record.InstalledFiles = info.Files
 	return nil
 }
 

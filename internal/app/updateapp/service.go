@@ -29,6 +29,7 @@ type sourceSyncer interface {
 
 type reinstallService interface {
 	ReinstallAtPath(item skill.Skill, agentName string, scope agent.Scope, scopeKey string, targetPath string) (installapp.RuntimeRecord, error)
+	MergeAtPath(item skill.Skill, agentName string, scope agent.Scope, scopeKey string, targetPath string, force bool) (installapp.RuntimeRecord, installapp.MergeResult, error)
 }
 
 type UpdateReq struct {
@@ -40,6 +41,8 @@ type UpdateReq struct {
 	ProjectPaths []string
 	// Force 为 true 时允许覆盖安装目录里的本地改动（覆盖前仍会备份）。
 	Force bool
+	// Merge 为 true 时按文件三方合并：本地未改的文件跟随上游，本地改过的文件保留。
+	Merge bool
 }
 
 type Req = UpdateReq
@@ -79,6 +82,17 @@ type BackupItem struct {
 	Path    string
 }
 
+// MergeReport 记录按文件合并的结果。
+type MergeReport struct {
+	SkillID    string
+	Path       string
+	Updated    []string
+	KeptLocal  []string
+	Conflicts  []string
+	Removed    []string
+	BackupPath string
+}
+
 type SkippedItem struct {
 	SkillID string
 	Reason  string
@@ -88,6 +102,7 @@ type Result struct {
 	Candidates    []Candidate
 	Updated       []installapp.RuntimeRecord
 	BackedUp      []BackupItem
+	Merged        []MergeReport
 	SyncFailed    []SourceSyncError
 	UpdateFailed  []UpdateItemError
 	CleanupFailed []FailedItem
@@ -171,19 +186,13 @@ func (s *Service) Run(req UpdateReq) (Result, error) {
 			continue
 		}
 		removeOldPath := oldPath != targetPath
-		record, err := worker.ReinstallAtPath(
-			candidate.Latest,
-			candidate.Installed.Agent,
-			agent.Scope(candidate.Installed.Scope),
-			candidate.Installed.ScopeKey,
-			targetPath,
-		)
+		record, mergeResult, err := reinstallCandidate(worker, candidate, targetPath, req)
 		if err != nil {
 			// 本地改动默认不覆盖，只报告；--force 时由安装层先备份再覆盖。
 			if errors.Is(err, apputil.ErrLocalChanges) {
 				result.Skipped = append(result.Skipped, SkippedItem{
 					SkillID: candidate.Installed.SkillID,
-					Reason:  fmt.Sprintf("locally modified at %s (use --force to overwrite)", candidate.Installed.InstalledPath),
+					Reason:  fmt.Sprintf("locally modified at %s (use --force to overwrite, --merge to merge per file)", candidate.Installed.InstalledPath),
 				})
 				continue
 			}
@@ -195,6 +204,17 @@ func (s *Service) Run(req UpdateReq) (Result, error) {
 		if record.BackupPath != "" {
 			result.BackedUp = append(result.BackedUp, BackupItem{SkillID: record.SkillID, Path: record.BackupPath})
 		}
+		if len(mergeResult.Items) > 0 {
+			result.Merged = append(result.Merged, MergeReport{
+				SkillID:    record.SkillID,
+				Path:       record.InstalledPath,
+				Updated:    mergeResult.Updated,
+				KeptLocal:  mergeResult.KeptLocal,
+				Conflicts:  mergeResult.Conflicts,
+				Removed:    mergeResult.Removed,
+				BackupPath: record.BackupPath,
+			})
+		}
 		if removeOldPath {
 			if err := removeAll(oldPath); err != nil {
 				result.CleanupFailed = append(result.CleanupFailed, FailedItem{SkillID: candidate.Installed.SkillID, Reason: err.Error()})
@@ -202,6 +222,16 @@ func (s *Service) Run(req UpdateReq) (Result, error) {
 		}
 	}
 	return result, nil
+}
+
+// reinstallCandidate 执行一次更新：merge 模式按文件三方合并，否则整体重装。
+func reinstallCandidate(worker reinstallService, candidate Candidate, targetPath string, req UpdateReq) (installapp.RuntimeRecord, installapp.MergeResult, error) {
+	installed := candidate.Installed
+	if req.Merge {
+		return worker.MergeAtPath(candidate.Latest, installed.Agent, agent.Scope(installed.Scope), installed.ScopeKey, targetPath, req.Force)
+	}
+	record, err := worker.ReinstallAtPath(candidate.Latest, installed.Agent, agent.Scope(installed.Scope), installed.ScopeKey, targetPath)
+	return record, installapp.MergeResult{}, err
 }
 
 func (s *Service) collectSelected(config cfg.Config, req UpdateReq, scope agent.Scope) ([]InstalledItem, []SkippedItem, error) {

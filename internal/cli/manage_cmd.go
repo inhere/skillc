@@ -117,6 +117,7 @@ type ManageOptions struct {
 	Agent       string
 	Yes         bool
 	Force       bool
+	Merge       bool
 	UseCopy     bool
 	InstallMode string
 }
@@ -453,6 +454,7 @@ func buildUpdateCommand() *gcli.Command {
 			c.BoolOpt(&interactive, "interactive", "i", false, "interactively select update candidates")
 			c.BoolOpt(&opts.Yes, "yes", "y", false, "skip confirmation prompt for cross-project update")
 			c.BoolOpt(&opts.Force, "force", "f", false, "overwrite skills with local changes (backup first)")
+			c.BoolOpt(&opts.Merge, "merge", "m", false, "merge upstream changes per file, keeping local edits (conflicts are written as <file>.incoming)")
 			c.BoolOpt(&allProjects, "all-projects", "", false, "update registered projects")
 			c.StrOpt(&projectsRaw, "projects", "", "", "comma-separated project ids for --all-projects")
 			c.AddArg("skill", "skill id to update (same as --target)")
@@ -557,6 +559,7 @@ func buildUpdateCommand() *gcli.Command {
 						Scope:   opts.Scope,
 						WorkDir: cwd,
 						Force:   opts.Force,
+						Merge:   opts.Merge,
 					})
 					if err != nil {
 						slog.Error(err)
@@ -573,6 +576,7 @@ func buildUpdateCommand() *gcli.Command {
 				Scope:   opts.Scope,
 				WorkDir: cwd,
 				Force:   opts.Force,
+				Merge:   opts.Merge,
 			})
 			if err != nil {
 				slog.Error(err)
@@ -697,6 +701,16 @@ func printUpdateResult(result updateapp.Result) {
 	}
 	for _, backup := range result.BackedUp {
 		ccolor.Warnf("backed up %s -> %s\n", backup.SkillID, backup.Path)
+	}
+	for _, merged := range result.Merged {
+		ccolor.Infof("merged %s %d updated, %d kept local, %d conflict(s), %d removed\n",
+			merged.SkillID, len(merged.Updated), len(merged.KeptLocal), len(merged.Conflicts), len(merged.Removed))
+		for _, path := range merged.KeptLocal {
+			ccolor.Infof("  kept local %s\n", path)
+		}
+		for _, path := range merged.Conflicts {
+			ccolor.Warnf("  conflict %s (local kept, upstream saved as %s.incoming)\n", path, path)
+		}
 	}
 	for _, skipped := range result.Skipped {
 		ccolor.Infof("skipped %s %s\n", skipped.SkillID, skipped.Reason)

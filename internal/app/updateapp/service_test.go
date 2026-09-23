@@ -29,10 +29,19 @@ func (s sourceSyncerStub) Sync(id string) error {
 
 type reinstallServiceStub struct {
 	reinstallFn func(item skill.Skill, agentName string, scope agent.Scope, scopeKey string, targetPath string) (installapp.RuntimeRecord, error)
+	mergeFn     func(item skill.Skill, agentName string, scope agent.Scope, scopeKey string, targetPath string, force bool) (installapp.RuntimeRecord, installapp.MergeResult, error)
 }
 
 func (s reinstallServiceStub) ReinstallAtPath(item skill.Skill, agentName string, scope agent.Scope, scopeKey string, targetPath string) (installapp.RuntimeRecord, error) {
 	return s.reinstallFn(item, agentName, scope, scopeKey, targetPath)
+}
+
+func (s reinstallServiceStub) MergeAtPath(item skill.Skill, agentName string, scope agent.Scope, scopeKey string, targetPath string, force bool) (installapp.RuntimeRecord, installapp.MergeResult, error) {
+	if s.mergeFn == nil {
+		record, err := s.reinstallFn(item, agentName, scope, scopeKey, targetPath)
+		return record, installapp.MergeResult{}, err
+	}
+	return s.mergeFn(item, agentName, scope, scopeKey, targetPath, force)
 }
 
 type registryResolverStub struct {

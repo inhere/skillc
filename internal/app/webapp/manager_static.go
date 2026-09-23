@@ -422,6 +422,7 @@ td.wrap { overflow-wrap: anywhere; }
       ['Missing', status.missing || 0],
       ['Installed', status.installed || 0],
       ['Unmanaged', status.unmanaged || 0],
+      ['Locally Modified', status.modified || 0],
       ['Source Errors', status.source_error || 0]
     ];
     byId('metrics').innerHTML = items.map(function (item) {
@@ -431,12 +432,14 @@ td.wrap { overflow-wrap: anywhere; }
   }
   function renderStatus() {
     var rows = (state.status.items || []).slice(0, 8).map(function (item) {
+      var local = item.local_modified || item.LocalModified;
       return '<tr><td>' + statusPill(item.Status || item.status) + '</td><td class="wrap">' +
         esc(item.SourceQualifiedName || item.source_qualified_name || item.SkillID || item.skill_id) +
         '</td><td>' + esc(item.CurrentVersion || item.current_version || '') +
-        '</td><td>' + esc(item.LatestVersion || item.latest_version || '') + '</td></tr>';
+        '</td><td>' + esc(item.LatestVersion || item.latest_version || '') +
+        '</td><td>' + (local ? statusPill('modified') : '') + '</td></tr>';
     });
-    byId('status-summary').innerHTML = table(['Status', 'Skill', 'Current', 'Latest'], rows, 'No current project status items.');
+    byId('status-summary').innerHTML = table(['Status', 'Skill', 'Current', 'Latest', 'Local'], rows, 'No current project status items.');
     var candidates = (state.status.items || []).filter(function (item) {
       var status = item.Status || item.status;
       return status === 'outdated' || status === 'missing';

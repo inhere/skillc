@@ -394,3 +394,36 @@ func assertNotExists(t *testing.T, path string) {
 		t.Fatalf("expected %s to be absent, err=%v", path, err)
 	}
 }
+
+func TestClient_DiffNoIndexReportsDifferences(t *testing.T) {
+	requireGit(t)
+	baseDir := t.TempDir()
+	left := filepath.Join(baseDir, "left.md")
+	right := filepath.Join(baseDir, "right.md")
+	writeFile(t, left, "old line\n")
+	writeFile(t, right, "new line\n")
+
+	patch, err := New("git").DiffNoIndex(left, right)
+	assert.NoErr(t, err)
+	assert.Contains(t, patch, "-old line")
+	assert.Contains(t, patch, "+new line")
+}
+
+func TestClient_DiffNoIndexReturnsEmptyForIdenticalFiles(t *testing.T) {
+	requireGit(t)
+	baseDir := t.TempDir()
+	left := filepath.Join(baseDir, "left.md")
+	right := filepath.Join(baseDir, "right.md")
+	writeFile(t, left, "same\n")
+	writeFile(t, right, "same\n")
+
+	patch, err := New("git").DiffNoIndex(left, right)
+	assert.NoErr(t, err)
+	assert.Eq(t, "", patch)
+}
+
+func TestClient_DiffNoIndexWithoutGitBinary(t *testing.T) {
+	_, err := New("__missing_git__").DiffNoIndex("a", "b")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "git executable not found")
+}

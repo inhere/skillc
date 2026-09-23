@@ -20,6 +20,7 @@ import (
 	"github.com/inhere/skillc/internal/domain/skill"
 	sourcepkg "github.com/inhere/skillc/internal/domain/source"
 	"github.com/inhere/skillc/internal/infra/fsx"
+	"github.com/inhere/skillc/internal/infra/gitx"
 	"github.com/inhere/skillc/internal/infra/hashx"
 	"github.com/inhere/skillc/internal/infra/lockstore"
 	"github.com/inhere/skillc/internal/infra/repoindex"
@@ -77,8 +78,17 @@ type Service struct {
 	lockStore     *lockstore.Store
 	indexStore    *repoindex.Store
 	syncer        *sourceapp.Service
+	git           fileDiffer
 	now           func() time.Time
 }
+
+// fileDiffer 生成两个文件的统一 diff（默认为 git diff --no-index）。
+type fileDiffer interface {
+	DiffNoIndex(left string, right string) (string, error)
+}
+
+// incomingSuffix 是合并冲突时保留的上游文件后缀。
+const incomingSuffix = ".incoming"
 
 func NewService(configFile string, baseDir string) *Service {
 	return &Service{
@@ -88,76 +98,257 @@ func NewService(configFile string, baseDir string) *Service {
 		lockStore:     lockstore.NewStore(),
 		indexStore:    repoindex.NewStore(),
 		syncer:        sourceapp.NewService(configFile, baseDir),
+		git:           gitx.New(""),
 		now:           time.Now,
 	}
 }
 
+// resolvedTarget 是一次 adopt/diff 解析出的目标与三份文件清单。
+type resolvedTarget struct {
+	record        lockpkg.Record
+	installedPath string
+	sourcePath    string
+	baseline      map[string]string
+	current       map[string]string
+	incoming      map[string]string
+	incomingSum   string
+	writable      bool
+	reason        string
+}
+
 // Plan 计算需要写回源目录的文件清单。
 func (s *Service) Plan(req Req) (Plan, error) {
-	config, err := s.configService.Show()
+	target, err := s.resolveTarget(req)
 	if err != nil {
 		return Plan{}, err
+	}
+	plan := Plan{
+		SkillID:       target.record.SkillID,
+		SourceID:      target.record.SourceID,
+		SourceType:    target.record.SourceType,
+		InstalledPath: target.installedPath,
+		SourcePath:    target.sourcePath,
+		Writable:      target.writable,
+		Reason:        target.reason,
+	}
+	if !target.writable {
+		return plan, nil
+	}
+	plan.Items = planAdopt(target.baseline, target.current, target.sourcePath, target.installedPath)
+	return plan, nil
+}
+
+// FileState 表示单个文件在某一侧（本地/上游）的状态。
+type FileState string
+
+const (
+	StateSame     FileState = "same"
+	StateModified FileState = "modified"
+	StateAdded    FileState = "added"
+	StateDeleted  FileState = "deleted"
+	// StateAbsent 表示该侧既没有基线也没有文件（例如本地新增、上游从来没有）。
+	StateAbsent FileState = "absent"
+)
+
+// FileDiff 是单个文件的差异条目。
+type FileDiff struct {
+	Path     string    `json:"path"`
+	Local    FileState `json:"local"`
+	Upstream FileState `json:"upstream"`
+	// Conflict 表示本地与上游都相对安装基线发生了变化。
+	Conflict bool `json:"conflict,omitempty"`
+	// HasIncoming 表示目录里存在待处理的 <path>.incoming。
+	HasIncoming bool `json:"has_incoming,omitempty"`
+	// Patch 是「安装目录 vs 源目录」的统一 diff，双方都存在且不同时才有值。
+	Patch string `json:"patch,omitempty"`
+	// Note 说明无法生成 patch 的原因（例如一侧缺失）。
+	Note string `json:"note,omitempty"`
+}
+
+// DiffResult 是一次 diff 的结果。
+type DiffResult struct {
+	SkillID       string     `json:"skill_id"`
+	SourceID      string     `json:"source_id,omitempty"`
+	SourceType    string     `json:"source_type,omitempty"`
+	InstalledPath string     `json:"installed_path,omitempty"`
+	SourcePath    string     `json:"source_path,omitempty"`
+	Writable      bool       `json:"writable"`
+	Reason        string     `json:"reason,omitempty"`
+	Files         []FileDiff `json:"files"`
+}
+
+// Diff 列出安装目录与源目录的逐文件差异，并为两侧都存在的文件生成统一 diff。
+func (s *Service) Diff(req Req) (DiffResult, error) {
+	target, err := s.resolveTarget(req)
+	if err != nil {
+		return DiffResult{}, err
+	}
+	result := DiffResult{
+		SkillID:       target.record.SkillID,
+		SourceID:      target.record.SourceID,
+		SourceType:    target.record.SourceType,
+		InstalledPath: target.installedPath,
+		SourcePath:    target.sourcePath,
+		Writable:      target.writable,
+		Reason:        target.reason,
+	}
+	if !target.writable {
+		return result, nil
+	}
+
+	plan := installpkg.PlanMerge(target.baseline, target.current, target.incoming)
+	files := make([]FileDiff, 0, len(plan))
+	for _, item := range plan {
+		base, baseOK := target.baseline[item.Path]
+		local, localOK := target.current[item.Path]
+		upstream, upstreamOK := target.incoming[item.Path]
+		entry := FileDiff{
+			Path:     item.Path,
+			Local:    fileState(baseOK, base, localOK, local),
+			Upstream: fileState(baseOK, base, upstreamOK, upstream),
+		}
+		// 冲突判定与合并引擎一致：合并会保留本地并写出 <file>.incoming
+		entry.Conflict = item.Action == installpkg.MergeConflict
+		entry.Note = mergeNote(item.Action)
+		installedFile := filepath.Join(target.installedPath, filepath.FromSlash(item.Path))
+		sourceFile := filepath.Join(target.sourcePath, filepath.FromSlash(item.Path))
+		if _, err := os.Stat(installedFile + incomingSuffix); err == nil {
+			entry.HasIncoming = true
+		}
+		switch {
+		case local == upstream:
+			// 内容一致，无需 diff
+		case !localOK || !upstreamOK:
+			// 只有一侧存在，没有可对比的文本
+		default:
+			patch, err := s.git.DiffNoIndex(installedFile, sourceFile)
+			if err != nil {
+				return DiffResult{}, err
+			}
+			entry.Patch = rewritePatchPaths(patch, item.Path)
+		}
+		files = append(files, entry)
+	}
+	result.Files = files
+	return result, nil
+}
+
+// mergeNote 把合并动作翻译成一句提示，普通前进不提示。
+func mergeNote(action installpkg.MergeAction) string {
+	switch action {
+	case installpkg.MergeConflict:
+		return "conflict: merge keeps local and writes <file>.incoming"
+	case installpkg.MergeKeepRemoved:
+		return "upstream deleted, local edit kept"
+	case installpkg.MergeLocalDeleted:
+		return "deleted locally"
+	case installpkg.MergeAddLocal:
+		return "local only"
+	case installpkg.MergeAddIncoming:
+		return "upstream only"
+	case installpkg.MergeRemove:
+		return "upstream deleted"
+	}
+	return ""
+}
+
+// fileState 根据基线哈希与某一侧的哈希判断状态。
+func fileState(baseOK bool, base string, sideOK bool, side string) FileState {
+	switch {
+	case sideOK && !baseOK:
+		return StateAdded
+	case sideOK && side == base:
+		return StateSame
+	case sideOK:
+		return StateModified
+	case baseOK:
+		return StateDeleted
+	default:
+		return StateAbsent
+	}
+}
+
+// rewritePatchPaths 把 git diff 头部的绝对路径换成 installed/<rel> 与 source/<rel>。
+func rewritePatchPaths(patch string, rel string) string {
+	lines := strings.Split(patch, "\n")
+	for i, line := range lines {
+		switch {
+		case strings.HasPrefix(line, "diff --git "):
+			lines[i] = "diff --git installed/" + rel + " source/" + rel
+		case strings.HasPrefix(line, "--- "):
+			lines[i] = "--- installed/" + rel
+		case strings.HasPrefix(line, "+++ "):
+			lines[i] = "+++ source/" + rel
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
+// resolveTarget 解析目标 skill 的安装目录、源目录与三份文件清单（基线/本地/上游）。
+func (s *Service) resolveTarget(req Req) (resolvedTarget, error) {
+	config, err := s.configService.Show()
+	if err != nil {
+		return resolvedTarget{}, err
 	}
 	if req.WorkDir == "" {
 		req.WorkDir = s.baseDir
 	}
 	scope, err := apputil.ParseScope(defaultString(req.Scope, string(agent.ScopeProject)))
 	if err != nil {
-		return Plan{}, err
+		return resolvedTarget{}, err
 	}
 	agentName := config.CanonicalAgentName(defaultString(req.Agent, agent.DefaultAgentName))
 
 	records, err := s.lockStore.WithAgentResolver(config.CanonicalAgentName).Load(config.LockFile)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return Plan{}, fmt.Errorf("skill not found: %s", req.Target)
+			return resolvedTarget{}, fmt.Errorf("skill not found: %s", req.Target)
 		}
-		return Plan{}, err
+		return resolvedTarget{}, err
 	}
 	scopeKey, err := apputil.ResolveScopeKey(scope, req.WorkDir)
 	if err != nil {
-		return Plan{}, err
+		return resolvedTarget{}, err
 	}
-
 	record, installedPath, err := findInstalledRecord(config, records[scopeKey], scope, scopeKey, req.WorkDir, agentName, req.Target)
 	if err != nil {
-		return Plan{}, err
+		return resolvedTarget{}, err
 	}
-	plan := Plan{
-		SkillID:       record.SkillID,
-		SourceID:      record.SourceID,
-		SourceType:    record.SourceType,
-		InstalledPath: installedPath,
-	}
+	target := resolvedTarget{record: record, installedPath: installedPath}
 
-	if record.SourceType == string(sourcepkg.TypeRegistry) {
-		plan.Reason = "registry skill: adopt the change in its upstream repository instead"
-		return plan, nil
-	}
-	if record.SourceType == string(sourcepkg.TypeGit) {
-		plan.Reason = "git source: the source directory is a cache clone; copy the change into your skills repository and run 'skillc source sync'"
-		return plan, nil
-	}
-	if len(record.InstalledFiles) == 0 {
-		plan.Reason = "no file manifest for this install; reinstall the skill once to enable adopt"
-		return plan, nil
+	switch {
+	case record.SourceType == string(sourcepkg.TypeRegistry):
+		target.reason = "registry skill: adopt the change in its upstream repository instead"
+		return target, nil
+	case record.SourceType == string(sourcepkg.TypeGit):
+		target.reason = "git source: the source directory is a cache clone; copy the change into your skills repository and run 'skillc source sync'"
+		return target, nil
+	case len(record.InstalledFiles) == 0:
+		target.reason = "no file manifest for this install; reinstall the skill once to enable adopt"
+		return target, nil
 	}
 
 	item, ok := s.findIndexedSkill(config, record)
 	if !ok {
-		plan.Reason = fmt.Sprintf("skill not found in source index: %s (run 'skillc source sync %s')", record.SkillID, record.SourceID)
-		return plan, nil
+		target.reason = fmt.Sprintf("skill not found in source index: %s (run 'skillc source sync %s')", record.SkillID, record.SourceID)
+		return target, nil
 	}
-	sourceDir := filepath.Join(item.Path, item.InstallEntry)
-	plan.SourcePath = sourceDir
+	target.sourcePath = filepath.Join(item.Path, item.InstallEntry)
 
 	current, err := hashx.Deployed(installedPath)
 	if err != nil {
-		return Plan{}, err
+		return resolvedTarget{}, err
 	}
-	plan.Items = planAdopt(record.InstalledFiles, current.Files, sourceDir, installedPath)
-	plan.Writable = true
-	return plan, nil
+	incoming, err := hashx.Deployed(target.sourcePath)
+	if err != nil {
+		return resolvedTarget{}, err
+	}
+	target.baseline = record.InstalledFiles
+	target.current = current.Files
+	target.incoming = incoming.Files
+	target.incomingSum = incoming.Sum
+	target.writable = true
+	return target, nil
 }
 
 // Run 执行 adopt：先备份源目录，再把本地改动写回，最后重建索引并刷新 lock 基线。

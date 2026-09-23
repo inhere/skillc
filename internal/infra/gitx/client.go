@@ -221,6 +221,24 @@ func (c *Client) resolveTarget(dir, ref string) (string, error) {
 	return "HEAD", nil
 }
 
+// DiffNoIndex 用 `git diff --no-index` 生成两个文件/目录的统一 diff。
+// 两边内容不同时 git 的退出码是 1，这里视为正常结果。
+func (c *Client) DiffNoIndex(left string, right string) (string, error) {
+	if _, err := exec.LookPath(c.bin); err != nil {
+		return "", fmt.Errorf("git executable not found: %w", err)
+	}
+	cmd := exec.Command(c.bin, "diff", "--no-index", "--no-color", "--unified=3", "--", left, right)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 {
+			return string(out), nil
+		}
+		return "", fmt.Errorf("git diff failed: %s", strings.TrimSpace(string(out)))
+	}
+	return string(out), nil
+}
+
 // Pull runs `git pull` in the given directory and returns the resolved HEAD.
 func (c *Client) Pull(dir string, opts SyncOptions) (string, error) {
 	if _, err := exec.LookPath(c.bin); err != nil {

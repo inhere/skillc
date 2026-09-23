@@ -209,3 +209,59 @@ func assertFileContent(t *testing.T, path string, want string) {
 	assert.NoErr(t, err)
 	assert.Eq(t, want, string(data))
 }
+
+func TestService_DiffClassifiesLocalAndUpstreamChanges(t *testing.T) {
+	env := newAdoptFixture(t)
+	installed := env.install(t)
+	// 本地：改 run.md，新增 local.md
+	assert.NoErr(t, os.WriteFile(filepath.Join(installed, "run.md"), []byte("run local"), 0o644))
+	assert.NoErr(t, os.WriteFile(filepath.Join(installed, "local.md"), []byte("local"), 0o644))
+	// 上游：改 run.md（冲突）、改 SKILL.md（源目录里，不在安装目录内）
+	writeAdoptFile(t, filepath.Join(env.commandsDir, "run.md"), "run v2")
+
+	service := NewService(env.configFile, env.baseDir)
+	service.git = stubDiffer{}
+	result, err := service.Diff(env.req(false))
+
+	assert.NoErr(t, err)
+	assert.True(t, result.Writable)
+	assert.Eq(t, env.commandsDir, result.SourcePath)
+	assert.Eq(t, installed, result.InstalledPath)
+
+	byPath := make(map[string]FileDiff)
+	for _, item := range result.Files {
+		byPath[item.Path] = item
+	}
+	assert.Eq(t, StateModified, byPath["run.md"].Local)
+	assert.Eq(t, StateModified, byPath["run.md"].Upstream)
+	assert.True(t, byPath["run.md"].Conflict)
+	assert.Contains(t, byPath["run.md"].Patch, "installed/run.md")
+	assert.Eq(t, StateAdded, byPath["local.md"].Local)
+	assert.Eq(t, StateAbsent, byPath["local.md"].Upstream)
+}
+
+func TestService_DiffMarksIncomingFiles(t *testing.T) {
+	env := newAdoptFixture(t)
+	installed := env.install(t)
+	assert.NoErr(t, os.WriteFile(filepath.Join(installed, "run.md"), []byte("run local"), 0o644))
+	writeAdoptFile(t, filepath.Join(env.commandsDir, "run.md"), "run v2")
+
+	// 模拟上一次合并留下的上游版本
+	assert.NoErr(t, os.WriteFile(filepath.Join(installed, "run.md.incoming"), []byte("run v2"), 0o644))
+
+	service := NewService(env.configFile, env.baseDir)
+	service.git = stubDiffer{}
+	result, err := service.Diff(env.req(false))
+	assert.NoErr(t, err)
+	for _, item := range result.Files {
+		if item.Path == "run.md" {
+			assert.True(t, item.HasIncoming)
+		}
+	}
+}
+
+type stubDiffer struct{}
+
+func (stubDiffer) DiffNoIndex(left string, right string) (string, error) {
+	return "diff --git a/" + left + " b/" + right + "\n--- a/" + left + "\n+++ b/" + right + "\n-old\n+new\n", nil
+}

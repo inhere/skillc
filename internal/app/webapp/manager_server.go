@@ -357,7 +357,7 @@ func (s *ManagerServer) handleUpdateRun(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	req := managerReqFromQuery(r)
-	updateReq := WebUpdateReq{ManagerReq: req, Target: body.Target, Force: body.Force, Merge: body.Merge}
+	updateReq := WebUpdateReq{ManagerReq: req, Target: body.Target, Force: body.Force, Merge: body.Merge, NoMerge: body.NoMerge}
 	result, err := s.manager.RunUpdate(updateReq)
 	s.recordHistory(r, "update.run", updateReq, result, err)
 	writeResult(w, result, err)
@@ -650,8 +650,10 @@ type actionConfirmReq struct {
 	Target  string `json:"target,omitempty"`
 	// Force 覆盖安装目录里的本地改动（覆盖前仍会备份）。
 	Force bool `json:"force,omitempty"`
-	// Merge 按文件三方合并上游改动，保留本地改动。
+	// Merge 显式要求按文件三方合并（默认行为）。
 	Merge bool `json:"merge,omitempty"`
+	// NoMerge 关闭按文件合并。
+	NoMerge bool `json:"no_merge,omitempty"`
 }
 
 func readActionConfirmReq(r *http.Request) (actionConfirmReq, error) {

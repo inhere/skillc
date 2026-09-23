@@ -195,6 +195,7 @@ func (m *Manager) RunAllProjectsUpdate(req WebUpdateAllReq) (updateAllProjectsAc
 		Confirm:    true,
 		Force:      req.Force,
 		Merge:      req.Merge,
+		NoMerge:    req.NoMerge,
 	})
 	out := toUpdateAllProjectsActionResult(result)
 	if err != nil {

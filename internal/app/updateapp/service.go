@@ -41,8 +41,10 @@ type UpdateReq struct {
 	ProjectPaths []string
 	// Force 为 true 时允许覆盖安装目录里的本地改动（覆盖前仍会备份）。
 	Force bool
-	// Merge 为 true 时按文件三方合并：本地未改的文件跟随上游，本地改过的文件保留。
+	// Merge 为 true 时显式要求按文件三方合并（默认行为；与 Force 组合时冲突取上游）。
 	Merge bool
+	// NoMerge 为 true 时关闭按文件合并，回到「跳过本地改动 + --force 整体覆盖」。
+	NoMerge bool
 }
 
 type Req = UpdateReq
@@ -204,7 +206,7 @@ func (s *Service) Run(req UpdateReq) (Result, error) {
 		if record.BackupPath != "" {
 			result.BackedUp = append(result.BackedUp, BackupItem{SkillID: record.SkillID, Path: record.BackupPath})
 		}
-		if len(mergeResult.Items) > 0 {
+		if mergeResult.Changed() {
 			result.Merged = append(result.Merged, MergeReport{
 				SkillID:    record.SkillID,
 				Path:       record.InstalledPath,
@@ -224,14 +226,29 @@ func (s *Service) Run(req UpdateReq) (Result, error) {
 	return result, nil
 }
 
-// reinstallCandidate 执行一次更新：merge 模式按文件三方合并，否则整体重装。
+// reinstallCandidate 执行一次更新：默认按文件三方合并，--no-merge 或单独 --force 时整体重装。
 func reinstallCandidate(worker reinstallService, candidate Candidate, targetPath string, req UpdateReq) (installapp.RuntimeRecord, installapp.MergeResult, error) {
 	installed := candidate.Installed
-	if req.Merge {
+	if mergeEnabled(req) {
 		return worker.MergeAtPath(candidate.Latest, installed.Agent, agent.Scope(installed.Scope), installed.ScopeKey, targetPath, req.Force)
 	}
 	record, err := worker.ReinstallAtPath(candidate.Latest, installed.Agent, agent.Scope(installed.Scope), installed.ScopeKey, targetPath)
 	return record, installapp.MergeResult{}, err
+}
+
+// mergeEnabled 决定本次更新是否按文件合并：
+//   - --no-merge：关闭合并，回到「跳过 + --force 整体覆盖」；
+//   - --merge：显式合并（配合 --force 时冲突取上游）；
+//   - 单独 --force：整体覆盖，保持原语义；
+//   - 默认：有文件清单的 copy 安装按文件合并，其余由安装层退回覆盖/跳过。
+func mergeEnabled(req UpdateReq) bool {
+	if req.NoMerge {
+		return false
+	}
+	if req.Merge {
+		return true
+	}
+	return !req.Force
 }
 
 func (s *Service) collectSelected(config cfg.Config, req UpdateReq, scope agent.Scope) ([]InstalledItem, []SkippedItem, error) {

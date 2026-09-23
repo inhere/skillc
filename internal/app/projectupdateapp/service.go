@@ -21,8 +21,10 @@ type Req struct {
 	Confirm    bool
 	// Force 为 true 时允许覆盖安装目录里的本地改动（覆盖前仍会备份）。
 	Force bool
-	// Merge 为 true 时按文件三方合并上游改动，保留本地改动。
+	// Merge 为 true 时显式要求按文件三方合并（默认行为）。
 	Merge bool
+	// NoMerge 为 true 时关闭按文件合并。
+	NoMerge bool
 }
 
 type Plan struct {
@@ -145,6 +147,7 @@ func (s *Service) Run(req Req) (Result, error) {
 				ProjectPaths: []string{projectPlan.Path},
 				Force:        req.Force,
 				Merge:        req.Merge,
+				NoMerge:      req.NoMerge,
 			})
 			projectResult.Updated = append(projectResult.Updated, updateResult.Updated...)
 			projectResult.BackedUp = append(projectResult.BackedUp, updateResult.BackedUp...)

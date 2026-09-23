@@ -198,24 +198,41 @@ func writeWebCopyInstallFixture(t *testing.T, baseDir string) string {
 	return configFile
 }
 
-func TestManager_RunUpdateForceOverwritesLocalChanges(t *testing.T) {
+func TestManager_RunUpdateMergesByDefaultAndForceOverwrites(t *testing.T) {
 	baseDir := t.TempDir()
 	configFile := writeWebCopyInstallFixture(t, baseDir)
 	manager := NewManager(configFile, baseDir)
 	req := ManagerReq{Agent: "universal", Scope: "project", WorkDir: baseDir}
 
-	skipped, err := manager.RunUpdate(WebUpdateReq{ManagerReq: req, Target: "go-pro"})
+	// 默认：按文件合并，本地改动保留，上游写入 .incoming
+	merged, err := manager.RunUpdate(WebUpdateReq{ManagerReq: req, Target: "go-pro"})
+	assert.NoErr(t, err)
+	assert.Len(t, merged.Updated, 1)
+	assert.Len(t, merged.Merged, 1)
+	assert.Eq(t, []string{"SKILL.md"}, merged.Merged[0].Conflicts)
+	assert.Len(t, merged.Skipped, 0)
+	assertFileContains(t, filepath.Join(baseDir, ".agents", "skills", "go-pro", "SKILL.md"), "local edit")
+	assertFileContains(t, filepath.Join(baseDir, ".agents", "skills", "go-pro", "SKILL.md.incoming"), "second")
+
+	// --no-merge：回到跳过语义
+	skipped, err := manager.RunUpdate(WebUpdateReq{ManagerReq: req, Target: "go-pro", NoMerge: true})
 	assert.NoErr(t, err)
 	assert.Len(t, skipped.Updated, 0)
 	assert.Len(t, skipped.Skipped, 1)
 
+	// 单独 force：整目录覆盖并备份
 	forced, err := manager.RunUpdate(WebUpdateReq{ManagerReq: req, Target: "go-pro", Force: true})
 	assert.NoErr(t, err)
 	assert.Len(t, forced.Updated, 1)
 	assert.Len(t, forced.BackedUp, 1)
-	data, err := os.ReadFile(filepath.Join(baseDir, ".agents", "skills", "go-pro", "SKILL.md"))
+	assertFileContains(t, filepath.Join(baseDir, ".agents", "skills", "go-pro", "SKILL.md"), "second")
+}
+
+func assertFileContains(t *testing.T, path string, want string) {
+	t.Helper()
+	data, err := os.ReadFile(path)
 	assert.NoErr(t, err)
-	assert.Contains(t, string(data), "second")
+	assert.Contains(t, string(data), want)
 }
 
 func TestManager_RunUpdateMergeKeepsLocalChanges(t *testing.T) {

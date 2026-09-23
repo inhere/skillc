@@ -30,6 +30,7 @@ const (
 type MergeItem struct {
 	Path         string
 	Action       MergeAction
+	BaselineHash string
 	LocalHash    string
 	IncomingHash string
 }
@@ -45,6 +46,11 @@ type MergeResult struct {
 	Conflicts []string
 	// Removed 是跟随上游删除的文件。
 	Removed []string
+}
+
+// Changed 表示合并过程中确实处理了文件（用于决定是否上报合并明细）。
+func (r MergeResult) Changed() bool {
+	return len(r.Updated)+len(r.KeptLocal)+len(r.Conflicts)+len(r.Removed) > 0
 }
 
 // PlanMerge 比较 baseline（安装时记录的源内容）、current（安装目录现状）、
@@ -69,6 +75,9 @@ func PlanMerge(baseline map[string]string, current map[string]string, incoming m
 		cur, curOK := current[path]
 		inc, incOK := incoming[path]
 		item := MergeItem{Path: path}
+		if baseOK {
+			item.BaselineHash = base
+		}
 		if curOK {
 			item.LocalHash = cur
 		}

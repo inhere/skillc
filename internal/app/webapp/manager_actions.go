@@ -13,8 +13,10 @@ type WebUpdateReq struct {
 	Target string
 	// Force 覆盖安装目录里的本地改动（覆盖前仍会备份）。
 	Force bool
-	// Merge 按文件三方合并上游改动，保留本地改动。
+	// Merge 显式要求按文件三方合并（默认行为；与 Force 组合时冲突取上游）。
 	Merge bool
+	// NoMerge 关闭按文件合并，回到「跳过本地改动 + Force 整体覆盖」。
+	NoMerge bool
 }
 
 type WebUpdateAllReq struct {
@@ -23,8 +25,10 @@ type WebUpdateAllReq struct {
 	ProjectIDs []string
 	// Force 覆盖安装目录里的本地改动（覆盖前仍会备份）。
 	Force bool
-	// Merge 按文件三方合并上游改动，保留本地改动。
+	// Merge 显式要求按文件三方合并（默认行为；与 Force 组合时冲突取上游）。
 	Merge bool
+	// NoMerge 关闭按文件合并。
+	NoMerge bool
 }
 
 type updateAllProjectsReq struct {
@@ -33,6 +37,7 @@ type updateAllProjectsReq struct {
 	ProjectIDs []string `json:"project_ids,omitempty"`
 	Force      bool     `json:"force,omitempty"`
 	Merge      bool     `json:"merge,omitempty"`
+	NoMerge    bool     `json:"no_merge,omitempty"`
 }
 
 type actionRuntimeRecord struct {
@@ -135,6 +140,7 @@ func (m *Manager) RunUpdate(req WebUpdateReq) (updateRunActionResult, error) {
 		WorkDir: req.WorkDir,
 		Force:   req.Force,
 		Merge:   req.Merge,
+		NoMerge: req.NoMerge,
 	})
 	out := updateRunActionResult{
 		Updated:       runtimeRecords(result.Updated),

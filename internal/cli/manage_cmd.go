@@ -119,6 +119,7 @@ type ManageOptions struct {
 	Yes         bool
 	Force       bool
 	Merge       bool
+	NoMerge     bool
 	UseCopy     bool
 	InstallMode string
 }
@@ -454,8 +455,9 @@ func buildUpdateCommand() *gcli.Command {
 			c.BoolOpt(&checkOnly, "check", "", false, "check update candidates without installing")
 			c.BoolOpt(&interactive, "interactive", "i", false, "interactively select update candidates")
 			c.BoolOpt(&opts.Yes, "yes", "y", false, "skip confirmation prompt for cross-project update")
-			c.BoolOpt(&opts.Force, "force", "f", false, "overwrite skills with local changes (backup first)")
-			c.BoolOpt(&opts.Merge, "merge", "m", false, "merge upstream changes per file, keeping local edits (conflicts are written as <file>.incoming)")
+			c.BoolOpt(&opts.Force, "force", "f", false, "overwrite whole installed directory, including local changes (backup first)")
+			c.BoolOpt(&opts.Merge, "merge", "m", false, "merge per file (default); combined with --force, conflicts take upstream")
+			c.BoolOpt(&opts.NoMerge, "no-merge", "", false, "disable per-file merge: skip locally modified skills unless --force")
 			c.BoolOpt(&allProjects, "all-projects", "", false, "update registered projects")
 			c.StrOpt(&projectsRaw, "projects", "", "", "comma-separated project ids for --all-projects")
 			c.AddArg("skill", "skill id to update (same as --target)")
@@ -561,6 +563,7 @@ func buildUpdateCommand() *gcli.Command {
 						WorkDir: cwd,
 						Force:   opts.Force,
 						Merge:   opts.Merge,
+						NoMerge: opts.NoMerge,
 					})
 					if err != nil {
 						slog.Error(err)
@@ -578,6 +581,7 @@ func buildUpdateCommand() *gcli.Command {
 				WorkDir: cwd,
 				Force:   opts.Force,
 				Merge:   opts.Merge,
+				NoMerge: opts.NoMerge,
 			})
 			if err != nil {
 				slog.Error(err)
@@ -722,6 +726,87 @@ func printUpdateResult(result updateapp.Result) {
 	for _, failed := range result.Failed {
 		ccolor.Errorf("update failed %s %s\n", failed.SkillID, failed.Reason)
 	}
+}
+
+func buildDiffCommand() *gcli.Command {
+	var opts ManageOptions
+	var noPatch bool
+	return &gcli.Command{
+		Name: "diff",
+		Desc: "Show per-file differences between an installed skill and its source",
+		Config: func(c *gcli.Command) {
+			opts.bindCommand(c)
+			c.BoolOpt(&noPatch, "no-patch", "", false, "only print the file table, skip unified diffs")
+			c.AddArg("skill", "skill id, allow multiple", true, true)
+		},
+		Func: func(c *gcli.Command, _ []string) error {
+			targets := c.Arg("skill").Strings()
+			if len(targets) == 0 {
+				return fmt.Errorf("skill id is required")
+			}
+			_, cwd, err := loadConfig()
+			if err != nil {
+				return err
+			}
+			service := adoptapp.NewService(defaultConfigFile(cwd), cwd)
+			for _, target := range targets {
+				result, err := service.Diff(adoptapp.Req{Target: target, Agent: opts.Agent, Scope: opts.Scope, WorkDir: cwd})
+				if err != nil {
+					return err
+				}
+				printSkillDiff(result, noPatch)
+			}
+			return nil
+		},
+	}
+}
+
+// maxPatchLines 限制单个文件的 patch 输出行数，避免刷屏。
+const maxPatchLines = 200
+
+func printSkillDiff(result adoptapp.DiffResult, noPatch bool) {
+	ccolor.Infof("Skill Diff: %s\n", result.SkillID)
+	if result.SourcePath != "" {
+		ccolor.Infof(" - source: %s\n", result.SourcePath)
+	}
+	if result.InstalledPath != "" {
+		ccolor.Infof(" - installed: %s\n", result.InstalledPath)
+	}
+	if !result.Writable {
+		ccolor.Warnf(" - %s\n", result.Reason)
+		return
+	}
+	tb := table.New("File Diff").SetHeads("Local", "Upstream", "File", "Note")
+	for _, item := range result.Files {
+		note := item.Note
+		if item.HasIncoming {
+			note = strings.TrimSpace(note + " has .incoming")
+		}
+		if item.Conflict && !strings.HasPrefix(note, "conflict") {
+			note = strings.TrimSpace("conflict " + note)
+		}
+		tb.AddRow(string(item.Local), string(item.Upstream), item.Path, note)
+	}
+	_, _ = fmt.Fprint(os.Stdout, tb.Render())
+	if noPatch {
+		return
+	}
+	for _, item := range result.Files {
+		if item.Patch == "" {
+			continue
+		}
+		ccolor.Infof("\n%s\n", item.Path)
+		_, _ = fmt.Fprint(os.Stdout, truncateLines(item.Patch, maxPatchLines))
+	}
+}
+
+func truncateLines(value string, max int) string {
+	lines := strings.Split(strings.TrimRight(value, "\n"), "\n")
+	if len(lines) <= max {
+		return strings.Join(lines, "\n") + "\n"
+	}
+	lines = lines[:max]
+	return strings.Join(lines, "\n") + fmt.Sprintf("\n... (%d more lines)\n", len(lines)-max)
 }
 
 func buildAdoptCommand() *gcli.Command {

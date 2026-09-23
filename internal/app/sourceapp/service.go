@@ -365,6 +365,28 @@ func (s *Service) gitSyncOptions(data cfg.Config) gitx.SyncOptions {
 	return opts
 }
 
+// Reindex 重新扫描 source 并重建索引，不拉取远端内容。
+// 用于 adopt 等直接改动了 source 目录的场景。
+func (s *Service) Reindex(id string) error {
+	data, err := s.load()
+	if err != nil {
+		return err
+	}
+	for i, src := range data.Sources {
+		if src.ID != id {
+			continue
+		}
+		data.Sources[i].Status = "ready"
+		data.Sources[i].ErrorMessage = ""
+		data.Sources[i].LastSyncAt = s.now().UTC().Format(time.RFC3339)
+		if err := s.store.Save(s.configFile, data, s.baseDir); err != nil {
+			return err
+		}
+		return s.rebuildIndex(data)
+	}
+	return fmt.Errorf("source not found: %s", id)
+}
+
 func (s *Service) rebuildIndex(data cfg.Config) error {
 	items := make([]skill.Skill, 0)
 	for _, src := range data.Sources {

@@ -146,15 +146,21 @@ func (s *Service) toItem(scopeKey string, scope agent.Scope, record lockpkg.Reco
 }
 
 func (s *Service) resolveInstalledPath(scopeKey string, scope agent.Scope, agentName string, record lockpkg.Record) (string, error) {
-	baseDir := s.runtimeWorkDir()
+	return ResolveInstalledPath(s.runtimeConfig(), s.runtimeWorkDir(), scopeKey, scope, agentName, record.SkillID)
+}
+
+// ResolveInstalledPath 计算某个 skill 在指定 agent/scope 下的安装目录。
+// project scope 以 scopeKey 为基准目录，其他 scope 使用 workDir。
+func ResolveInstalledPath(config cfg.Config, workDir string, scopeKey string, scope agent.Scope, agentName string, skillID string) (string, error) {
+	baseDir := workDir
 	if scope == agent.ScopeProject {
 		baseDir = scopeKey
 	}
-	targetRoot, err := agent.ResolveInstallPath(s.runtimeConfig(), baseDir, agentName, scope)
+	targetRoot, err := agent.ResolveInstallPath(config, baseDir, agentName, scope)
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(targetRoot, record.SkillID), nil
+	return filepath.Join(targetRoot, skillID), nil
 }
 
 func (s *Service) runtimeConfig() cfg.Config {

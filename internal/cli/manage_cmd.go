@@ -12,6 +12,7 @@ import (
 	"github.com/gookit/gcli/v3"
 	"github.com/gookit/goutil/x/ccolor"
 	"github.com/gookit/slog"
+	"github.com/inhere/skillc/internal/app/adoptapp"
 	"github.com/inhere/skillc/internal/app/installapp"
 	"github.com/inhere/skillc/internal/app/listapp"
 	"github.com/inhere/skillc/internal/app/projectupdateapp"
@@ -721,6 +722,99 @@ func printUpdateResult(result updateapp.Result) {
 	for _, failed := range result.Failed {
 		ccolor.Errorf("update failed %s %s\n", failed.SkillID, failed.Reason)
 	}
+}
+
+func buildAdoptCommand() *gcli.Command {
+	var opts ManageOptions
+	var dryRun bool
+	return &gcli.Command{
+		Name: "adopt",
+		Desc: "Write local changes of an installed skill back to its source",
+		Config: func(c *gcli.Command) {
+			opts.bindCommand(c)
+			c.BoolOpt(&dryRun, "dry-run", "", false, "print the plan without writing the source")
+			c.BoolOpt(&opts.Yes, "yes", "y", false, "skip confirmation prompt")
+			c.AddArg("skill", "skill id, allow multiple", true, true)
+		},
+		Func: func(c *gcli.Command, _ []string) error {
+			targets := c.Arg("skill").Strings()
+			if len(targets) == 0 {
+				return fmt.Errorf("skill id is required")
+			}
+			_, cwd, err := loadConfig()
+			if err != nil {
+				return err
+			}
+			service := adoptapp.NewService(defaultConfigFile(cwd), cwd)
+			for _, target := range targets {
+				req := adoptapp.Req{Target: target, Agent: opts.Agent, Scope: opts.Scope, WorkDir: cwd, DryRun: dryRun}
+				plan, err := service.Plan(req)
+				if err != nil {
+					return err
+				}
+				printAdoptPlan(plan)
+				if !plan.Writable {
+					ccolor.Warnf("cannot adopt %s: %s\n", plan.SkillID, plan.Reason)
+					continue
+				}
+				writable := adoptWritableCount(plan)
+				if writable == 0 {
+					ccolor.Successf("%s has no local changes to adopt\n", plan.SkillID)
+					continue
+				}
+				if dryRun {
+					continue
+				}
+				if !opts.Yes {
+					confirmed, err := confirmPrompt(os.Stdin, os.Stdout, fmt.Sprintf("Write %d file(s) back to %s?", writable, plan.SourcePath))
+					if err != nil {
+						return err
+					}
+					if !confirmed {
+						ccolor.Warnln("adopt cancelled")
+						continue
+					}
+				}
+				result, err := service.Run(req)
+				if err != nil {
+					return err
+				}
+				ccolor.Successf("adopted %s -> %s (%d file(s))\n", result.SkillID, result.SourcePath, writable)
+				if result.BackupPath != "" {
+					ccolor.Infof("backed up source -> %s\n", result.BackupPath)
+				}
+			}
+			return nil
+		},
+	}
+}
+
+func printAdoptPlan(plan adoptapp.Plan) {
+	ccolor.Infof("Adopt Plan: %s\n", plan.SkillID)
+	if plan.SourcePath != "" {
+		ccolor.Infof(" - source: %s\n", plan.SourcePath)
+	}
+	if plan.InstalledPath != "" {
+		ccolor.Infof(" - installed: %s\n", plan.InstalledPath)
+	}
+	tb := table.New("Adopt Items").SetHeads("Action", "Path", "Note")
+	for _, item := range plan.Items {
+		if item.Action == adoptapp.ActionUnchanged {
+			continue
+		}
+		tb.AddRow(string(item.Action), item.Path, item.Reason)
+	}
+	_, _ = fmt.Fprint(os.Stdout, tb.Render())
+}
+
+func adoptWritableCount(plan adoptapp.Plan) int {
+	count := 0
+	for _, item := range plan.Items {
+		if item.Action == adoptapp.ActionWrite {
+			count++
+		}
+	}
+	return count
 }
 
 func buildUninstallCommand() *gcli.Command {

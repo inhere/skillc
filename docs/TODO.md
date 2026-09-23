@@ -12,6 +12,13 @@
 
 ## skillc 使用优化
 
+- [x] up / install 覆盖安装目录前保护本地改动，避免 `up` 误覆盖项目里调整过的 skill
+  - [x] copy 模式在 lock 记录部署指纹 `installed_checksum`，内容不一致时默认跳过并提示，`--force` 才覆盖
+  - [x] 强制覆盖或覆盖无指纹目录前先备份到 `backup_dir`（默认 `~/.cache/skillc/backups`）
+  - [x] `status` / `update --check` 标记 `locally modified`，summary 输出 `modified` 计数
+  - [x] git 源缓存有本地改动时拒绝 `source sync`（不再 `reset --hard` / 删除重建）
+  - [x] `uninstall` 删除前检测本地改动，`--force` 才删
+  - 实施记录：`docs/superpowers/plans/2026-09-24-skillc-local-change-protection.md`
 - [ ] skillc ins 去掉 --agent 选项的默认值，没有设置时通过 cliui 的 interact newui 交互让用户选择(可以多选)
 - [ ] skillc ins -i keyword 会直接输出 no skills found. 修复并优化为使用 interact newui 交互让用户选择(可以多选)确认
 

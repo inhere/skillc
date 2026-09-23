@@ -182,6 +182,7 @@ skillc install --source /path/to/local-skills my-skill
 -i, --interactive  打开交互式 Skill 选择器
     --install-mode <mode> 安装方式：symlink / junction / copy
     --copy    等同于 --install-mode copy
+-f, --force   覆盖已存在的安装（跨来源或含本地改动），覆盖前先备份旧目录
 ```
 
 交互式选择基于 `gookit/cliui`：输入关键词过滤候选项，按空格多选，按回车确认后继续走原有安装计划、确认和执行流程。
@@ -200,9 +201,23 @@ skillc update --check                   # 只预览更新候选，不安装
 skillc update --interactive             # 交互式过滤并多选可更新项
 skillc update --all-projects --check    # 预览已登记项目的更新候选
 skillc update --all-projects --projects my-project,api --target go-pro --yes
+skillc update --force                   # 覆盖含本地改动的 skill（覆盖前先备份）
 ```
 
 `update --check` 和 `status` 会报告精确 drift：版本相同但来源元数据变化时，Git source 比较 resolved ref，本地 source 比较目录级 checksum。
+
+### 本地改动保护
+
+copy 模式安装会在 lock 里记录部署指纹 `installed_checksum`。`install`、`update`、`uninstall` 在动安装目录前会先比对：
+
+- 目录内容与指纹不一致 → 默认跳过并提示 `locally modified`，需要加 `--force` 才会覆盖或删除；
+- 没有指纹（旧版本写入的记录、或不是 skillc 安装的同名目录）→ 覆盖前先把旧目录快照到 `backup_dir`；
+- `--force` 覆盖时同样先备份，`update` 会打印备份路径；
+- link 安装（symlink / junction）不会被覆盖或备份，因为项目目录本身就是源目录。
+
+`skillc status` / `skillc update --check` 会在 Reason 列标出这类 skill，summary 里会输出 `modified` 计数。
+
+Git source 的同步会在仓库缓存里执行 `git fetch` + `reset --hard` + `clean -fd`。现在缓存里有本地改动时 `source sync`（以及 `update`）会直接拒绝同步，而不是静默丢弃改动；可以先用 `git -C <repo_cache_dir>/<source-id> status` 查看，提交或丢弃后再同步。
 
 ### 项目登记与跨项目更新
 
@@ -215,6 +230,8 @@ skillc status                           # 查看当前项目 Skill 状态
 skillc status --profile go-dev          # 按 Profile 过滤
 skillc status --agent claude-code       # 按 Agent 过滤
 ```
+
+`status` 也会标出安装目录与部署指纹不一致的 skill（summary 里的 `modified`）。
 
 ### `web` — 本地管理界面
 
@@ -234,6 +251,7 @@ Version Drift 视图也会展示 checksum / Git ref 信号，因此版本号相�
 
 ```bash
 skillc uninstall <skill-id> [...]       # 卸载一个或多个 Skill
+skillc uninstall --force <skill-id>     # 含本地改动时也删除
 ```
 
 ### `list` — 已安装列表
@@ -272,6 +290,7 @@ skillc doctor                           # 检查 git、配置文件、索引等�
 lock_file: skillc.lock.yaml       # 锁文件路径
 index_file: skillc-index.json     # 索引文件路径
 repo_cache_dir: ~/.cache/skillc   # Git 仓库缓存目录
+backup_dir: ~/.cache/skillc/backups # 覆盖安装目录前的备份快照目录
 proxy_url: ""                     # HTTP 代理（可选）
 sources: []                       # 管理的来源列表
 projects: []                      # 跨项目更新允许管理的本机项目列表
@@ -304,6 +323,8 @@ records:
     agent: claude-code
     scope: project
     installed_path: .claude/skills/my-skill
+    install_mode: copy
+    installed_checksum: 9f2c...  # 部署目录指纹，用于检测本地改动
     installed_at: "2026-01-01T00:00:00Z"
 ```
 

@@ -184,6 +184,7 @@ skillc install --source /path/to/local-skills my-skill
 | `--interactive` | `-i` | `false` | Open an interactive Skill selector |
 | `--install-mode` | | | Install mode (`symlink` / `junction` / `copy`) |
 | `--copy` | | `false` | Install by copying files |
+| `--force` | `-f` | `false` | Overwrite an existing install (another source, or local changes); the replaced directory is backed up first |
 
 Interactive selection uses `gookit/cliui`: type to filter the candidate list, press Space to multi-select, and press Enter to continue into the normal install confirmation and execution flow.
 
@@ -196,9 +197,23 @@ skillc update --check                # preview update candidates without install
 skillc update --interactive          # filter and multi-select update candidates
 skillc update --all-projects --check # preview registered project updates
 skillc update --all-projects --projects my-project,api --target go-pro --yes
+skillc update --force                # overwrite skills that have local changes (backup first)
 ```
 
 `update --check` and `status` report precise drift when the version is unchanged but the source metadata changed: Git sources compare resolved refs, and local sources compare directory-level checksums.
+
+### Local change protection
+
+Copy installs (`install_mode: copy`) keep a deployed fingerprint (`installed_checksum`) in the lock file. `install`, `update` and `uninstall` compare the installed directory against it before touching it:
+
+- content differs from the fingerprint → the command skips the skill and reports `locally modified`; pass `--force` to overwrite (or remove) it;
+- no fingerprint yet (records created by older versions, or directories skillc did not install) → the directory is snapshotted into `backup_dir` before it is replaced;
+- `--force` always snapshots the replaced directory first, and `update` prints the backup path;
+- link installs (`symlink` / `junction`) are never overwritten or backed up, because the project directory *is* the source directory.
+
+`skillc status` and `skillc update --check` mark such skills in their `Reason` column, and the summary prints a `modified` count.
+
+Git sources are synced by `git fetch` + `reset --hard` + `clean -fd` in the repository cache. `source sync` (and therefore `update`) now refuses to sync when that cache has local changes, instead of silently discarding them; inspect it with `git -C <repo_cache_dir>/<source-id> status` and commit or discard the changes before syncing.
 
 ### Project Registry and Cross-Project Updates
 
@@ -211,6 +226,8 @@ skillc status                        # show current project skill status
 skillc status --profile go-dev       # filter by profile
 skillc status --agent claude-code    # filter by agent
 ```
+
+`status` also reports skills whose installed directory no longer matches the recorded deployed fingerprint (`modified` in the summary).
 
 ### `web` — Local management UI
 
@@ -230,6 +247,7 @@ Version Drift also exposes checksum and Git ref signals, so same-version content
 
 ```bash
 skillc uninstall <skill-id> [...]    # uninstall one or more Skills
+skillc uninstall --force <skill-id>  # also remove a skill that has local changes
 ```
 
 ### `list` — Installed Skills
@@ -268,6 +286,7 @@ Key fields:
 lock_file: skillc.lock.yaml        # lock file path
 index_file: skillc-index.json      # index file path
 repo_cache_dir: ~/.cache/skillc    # Git repo cache directory
+backup_dir: ~/.cache/skillc/backups # snapshots taken before replacing an installed directory
 proxy_url: ""                      # HTTP proxy (optional)
 sources: []                        # registered sources
 projects: []                       # registered local projects for cross-project updates
@@ -300,6 +319,8 @@ records:
     agent: claude-code
     scope: project
     installed_path: .claude/skills/my-skill
+    install_mode: copy
+    installed_checksum: 9f2c...   # deployed directory fingerprint, detects local changes
     installed_at: "2026-01-01T00:00:00Z"
 ```
 

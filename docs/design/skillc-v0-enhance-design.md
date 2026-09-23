@@ -28,6 +28,7 @@
 | 2026-06-19 | v0.24 | Codex | 增加 Phase 11 SkillsMP 真实 Registry provider adapter 设计链接和范围 |
 | 2026-06-19 | v0.25 | Codex | 增加 Phase 11 SkillsMP provider adapter 实施计划链接 |
 | 2026-06-19 | v0.26 | Codex | 记录 Phase 11 已落地 SkillsMP provider adapter |
+| 2026-09-24 | v0.27 | Codex | 落地本地改动保护：lock 记录部署指纹、覆盖前备份、git 缓存脏检查与 uninstall 拦截 |
 
 状态：Draft
 
@@ -1180,6 +1181,6 @@ Phase 7 已经把跨项目更新收敛到 registered projects allowlist。后续
 
 - 安装 skill 不应自动加入某个当前激活 profile；profile 成员变更必须显式执行。
 - `profile apply` 的 plan 输出应作为后续 Web、status、diff、outdated/check 复用的基础语义。
-- 后期 lock 应增加 deployed files/hash，为安全卸载、drift detection 和跨项目 version drift 做准备。
+- lock 已记录部署指纹 `installed_checksum`（copy 模式），用于覆盖/删除前的本地改动判定和 `status` 展示；后续可扩展到 deployed files 级别的三方合并与跨项目 version drift。
 - `collection` 继续只作为 source 内部分组，不升级为用户长期维护的组合概念。
 - 后期 Registry 只负责发现，安装仍进入 source/index/install/profile/lock 统一链路。

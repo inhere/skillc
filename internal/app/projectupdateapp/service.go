@@ -21,6 +21,8 @@ type Req struct {
 	Confirm    bool
 	// Force 为 true 时允许覆盖安装目录里的本地改动（覆盖前仍会备份）。
 	Force bool
+	// Merge 为 true 时按文件三方合并上游改动，保留本地改动。
+	Merge bool
 }
 
 type Plan struct {
@@ -50,6 +52,7 @@ type ProjectResult struct {
 	Path          string                      `json:"path"`
 	Updated       []installapp.RuntimeRecord  `json:"updated,omitempty"`
 	BackedUp      []updateapp.BackupItem      `json:"backed_up,omitempty"`
+	Merged        []updateapp.MergeReport     `json:"merged,omitempty"`
 	Skipped       []updateapp.SkippedItem     `json:"skipped,omitempty"`
 	Failed        []updateapp.FailedItem      `json:"failed,omitempty"`
 	SyncFailed    []updateapp.SourceSyncError `json:"sync_failed,omitempty"`
@@ -141,9 +144,11 @@ func (s *Service) Run(req Req) (Result, error) {
 				WorkDir:      projectPlan.Path,
 				ProjectPaths: []string{projectPlan.Path},
 				Force:        req.Force,
+				Merge:        req.Merge,
 			})
 			projectResult.Updated = append(projectResult.Updated, updateResult.Updated...)
 			projectResult.BackedUp = append(projectResult.BackedUp, updateResult.BackedUp...)
+			projectResult.Merged = append(projectResult.Merged, updateResult.Merged...)
 			projectResult.Skipped = append(projectResult.Skipped, updateResult.Skipped...)
 			projectResult.Failed = append(projectResult.Failed, updateResult.Failed...)
 			projectResult.SyncFailed = append(projectResult.SyncFailed, updateResult.SyncFailed...)

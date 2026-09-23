@@ -357,8 +357,9 @@ func (s *ManagerServer) handleUpdateRun(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	req := managerReqFromQuery(r)
-	result, err := s.manager.RunUpdate(WebUpdateReq{ManagerReq: req, Target: body.Target})
-	s.recordHistory(r, "update.run", WebUpdateReq{ManagerReq: req, Target: body.Target}, result, err)
+	updateReq := WebUpdateReq{ManagerReq: req, Target: body.Target, Force: body.Force, Merge: body.Merge}
+	result, err := s.manager.RunUpdate(updateReq)
+	s.recordHistory(r, "update.run", updateReq, result, err)
 	writeResult(w, result, err)
 }
 
@@ -647,6 +648,10 @@ func parseProfileAction(path string) (profileAction, bool) {
 type actionConfirmReq struct {
 	Confirm bool   `json:"confirm"`
 	Target  string `json:"target,omitempty"`
+	// Force 覆盖安装目录里的本地改动（覆盖前仍会备份）。
+	Force bool `json:"force,omitempty"`
+	// Merge 按文件三方合并上游改动，保留本地改动。
+	Merge bool `json:"merge,omitempty"`
 }
 
 func readActionConfirmReq(r *http.Request) (actionConfirmReq, error) {

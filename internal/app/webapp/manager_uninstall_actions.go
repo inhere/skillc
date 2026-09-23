@@ -7,6 +7,8 @@ type uninstallActionReq struct {
 	Skills  []string `json:"skills"`
 	Agent   string   `json:"agent,omitempty"`
 	Scope   string   `json:"scope,omitempty"`
+	// Force 删除含本地改动的安装目录（默认拒绝）。
+	Force bool `json:"force,omitempty"`
 }
 
 type uninstallActionResult struct {
@@ -39,6 +41,7 @@ func (m *Manager) RunUninstall(req uninstallActionReq) (uninstallActionResult, e
 		Agent:   req.Agent,
 		Scope:   req.Scope,
 		WorkDir: m.baseDir,
+		Force:   req.Force,
 	})
 	out := uninstallActionResult{
 		Plan:    result.Plan,

@@ -322,6 +322,8 @@ td.wrap { overflow-wrap: anywhere; }
         <div class="section-head">
           <h3>Plan Output</h3>
           <div class="actions" id="action-bar">
+            <label class="muted" title="overwrite locally modified skills (backup first)"><input type="checkbox" id="force-input"> force</label>
+            <label class="muted" title="merge upstream changes per file, keeping local edits"><input type="checkbox" id="merge-input"> merge</label>
             <button class="danger" id="apply-profile-btn" disabled>Apply profile</button>
             <button class="danger" id="run-update-btn" disabled>Run update</button>
             <button class="danger" id="run-source-action-btn" disabled>Run source action</button>
@@ -714,11 +716,15 @@ td.wrap { overflow-wrap: anywhere; }
   }
   function runUpdateAll() {
     if (!state.updateAllPlan) return;
+    var force = byId('force-input').checked;
+    var merge = byId('merge-input').checked;
     if (!window.confirm('Run update for selected registered projects?')) return;
     var payload = {
       confirm: true,
       project_ids: selectedProjectIDs(),
-      target: byId('update-all-target-input').value.trim()
+      target: byId('update-all-target-input').value.trim(),
+      force: force,
+      merge: merge
     };
     postJSON('/api/update/all/run', payload)
       .then(function (result) {
@@ -850,8 +856,9 @@ td.wrap { overflow-wrap: anywhere; }
   function runUninstall() {
     var action = state.pendingAction;
     if (!action || action.type !== 'uninstall') return;
-    if (!window.confirm('Run uninstall for the selected skill?')) return;
-    var payload = Object.assign({ confirm: true }, action.payload || {});
+    var force = byId('force-input').checked;
+    if (!window.confirm(force ? 'Run uninstall and remove locally modified skills?' : 'Run uninstall for the selected skill?')) return;
+    var payload = Object.assign({ confirm: true, force: force }, action.payload || {});
     postJSON('/api/uninstall/run', payload)
       .then(function (result) {
         byId('plan-output').textContent = JSON.stringify(result, null, 2);
@@ -880,8 +887,11 @@ td.wrap { overflow-wrap: anywhere; }
   }
   function runUpdate() {
     if (!state.pendingAction || state.pendingAction.type !== 'update') return;
-    if (!window.confirm('Run update for the current project?')) return;
-    postJSON('/api/update/run', { confirm: true })
+    var force = byId('force-input').checked;
+    var merge = byId('merge-input').checked;
+    var mode = merge ? (force ? ' (merge, conflicts take upstream)' : ' (merge, local edits kept)') : (force ? ' (overwrite local changes)' : '');
+    if (!window.confirm('Run update for the current project' + mode + '?')) return;
+    postJSON('/api/update/run', { confirm: true, force: force, merge: merge })
       .then(function (result) {
         byId('plan-output').textContent = JSON.stringify(result, null, 2);
         setPendingAction(null);

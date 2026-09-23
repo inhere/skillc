@@ -7,11 +7,15 @@ import (
 	"testing"
 
 	"github.com/gookit/goutil/testutil/assert"
+	"github.com/inhere/skillc/internal/app/apputil"
+	"github.com/inhere/skillc/internal/app/installapp"
+	"github.com/inhere/skillc/internal/domain/agent"
 	cfg "github.com/inhere/skillc/internal/domain/config"
 	lockpkg "github.com/inhere/skillc/internal/domain/lock"
 	"github.com/inhere/skillc/internal/domain/profile"
 	"github.com/inhere/skillc/internal/domain/skill"
 	sourcepkg "github.com/inhere/skillc/internal/domain/source"
+	"github.com/inhere/skillc/internal/infra/agentfs"
 	"github.com/inhere/skillc/internal/infra/configstore"
 	"github.com/inhere/skillc/internal/infra/lockstore"
 	"github.com/inhere/skillc/internal/infra/repoindex"
@@ -149,4 +153,114 @@ func createWebActionSkillSource(t *testing.T, sourceRoot string, id string, vers
 		"# " + id + "\n" + content
 	assert.NoErr(t, os.WriteFile(filepath.Join(root, "SKILL.md"), []byte(body), 0o644))
 	return root
+}
+
+// 真实 copy 安装（带文件清单）+ 本地改动：用于验证 Web 的 force/merge 入口。
+func writeWebCopyInstallFixture(t *testing.T, baseDir string) string {
+	t.Helper()
+	configFile := filepath.Join(baseDir, "skillc.yaml")
+	lockFile := filepath.Join(baseDir, "skillc.lock.json")
+	indexFile := filepath.Join(baseDir, "cache", "index.json")
+	sourceRoot := filepath.Join(baseDir, "source")
+	skillDir := createWebActionSkillSource(t, sourceRoot, "go-pro", "1.0.0", "first")
+
+	config := cfg.DefaultConfig()
+	config.LockFile = lockFile
+	config.IndexFile = indexFile
+	config.BackupDir = filepath.Join(baseDir, "cache", "backups")
+	config.InstallMode = "copy"
+	config.AgentTools["universal"] = cfg.AgentToolConfig{
+		Dirname:    ".agents",
+		ProjectDir: filepath.Join(baseDir, ".agents"),
+	}
+	config.Sources = []sourcepkg.Source{{ID: "gstack", Name: "gstack", Type: sourcepkg.TypeLocal, Path: sourceRoot, Status: "ready"}}
+	assert.NoErr(t, configstore.NewYAMLStore().Save(configFile, config, baseDir))
+
+	projectKey, err := apputil.ResolveScopeKey(agent.ScopeProject, baseDir)
+	assert.NoErr(t, err)
+	targetRoot, err := agent.ResolveInstallPath(config, baseDir, "universal", agent.ScopeProject)
+	assert.NoErr(t, err)
+	installer := installapp.NewService(lockFile).WithRuntime(config, baseDir).WithInstallMode(agentfs.ModeCopy)
+	record, err := installer.Install(skill.Skill{
+		ID: "go-pro", QualifiedName: "tools/go-pro", SourceQualifiedName: "gstack/tools/go-pro",
+		Version: "1.0.0", SourceID: "gstack", SourceType: sourcepkg.TypeLocal, InstallEntry: ".", Path: skillDir,
+	}, "universal", agent.ScopeProject, projectKey, targetRoot)
+	assert.NoErr(t, err)
+
+	// 源更新到 2.0.0，并在安装目录里做本地改动
+	createWebActionSkillSource(t, sourceRoot, "go-pro", "2.0.0", "second")
+	assert.NoErr(t, repoindex.NewStore().Save(indexFile, []skill.Skill{{
+		ID: "go-pro", SourceID: "gstack", Collection: "tools", QualifiedName: "tools/go-pro",
+		SourceQualifiedName: "gstack/tools/go-pro", Version: "2.0.0", SourceType: sourcepkg.TypeLocal,
+		InstallEntry: ".", Path: skillDir,
+	}}))
+	assert.NoErr(t, os.WriteFile(filepath.Join(record.InstalledPath, "SKILL.md"), []byte("# local edit"), 0o644))
+	return configFile
+}
+
+func TestManager_RunUpdateForceOverwritesLocalChanges(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := writeWebCopyInstallFixture(t, baseDir)
+	manager := NewManager(configFile, baseDir)
+	req := ManagerReq{Agent: "universal", Scope: "project", WorkDir: baseDir}
+
+	skipped, err := manager.RunUpdate(WebUpdateReq{ManagerReq: req, Target: "go-pro"})
+	assert.NoErr(t, err)
+	assert.Len(t, skipped.Updated, 0)
+	assert.Len(t, skipped.Skipped, 1)
+
+	forced, err := manager.RunUpdate(WebUpdateReq{ManagerReq: req, Target: "go-pro", Force: true})
+	assert.NoErr(t, err)
+	assert.Len(t, forced.Updated, 1)
+	assert.Len(t, forced.BackedUp, 1)
+	data, err := os.ReadFile(filepath.Join(baseDir, ".agents", "skills", "go-pro", "SKILL.md"))
+	assert.NoErr(t, err)
+	assert.Contains(t, string(data), "second")
+}
+
+func TestManager_RunUpdateMergeKeepsLocalChanges(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := writeWebCopyInstallFixture(t, baseDir)
+	manager := NewManager(configFile, baseDir)
+
+	result, err := manager.RunUpdate(WebUpdateReq{
+		ManagerReq: ManagerReq{Agent: "universal", Scope: "project", WorkDir: baseDir},
+		Target:     "go-pro",
+		Merge:      true,
+	})
+
+	assert.NoErr(t, err)
+	assert.Len(t, result.Updated, 1)
+	assert.Len(t, result.Merged, 1)
+	assert.Eq(t, []string{"SKILL.md"}, result.Merged[0].Conflicts)
+	assert.Len(t, result.Skipped, 0)
+}
+
+func TestManager_RunUninstallForceRemovesLocallyModifiedSkill(t *testing.T) {
+	baseDir := t.TempDir()
+	configFile := writeWebCopyInstallFixture(t, baseDir)
+	manager := NewManager(configFile, baseDir)
+	req := uninstallActionReq{Skills: []string{"go-pro"}, Agent: "universal", Scope: "project", Confirm: true}
+
+	plan, err := manager.PlanUninstall(req)
+	assert.NoErr(t, err)
+	assert.Len(t, plan.Items, 1)
+	assert.True(t, plan.Items[0].LocalChanges)
+
+	// Web 动作把错误放在 payload 里返回，不再向上抛
+	blocked, err := manager.RunUninstall(req)
+	assert.NoErr(t, err)
+	assert.Contains(t, blocked.Error, "local changes")
+	if _, statErr := os.Stat(filepath.Join(baseDir, ".agents", "skills", "go-pro")); statErr != nil {
+		t.Fatalf("expected skill to stay installed, got %v", statErr)
+	}
+
+	req.Force = true
+	result, err := manager.RunUninstall(req)
+	assert.NoErr(t, err)
+	assert.Eq(t, "", result.Error)
+	assert.Len(t, result.Removed, 1)
+	if _, statErr := os.Stat(filepath.Join(baseDir, ".agents", "skills", "go-pro")); !os.IsNotExist(statErr) {
+		t.Fatalf("expected skill removed, got %v", statErr)
+	}
 }

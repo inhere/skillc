@@ -65,6 +65,8 @@ type UninstallReq struct {
 	Agent   string
 	Scope   string
 	WorkDir string
+	// Force 为 true 时删除含本地改动的安装目录。
+	Force bool
 }
 
 type UninstallPlan struct {
@@ -458,7 +460,7 @@ func (s *Service) RunUninstall(req UninstallReq) (UninstallResult, error) {
 	if err != nil {
 		return result, err
 	}
-	runtimeSvc := s.WithRuntime(s.runtimeConfig(), firstNonEmpty(req.WorkDir, s.runtimeWorkDir()))
+	runtimeSvc := s.WithRuntime(s.runtimeConfig(), firstNonEmpty(req.WorkDir, s.runtimeWorkDir())).WithForce(req.Force)
 	if _, err := runtimeSvc.UninstallMulti(req.Skills, plan.Agent, scope); err != nil {
 		return result, err
 	}

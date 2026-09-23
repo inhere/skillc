@@ -13,6 +13,8 @@ type WebUpdateReq struct {
 	Target string
 	// Force 覆盖安装目录里的本地改动（覆盖前仍会备份）。
 	Force bool
+	// Merge 按文件三方合并上游改动，保留本地改动。
+	Merge bool
 }
 
 type WebUpdateAllReq struct {
@@ -21,12 +23,16 @@ type WebUpdateAllReq struct {
 	ProjectIDs []string
 	// Force 覆盖安装目录里的本地改动（覆盖前仍会备份）。
 	Force bool
+	// Merge 按文件三方合并上游改动，保留本地改动。
+	Merge bool
 }
 
 type updateAllProjectsReq struct {
 	Confirm    bool     `json:"confirm,omitempty"`
 	Target     string   `json:"target,omitempty"`
 	ProjectIDs []string `json:"project_ids,omitempty"`
+	Force      bool     `json:"force,omitempty"`
+	Merge      bool     `json:"merge,omitempty"`
 }
 
 type actionRuntimeRecord struct {
@@ -55,9 +61,26 @@ type profileApplyActionResult struct {
 	InstallFailed []actionErrorItem     `json:"install_failed,omitempty"`
 }
 
+type actionMergeItem struct {
+	SkillID    string   `json:"skill_id"`
+	Path       string   `json:"path,omitempty"`
+	Updated    []string `json:"updated,omitempty"`
+	KeptLocal  []string `json:"kept_local,omitempty"`
+	Conflicts  []string `json:"conflicts,omitempty"`
+	Removed    []string `json:"removed,omitempty"`
+	BackupPath string   `json:"backup_path,omitempty"`
+}
+
+type actionBackupItem struct {
+	SkillID string `json:"skill_id"`
+	Path    string `json:"path"`
+}
+
 type updateRunActionResult struct {
 	Error         string                  `json:"error,omitempty"`
 	Updated       []actionRuntimeRecord   `json:"updated"`
+	BackedUp      []actionBackupItem      `json:"backed_up,omitempty"`
+	Merged        []actionMergeItem       `json:"merged,omitempty"`
 	Skipped       []actionErrorItem       `json:"skipped,omitempty"`
 	Failed        []actionErrorItem       `json:"failed,omitempty"`
 	SyncFailed    []actionSourceErrorItem `json:"sync_failed,omitempty"`
@@ -74,6 +97,8 @@ type projectUpdateResult struct {
 	ProjectID     string                  `json:"project_id"`
 	Path          string                  `json:"path"`
 	Updated       []actionRuntimeRecord   `json:"updated,omitempty"`
+	BackedUp      []actionBackupItem      `json:"backed_up,omitempty"`
+	Merged        []actionMergeItem       `json:"merged,omitempty"`
 	Skipped       []actionErrorItem       `json:"skipped,omitempty"`
 	Failed        []actionErrorItem       `json:"failed,omitempty"`
 	SyncFailed    []actionSourceErrorItem `json:"sync_failed,omitempty"`
@@ -109,9 +134,12 @@ func (m *Manager) RunUpdate(req WebUpdateReq) (updateRunActionResult, error) {
 		Scope:   req.Scope,
 		WorkDir: req.WorkDir,
 		Force:   req.Force,
+		Merge:   req.Merge,
 	})
 	out := updateRunActionResult{
 		Updated:       runtimeRecords(result.Updated),
+		BackedUp:      backupItems(result.BackedUp),
+		Merged:        mergeReports(result.Merged),
 		Skipped:       skippedErrors(result.Skipped),
 		Failed:        failedErrors(result.Failed),
 		SyncFailed:    sourceSyncErrors(result.SyncFailed),
@@ -144,11 +172,37 @@ func toUpdateAllProjectsActionResult(result projectupdateapp.Result) updateAllPr
 	for _, item := range result.Results {
 		converted := projectUpdateResult{ProjectID: item.ProjectID, Path: item.Path, Error: item.Error}
 		converted.Updated = append(converted.Updated, runtimeRecords(item.Updated)...)
+		converted.BackedUp = append(converted.BackedUp, backupItems(item.BackedUp)...)
+		converted.Merged = append(converted.Merged, mergeReports(item.Merged)...)
 		converted.Skipped = append(converted.Skipped, skippedErrors(item.Skipped)...)
 		converted.Failed = append(converted.Failed, failedErrors(item.Failed)...)
 		converted.SyncFailed = append(converted.SyncFailed, sourceSyncErrors(item.SyncFailed)...)
 		converted.CleanupFailed = append(converted.CleanupFailed, failedErrors(item.CleanupFailed)...)
 		out.Results = append(out.Results, converted)
+	}
+	return out
+}
+
+func backupItems(items []updateapp.BackupItem) []actionBackupItem {
+	out := make([]actionBackupItem, 0, len(items))
+	for _, item := range items {
+		out = append(out, actionBackupItem{SkillID: item.SkillID, Path: item.Path})
+	}
+	return out
+}
+
+func mergeReports(items []updateapp.MergeReport) []actionMergeItem {
+	out := make([]actionMergeItem, 0, len(items))
+	for _, item := range items {
+		out = append(out, actionMergeItem{
+			SkillID:    item.SkillID,
+			Path:       item.Path,
+			Updated:    item.Updated,
+			KeptLocal:  item.KeptLocal,
+			Conflicts:  item.Conflicts,
+			Removed:    item.Removed,
+			BackupPath: item.BackupPath,
+		})
 	}
 	return out
 }

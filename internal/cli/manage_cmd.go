@@ -213,7 +213,11 @@ func buildInstallCommand() *gcli.Command {
 				if targetArg != "" || interactive {
 					return fmt.Errorf("--restore cannot be combined with skill targets or --interactive")
 				}
-				svc := installapp.NewService(config.LockFile).WithInstallMode(installMode).WithSymlinkFallbackNotifier(fallbackNotifier).WithRestoreResolver(registryapp.NewLockedResolver(defaultConfigFile(cwd), cwd).Resolve)
+				svc := installapp.NewService(config.LockFile).
+					WithInstallMode(installMode).
+					WithSymlinkFallbackNotifier(fallbackNotifier).
+					WithForce(opts.Force).
+					WithRestoreResolver(registryapp.NewLockedResolver(defaultConfigFile(cwd), cwd).Resolve)
 				result, err := svc.Run(config, installapp.InstallReq{Agent: opts.Agent, Scope: opts.Scope, WorkDir: cwd}, nil)
 				if err != nil {
 					return err
@@ -221,7 +225,10 @@ func buildInstallCommand() *gcli.Command {
 				for _, record := range result.Restored {
 					ccolor.Infof("- restored %s  agent=%s scope=%s path=%s\n", record.SkillID, record.Agent, record.Scope, record.InstalledPath)
 				}
-				ccolor.Successf("restore complete: %d skill(s) restored\n", len(result.Restored))
+				for _, skipped := range result.Skipped {
+					ccolor.Warnf("- skipped %s  %s\n", skipped.SkillID, skipped.Reason)
+				}
+				ccolor.Successf("restore complete: %d skill(s) restored, %d skill(s) skipped\n", len(result.Restored), len(result.Skipped))
 				return nil
 			}
 			if strings.TrimSpace(targetArg) == "" {
@@ -267,30 +274,6 @@ func buildInstallCommand() *gcli.Command {
 				}
 
 				return runResolvedInstall(config, cwd, installMode, fallbackNotifier, opts, agentNames, resolved, nil)
-			}
-
-			if targetArg == "" {
-				svc := installapp.NewService(config.LockFile).
-					WithInstallMode(installMode).
-					WithSymlinkFallbackNotifier(fallbackNotifier).
-					WithForce(opts.Force).
-					WithRestoreResolver(registryapp.NewLockedResolver(defaultConfigFile(cwd), cwd).Resolve)
-				result, err := svc.Run(config, installapp.InstallReq{
-					Agent:   opts.Agent,
-					Scope:   opts.Scope,
-					WorkDir: cwd,
-				}, nil)
-				if err != nil {
-					return err
-				}
-				for _, record := range result.Restored {
-					ccolor.Infof("- restored %s  agent=%s scope=%s path=%s\n", record.SkillID, record.Agent, record.Scope, record.InstalledPath)
-				}
-				for _, skipped := range result.Skipped {
-					ccolor.Warnf("- skipped %s  %s\n", skipped.SkillID, skipped.Reason)
-				}
-				ccolor.Successf("restore complete: %d skill(s) restored, %d skill(s) skipped\n", len(result.Restored), len(result.Skipped))
-				return nil
 			}
 
 			targets := splitInstallTargets(targetArg)

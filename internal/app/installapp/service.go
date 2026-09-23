@@ -19,6 +19,7 @@ import (
 	"github.com/inhere/skillc/internal/infra/agentfs"
 	"github.com/inhere/skillc/internal/infra/filelock"
 	"github.com/inhere/skillc/internal/infra/lockstore"
+	"github.com/inhere/skillc/internal/infra/repoindex"
 )
 
 type skillLookup interface {
@@ -539,11 +540,12 @@ func (s *Service) Restore(sourcePaths map[string]string) ([]RuntimeRecord, []Ins
 
 	restored := make([]RuntimeRecord, 0)
 	skipped := make([]InstallItemError, 0)
+	indexed := s.indexedSkills()
 	for _, scopeKey := range scopeKeys {
 		scope := scopeFromKey(scopeKey)
 		for recordIndex := range locks[scopeKey] {
 			record := &locks[scopeKey][recordIndex]
-			sourcePath, err := s.restoreSourcePath(*record, sourcePaths)
+			sourcePath, err := s.restoreSourcePath(*record, sourcePaths, indexed)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -580,7 +582,7 @@ func (s *Service) Restore(sourcePaths map[string]string) ([]RuntimeRecord, []Ins
 	return restored, skipped, nil
 }
 
-func (s *Service) restoreSourcePath(record lockpkg.Record, sourcePaths map[string]string) (string, error) {
+func (s *Service) restoreSourcePath(record lockpkg.Record, sourcePaths map[string]string, indexed []skill.Skill) (string, error) {
 	if s.restoreResolver != nil {
 		if item, handled, err := s.restoreResolver(record); err != nil {
 			return "", err
@@ -588,11 +590,38 @@ func (s *Service) restoreSourcePath(record lockpkg.Record, sourcePaths map[strin
 			return filepath.Join(item.Path, item.InstallEntry), nil
 		}
 	}
+	// 优先按索引里的 skill 目录恢复：sourcePaths 存的是 source 根目录，
+	// 直接使用根目录会把整个 source 复制进单个安装目录。
+	for _, item := range indexed {
+		if item.Path != "" && installpkg.SameIdentity(record, item) {
+			return filepath.Join(item.Path, item.InstallEntry), nil
+		}
+	}
 	sourceRoot, ok := sourcePaths[record.SourceID]
 	if !ok {
 		return "", fmt.Errorf("source path not found for %s", record.SourceID)
 	}
+	if record.InstallEntry == "" || record.InstallEntry == "." {
+		// 索引不可用时按 skill id 再定位一层，避免把 source 根目录当成 skill 目录
+		if nested := filepath.Join(sourceRoot, record.SkillID); isDir(nested) {
+			return nested, nil
+		}
+	}
 	return filepath.Join(sourceRoot, record.InstallEntry), nil
+}
+
+// indexedSkills 读取索引中的 skill 列表，用于 restore 精确定位 skill 目录。
+func (s *Service) indexedSkills() []skill.Skill {
+	items, err := repoindex.NewStore().Load(s.runtimeConfig().IndexFile)
+	if err != nil {
+		return nil
+	}
+	return items
+}
+
+func isDir(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && info.IsDir()
 }
 
 func (s *Service) loadLockFile() (lockpkg.File, error) {

@@ -151,7 +151,7 @@ func TestClient_SyncFallsBackToCloneWhenCacheOriginMismatches(t *testing.T) {
 	}
 }
 
-func TestClient_SyncRemovesStaleUntrackedFilesDuringIncrementalSync(t *testing.T) {
+func TestClient_SyncRefusesToDropLocalChangesInCache(t *testing.T) {
 	repo := newGitRemoteFixture(t)
 	_ = repo.commitFile(t, "README.md", "first\n", "initial commit")
 	cacheDir := filepath.Join(t.TempDir(), "cache")
@@ -159,12 +159,18 @@ func TestClient_SyncRemovesStaleUntrackedFilesDuringIncrementalSync(t *testing.T
 
 	_, err := client.Sync(repo.remoteDir, cacheDir, "main", SyncOptions{})
 	assert.NoErr(t, err)
+
+	editedFile := filepath.Join(cacheDir, "README.md")
 	staleFile := filepath.Join(cacheDir, "stale.txt")
+	assert.NoErr(t, os.WriteFile(editedFile, []byte("local edit"), 0o644))
 	assert.NoErr(t, os.WriteFile(staleFile, []byte("stale"), 0o644))
 
 	_, err = client.Sync(repo.remoteDir, cacheDir, "main", SyncOptions{})
-	assert.NoErr(t, err)
-	assertNotExists(t, staleFile)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "local changes")
+	assertFileContent(t, editedFile, "local edit")
+	assertFileContent(t, staleFile, "stale")
+	assertExists(t, filepath.Join(cacheDir, ".git"))
 }
 
 func TestClient_SyncReturnsResolvedRefFromSynchronizedHead(t *testing.T) {

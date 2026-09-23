@@ -1,10 +1,12 @@
 package gitx
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
+	"strings"
 )
 
 type SyncOptions struct {
@@ -25,6 +27,9 @@ func New(bin string) *Client {
 	return &Client{bin: bin}
 }
 
+// ErrDirtyCache 表示 git 缓存目录存在未提交的本地改动；同步会 reset/clean 或重建缓存，必须先处理它们。
+var ErrDirtyCache = errors.New("git cache has local changes")
+
 func (c *Client) Sync(url, dir, ref string, opts SyncOptions) (string, error) {
 	if _, err := exec.LookPath(c.bin); err != nil {
 		return "", fmt.Errorf("git executable not found: %w", err)
@@ -33,6 +38,9 @@ func (c *Client) Sync(url, dir, ref string, opts SyncOptions) (string, error) {
 	if reusable, err := c.canReuseCache(url, dir); err != nil {
 		return "", err
 	} else if reusable {
+		if err := c.ensureCleanCache(dir); err != nil {
+			return "", err
+		}
 		resolved, err := c.syncExisting(dir, ref, opts)
 		if err == nil {
 			return resolved, nil
@@ -43,10 +51,60 @@ func (c *Client) Sync(url, dir, ref string, opts SyncOptions) (string, error) {
 		return c.cloneAndResolve(url, dir, ref, opts)
 	}
 
+	if err := c.ensureRemovableCache(dir); err != nil {
+		return "", err
+	}
 	if err := os.RemoveAll(dir); err != nil {
 		return "", err
 	}
 	return c.cloneAndResolve(url, dir, ref, opts)
+}
+
+// ensureCleanCache 在 reset --hard / clean -fd 之前确认缓存目录没有本地改动。
+// 缓存目录可能被 link 安装的项目目录直接编辑，因此不能无条件丢弃内容。
+func (c *Client) ensureCleanCache(dir string) error {
+	out, err := c.runQuiet(dir, "status", "--porcelain")
+	if err != nil {
+		return err
+	}
+	entries := strings.Split(strings.TrimSpace(out), "\n")
+	if len(entries) == 1 && entries[0] == "" {
+		return nil
+	}
+	return fmt.Errorf("%w: %s (%d changed entries: %s); commit or discard them before syncing",
+		ErrDirtyCache, dir, len(entries), strings.Join(previewEntries(entries, 3), ", "))
+}
+
+// ensureRemovableCache 在删除缓存目录前确认它不是带有本地改动的 git 工作区。
+func (c *Client) ensureRemovableCache(dir string) error {
+	if !c.isWorkTree(dir) {
+		return nil
+	}
+	return c.ensureCleanCache(dir)
+}
+
+func (c *Client) isWorkTree(dir string) bool {
+	if _, err := os.Stat(dir); err != nil {
+		return false
+	}
+	_, err := c.runQuiet(dir, "rev-parse", "--is-inside-work-tree")
+	return err == nil
+}
+
+// previewEntries 只展示前 limit 条改动，避免错误信息过长。
+func previewEntries(entries []string, limit int) []string {
+	out := make([]string, 0, limit)
+	for _, entry := range entries {
+		entry = strings.TrimSpace(entry)
+		if entry == "" {
+			continue
+		}
+		out = append(out, entry)
+		if len(out) == limit {
+			break
+		}
+	}
+	return out
 }
 
 func (c *Client) canReuseCache(url, dir string) (bool, error) {

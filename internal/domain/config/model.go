@@ -2,6 +2,7 @@ package config
 
 import (
 	"slices"
+	"strings"
 
 	"github.com/inhere/skillc/internal/domain/profile"
 	"github.com/inhere/skillc/internal/domain/project"
@@ -54,6 +55,37 @@ func (c *Config) ResolveAgentTool(nameOrAlias string) (canonicalName string, too
 		}
 	}
 	return "", AgentToolConfig{}, false
+}
+
+// CanonicalAgentName 把 agent 名称/别名统一为正式名称。
+// 未注册的名称（目录名、自定义名称）原样返回，便于直接传给 ResolveInstallPath。
+func (c *Config) CanonicalAgentName(nameOrAlias string) string {
+	name := strings.TrimSpace(nameOrAlias)
+	if name == "" {
+		return ""
+	}
+	if canonical, _, ok := c.ResolveAgentTool(name); ok {
+		return canonical
+	}
+	return name
+}
+
+// CanonicalAgentNames 按逗号拆分并统一为正式名称，去重且保持首次出现顺序。
+func (c *Config) CanonicalAgentNames(value string) []string {
+	names := make([]string, 0)
+	seen := make(map[string]struct{})
+	for _, part := range strings.Split(value, ",") {
+		canonical := c.CanonicalAgentName(part)
+		if canonical == "" {
+			continue
+		}
+		if _, ok := seen[canonical]; ok {
+			continue
+		}
+		seen[canonical] = struct{}{}
+		names = append(names, canonical)
+	}
+	return names
 }
 
 func (atc *AgentToolConfig) GetUserDir() string {

@@ -55,3 +55,35 @@ func TestStore_SaveAndLoadRoundTrip(t *testing.T) {
 	assert.NoErr(t, err)
 	assert.Eq(t, want, got)
 }
+
+func TestStore_NormalizesAgentNamesOnLoadAndSave(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "skillc-install.lock")
+	store := NewStore().WithAgentResolver(func(name string) string {
+		switch name {
+		case "claude", "claude-code":
+			return "claude-code"
+		case "agents", "universal":
+			return "universal"
+		}
+		return name
+	})
+	projectPath := filepath.Join("/tmp", "project-a")
+
+	assert.NoErr(t, store.Save(path, lockpkg.File{
+		projectPath: {
+			{
+				SkillID: "hello-skill",
+				Agents:  []string{"claude", "claude-code", "agents"},
+			},
+		},
+	}))
+
+	loaded, err := store.Load(path)
+	assert.NoErr(t, err)
+	assert.Eq(t, []string{"claude-code", "universal"}, loaded[projectPath][0].Agents)
+
+	// 未注入 resolver 时保持原样，避免影响通用存储语义
+	raw, err := NewStore().Load(path)
+	assert.NoErr(t, err)
+	assert.Eq(t, []string{"claude-code", "universal"}, raw[projectPath][0].Agents)
+}

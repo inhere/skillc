@@ -13,7 +13,8 @@ func DefaultConfig() Config {
 				Dirname:    ".agents",
 				UserDir:    "~/.agents",
 				ProjectDir: ".agents",
-				Aliases:    []string{"universal"},
+				// agents 是历史/README 里使用的别名，统一归一化为 universal
+				Aliases: []string{"universal", "agents"},
 			},
 			"claude-code": {
 				Dirname:    ".claude",

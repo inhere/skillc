@@ -121,6 +121,8 @@ func (s *Service) WithRuntime(config cfg.Config, workDir string) *Service {
 	clone := *s
 	clone.config = config
 	clone.workDir = workDir
+	runtime := clone.runtimeConfig()
+	clone.store = clone.store.WithAgentResolver(runtime.CanonicalAgentName)
 	if !clone.installerExplicit {
 		mode := agentfs.NormalizeMode(strings.TrimSpace(config.InstallMode))
 		installer := agentfs.NewInstallerWithMode(mode)
@@ -274,6 +276,7 @@ func (s *Service) Install(item skill.Skill, agentName string, scope agent.Scope,
 
 // installInto installs a skill into the provided locks map without saving.
 func (s *Service) installInto(item skill.Skill, agentName string, scope agent.Scope, scopeKey string, targetRoot string, locks lockpkg.File, profileName string) (RuntimeRecord, error) {
+	agentName = s.canonicalAgent(agentName)
 	records := append([]lockpkg.Record(nil), locks[scopeKey]...)
 	now := s.now()
 	record := newLockRecord(item, agentName, profileName, now)
@@ -309,6 +312,7 @@ func (s *Service) installInto(item skill.Skill, agentName string, scope agent.Sc
 }
 
 func (s *Service) ReinstallAtPath(item skill.Skill, agentName string, scope agent.Scope, scopeKey string, targetPath string) (RuntimeRecord, error) {
+	agentName = s.canonicalAgent(agentName)
 	unlock, err := s.lockState()
 	if err != nil {
 		return RuntimeRecord{}, err
@@ -372,6 +376,7 @@ func (s *Service) PlanUninstall(req UninstallReq) (UninstallPlan, error) {
 	if agentName == "" {
 		agentName = agent.DefaultAgentName
 	}
+	agentName = s.canonicalAgent(agentName)
 	runtimeSvc := s.WithRuntime(s.runtimeConfig(), firstNonEmpty(req.WorkDir, s.runtimeWorkDir()))
 	locks, err := runtimeSvc.loadLockFile()
 	if err != nil {
@@ -457,6 +462,7 @@ func (s *Service) RunUninstall(req UninstallReq) (UninstallResult, error) {
 }
 
 func (s *Service) Uninstall(skillID string, agentName string, scope agent.Scope) error {
+	agentName = s.canonicalAgent(agentName)
 	unlock, err := s.lockState()
 	if err != nil {
 		return err
@@ -751,6 +757,12 @@ func sameInstallIdentity(current lockpkg.Record, next lockpkg.Record) bool {
 
 func installTargetPath(item skill.Skill, targetRoot string) string {
 	return filepath.Join(targetRoot, item.ID)
+}
+
+// canonicalAgent 把 agent 名称/别名统一为正式名称，保证 lock 记录和匹配都使用正式名。
+func (s *Service) canonicalAgent(name string) string {
+	runtime := s.runtimeConfig()
+	return runtime.CanonicalAgentName(name)
 }
 
 // findInstalledRecord 找出同一技能、同一来源的已安装记录，用于读取部署指纹。

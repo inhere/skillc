@@ -115,7 +115,7 @@ func (s *Service) ImportFromLock() (ImportResult, error) {
 	if err != nil {
 		return ImportResult{}, err
 	}
-	records, err := s.lockStore.Load(data.LockFile)
+	records, err := s.lockStore.WithAgentResolver(data.CanonicalAgentName).Load(data.LockFile)
 	if os.IsNotExist(err) {
 		return ImportResult{}, nil
 	}

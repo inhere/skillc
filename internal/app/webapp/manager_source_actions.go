@@ -222,7 +222,7 @@ func (m *Manager) sourceRemoveImpact(sourceID string) (sourceRemoveImpact, []str
 	if err != nil {
 		return sourceRemoveImpact{}, nil, err
 	}
-	records, err := loadLock(config.LockFile)
+	records, err := loadLock(config, config.LockFile)
 	if err != nil {
 		return sourceRemoveImpact{}, nil, err
 	}

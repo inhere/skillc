@@ -144,7 +144,7 @@ func (m *Manager) InstallMap() ([]ProjectInstall, error) {
 	if err != nil {
 		return nil, err
 	}
-	records, err := loadLock(config.LockFile)
+	records, err := loadLock(config, config.LockFile)
 	if err != nil {
 		return nil, err
 	}
@@ -156,7 +156,7 @@ func (m *Manager) VersionDrift() ([]VersionDriftGroup, error) {
 	if err != nil {
 		return nil, err
 	}
-	records, err := loadLock(config.LockFile)
+	records, err := loadLock(config, config.LockFile)
 	if err != nil {
 		return nil, err
 	}
@@ -222,8 +222,8 @@ func (m *Manager) config() (cfg.Config, error) {
 	return configapp.NewService(m.configFile, m.baseDir).Show()
 }
 
-func loadLock(path string) (lockpkg.File, error) {
-	records, err := lockstore.NewStore().Load(path)
+func loadLock(config cfg.Config, path string) (lockpkg.File, error) {
+	records, err := lockstore.NewStore().WithAgentResolver(config.CanonicalAgentName).Load(path)
 	if err == nil {
 		return records, nil
 	}

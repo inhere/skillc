@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"github.com/inhere/skillc/internal/app/apputil"
 	"github.com/inhere/skillc/internal/app/configapp"
@@ -204,7 +205,7 @@ func (s *Service) Run(req UpdateReq) (Result, error) {
 }
 
 func (s *Service) collectSelected(config cfg.Config, req UpdateReq, scope agent.Scope) ([]InstalledItem, []SkippedItem, error) {
-	records, err := s.loadRecords(config.LockFile)
+	records, err := s.loadRecords(config, config.LockFile)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -214,8 +215,8 @@ func (s *Service) collectSelected(config cfg.Config, req UpdateReq, scope agent.
 	return s.collectFromInstalledDirs(config, req.WorkDir, req.Agent, scope)
 }
 
-func (s *Service) loadRecords(path string) (lockpkg.File, error) {
-	records, err := s.lockStore.Load(path)
+func (s *Service) loadRecords(config cfg.Config, path string) (lockpkg.File, error) {
+	records, err := s.lockStore.WithAgentResolver(config.CanonicalAgentName).Load(path)
 	if err == nil {
 		return records, nil
 	}
@@ -238,7 +239,7 @@ func selectRecords(config cfg.Config, workDir string, records lockpkg.File, targ
 			continue
 		}
 		for _, record := range records[scopeKey] {
-			filteredAgents := filterAgents(record.Agents, agentName)
+			filteredAgents := filterAgents(config, record.Agents, agentName)
 			if len(filteredAgents) == 0 {
 				continue
 			}
@@ -506,16 +507,25 @@ func resolveInstalledPath(config cfg.Config, workDir string, scopeKey string, ag
 	return filepath.Join(targetRoot, record.SkillID), nil
 }
 
-func filterAgents(agents []string, agentName string) []string {
-	if agentName == "" {
-		return append([]string(nil), agents...)
+// filterAgents 按 agent 过滤记录；名称/别名统一为正式名称，支持逗号分隔的多选。
+func filterAgents(config cfg.Config, agents []string, agentName string) []string {
+	if strings.TrimSpace(agentName) == "" {
+		return config.CanonicalAgentNames(strings.Join(agents, ","))
 	}
-	for _, current := range agents {
-		if current == agentName {
-			return []string{current}
+	wanted := config.CanonicalAgentNames(agentName)
+	if len(wanted) == 0 {
+		return nil
+	}
+	selected := make([]string, 0, len(agents))
+	for _, current := range config.CanonicalAgentNames(strings.Join(agents, ",")) {
+		for _, name := range wanted {
+			if current == name {
+				selected = append(selected, current)
+				break
+			}
 		}
 	}
-	return nil
+	return selected
 }
 
 func sortedScopeKeys(records lockpkg.File) []string {

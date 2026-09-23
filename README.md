@@ -197,15 +197,15 @@ skillc update --check                # preview update candidates without install
 skillc update --interactive          # filter and multi-select update candidates
 skillc update --all-projects --check # preview registered project updates
 skillc update --all-projects --projects my-project,api --target go-pro --yes
-skillc update --force                # overwrite skills that have local changes (backup first)
-skillc update --merge                # merge upstream changes per file, keeping local edits
+skillc update --force                # overwrite the whole installed directory (backup first)
+skillc update --no-merge             # skip locally modified skills instead of merging them
 ```
 
 `update --check` and `status` report precise drift when the version is unchanged but the source metadata changed: Git sources compare resolved refs, and local sources compare directory-level checksums.
 
 ### Per-file merge
 
-Copy installs record a file manifest (`installed_files`) next to the deployed fingerprint, so `update --merge` can plan a three-way merge between the source content at install time, the installed directory, and the current source content:
+Copy installs record a file manifest (`installed_files`) next to the deployed fingerprint, so `update` plans a three-way merge by default between the source content at install time, the installed directory, and the current source content:
 
 | Local | Upstream | Result |
 |-------|----------|--------|
@@ -217,7 +217,7 @@ Copy installs record a file manifest (`installed_files`) next to the deployed fi
 | file deleted locally | - | stays deleted |
 | unchanged | deleted upstream | deleted |
 
-`update --merge --force` resolves conflicts in favour of upstream after backing up the whole installed directory. Skills without a manifest (installed by older versions, or link installs) fall back to the overwrite/backup behaviour.
+`update --merge --force` resolves conflicts in favour of upstream after backing up the whole installed directory. `--no-merge` disables merging (locally modified skills are skipped, `--force` overwrites them), and a bare `--force` keeps the whole-directory overwrite semantics. Skills without a manifest (installed by older versions, or link installs) fall back to the overwrite/backup behaviour.
 
 ### Local change protection
 
@@ -235,6 +235,15 @@ Git sources are synced by `git fetch` + `reset --hard` + `clean -fd` in the repo
 ### Project Registry and Cross-Project Updates
 
 `skillc project` registers local projects that are allowed to be managed by Web and `update --all-projects`. Cross-project updates only operate on registered projects; they do not blindly scan unknown lock entries. Use `skillc project add . --id <id>` or `skillc project import-lock`, inspect with `skillc update --all-projects --check`, then execute with `skillc update --all-projects --yes`.
+
+### `diff` — Installed vs source
+
+```bash
+skillc diff <skill-id>               # per-file table plus unified diffs
+skillc diff <skill-id> --no-patch    # file table only
+```
+
+`diff` compares the installed directory with the source skill directory using the recorded manifest and reports, per file, whether the local copy and the upstream copy changed relative to the install baseline (`same` / `modified` / `added` / `deleted` / `absent`). Conflicts — what `update --merge` would resolve by keeping local and writing `<file>.incoming` — are marked, and a `git diff --no-index` patch is printed for files present on both sides.
 
 ### `adopt` — Write local changes back to the source
 

@@ -58,3 +58,11 @@
 
 - [x] README（中英）、`docs/TODO.md`、设计文档 changelog。
 - [x] `gofmt`、`go vet ./...`、`go test ./...` 全绿 + CLI/Web 端到端冒烟。
+
+## 后续决策落地（2026-09-24）
+
+- [x] `update` 默认按文件合并（有 `installed_files` 的 copy 安装）；`--no-merge` 回到「跳过 + `--force` 整体覆盖」；
+      单独 `--force` 仍为整目录覆盖；`--merge --force` 冲突取上游。Web/跨项目同步透传 `no_merge`。
+- [x] 新增 `skillc diff <skill>`：逐文件状态表（same/modified/added/deleted/absent）+ 合并冲突标记
+      + `git diff --no-index` 补丁（`--no-patch` 只看表格）。
+- [ ] 行级三路合并（`git merge-file` + 基线 blob 缓存）暂不做，冲突频繁时再单开一期。

@@ -201,15 +201,15 @@ skillc update --check                   # 只预览更新候选，不安装
 skillc update --interactive             # 交互式过滤并多选可更新项
 skillc update --all-projects --check    # 预览已登记项目的更新候选
 skillc update --all-projects --projects my-project,api --target go-pro --yes
-skillc update --force                   # 覆盖含本地改动的 skill（覆盖前先备份）
-skillc update --merge                   # 按文件三方合并上游改动，保留本地改动
+skillc update --force                   # 整体覆盖安装目录（覆盖前先备份）
+skillc update --no-merge                # 关闭合并：跳过含本地改动的 skill
 ```
 
 `update --check` 和 `status` 会报告精确 drift：版本相同但来源元数据变化时，Git source 比较 resolved ref，本地 source 比较目录级 checksum。
 
 ### 按文件三方合并
 
-copy 模式安装会在 `installed_files` 里记录逐文件哈希，`update --merge` 据此在「安装时的源内容 / 安装目录现状 / 当前源内容」之间做三方合并：
+copy 模式安装会在 `installed_files` 里记录逐文件哈希，`update` 默认据此在「安装时的源内容 / 安装目录现状 / 当前源内容」之间做三方合并：
 
 | 本地 | 上游 | 结果 |
 |------|------|------|
@@ -221,7 +221,16 @@ copy 模式安装会在 `installed_files` 里记录逐文件哈希，`update --m
 | 本地删除 | - | 保持删除 |
 | 未改 | 上游删除 | 删除 |
 
-`update --merge --force` 会在整目录备份后按上游解决冲突。没有文件清单的 skill（旧版本安装或 link 安装）仍走原来的覆盖/备份语义。
+`update --merge --force` 会在整目录备份后按上游解决冲突；`--no-merge` 关闭合并（含本地改动的 skill 被跳过，`--force` 才整体覆盖）；单独 `--force` 仍是整目录覆盖。没有文件清单的 skill（旧版本安装或 link 安装）走原来的覆盖/备份语义。
+
+### `diff` — 安装目录 vs 源目录
+
+```bash
+skillc diff <skill-id>               # 逐文件表格 + 统一 diff
+skillc diff <skill-id> --no-patch    # 只看表格
+```
+
+`diff` 用记录的清单对比安装目录与源目录，逐文件给出本地/上游相对安装基线的状态（`same` / `modified` / `added` / `deleted` / `absent`），标出 `update --merge` 会判定为冲突（保留本地、上游写成 `<file>.incoming`）的文件，并对两侧都存在的文件输出 `git diff --no-index` 补丁。
 
 ### `adopt` — 把本地改动回写源
 

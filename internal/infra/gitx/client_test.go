@@ -61,6 +61,55 @@ func TestCloneCommandWithoutProgressLeavesWritersNil(t *testing.T) {
 	}
 }
 
+func TestCloneCommandShallowByDefault(t *testing.T) {
+	cmd := New("git").cloneCommand("https://example.com/repo.git", "/tmp/repo", "main", SyncOptions{})
+
+	assert.Contains(t, cmd.Args, "--single-branch")
+	assert.Contains(t, cmd.Args, "--no-tags")
+	assert.Eq(t, []string{"--depth", "1"}, argsAround(cmd.Args, "--depth"))
+}
+
+func TestCloneCommandFullHistory(t *testing.T) {
+	cmd := New("git").cloneCommand("https://example.com/repo.git", "/tmp/repo", "main", SyncOptions{FullHistory: true})
+
+	assert.NotContains(t, cmd.Args, "--single-branch")
+	assert.NotContains(t, cmd.Args, "--no-tags")
+	assert.NotContains(t, cmd.Args, "--depth")
+}
+
+func TestCloneCommandCustomDepth(t *testing.T) {
+	cmd := New("git").cloneCommand("https://example.com/repo.git", "/tmp/repo", "", SyncOptions{Depth: 5})
+
+	assert.Eq(t, []string{"--depth", "5"}, argsAround(cmd.Args, "--depth"))
+}
+
+func TestFetchCommandShallowByDefault(t *testing.T) {
+	cmd := New("git").fetchCommand("/tmp/repo", "v1.2.3", SyncOptions{})
+
+	assert.Contains(t, cmd.Args, "--no-tags")
+	assert.Eq(t, []string{"--depth", "1"}, argsAround(cmd.Args, "--depth"))
+	// only the requested ref is fetched
+	assert.Eq(t, "v1.2.3", cmd.Args[len(cmd.Args)-1])
+}
+
+func TestFetchCommandFullHistoryFetchesAllRefs(t *testing.T) {
+	cmd := New("git").fetchCommand("/tmp/repo", "v1.2.3", SyncOptions{FullHistory: true})
+
+	assert.NotContains(t, cmd.Args, "--depth")
+	assert.NotContains(t, cmd.Args, "--no-tags")
+	assert.Eq(t, "origin", cmd.Args[len(cmd.Args)-1])
+}
+
+// argsAround 返回 flag 及其后一个参数，便于断言 --depth N。
+func argsAround(args []string, flag string) []string {
+	for i, arg := range args {
+		if arg == flag && i+1 < len(args) {
+			return []string{arg, args[i+1]}
+		}
+	}
+	return nil
+}
+
 func TestRevParseCommandIgnoresProxyAndProgress(t *testing.T) {
 	client := New("git")
 	cmd := client.revParseHeadCommand("/tmp/repo")
@@ -229,6 +278,61 @@ func TestClient_SyncReusesCacheForTagRef(t *testing.T) {
 	assert.Eq(t, tagHead, resolved)
 	assert.Eq(t, tagHead, gitHead(t, cacheDir))
 	assertPathExists(t, marker)
+}
+
+// fileURL 把本地路径转成 `file://` URL。只有 file:// 传输真会执行 --depth，
+// 直接用本地路径 clone 时 git 会忽略 --depth。
+func fileURL(path string) string { return "file://" + filepath.ToSlash(path) }
+
+func TestClient_SyncShallowCloneKeepsOneCommit(t *testing.T) {
+	repo := newGitRemoteFixture(t)
+	_ = repo.commitFile(t, "README.md", "first\n", "initial commit")
+	_ = repo.commitFile(t, "README.md", "second\n", "update commit")
+	cacheDir := filepath.Join(t.TempDir(), "cache")
+
+	_, err := New("git").Sync(fileURL(repo.remoteDir), cacheDir, "main", SyncOptions{})
+	assert.NoErr(t, err)
+	assert.Eq(t, "true", runGit(t, cacheDir, "rev-parse", "--is-shallow-repository"))
+	assert.Eq(t, "1", runGit(t, cacheDir, "rev-list", "--count", "HEAD"))
+	// --no-tags: the tags of the remote are not cloned
+	assert.Eq(t, "", runGit(t, cacheDir, "tag"))
+	assertFileContent(t, filepath.Join(cacheDir, "README.md"), "second\n")
+}
+
+func TestClient_SyncFullHistoryKeepsHistoryAndTags(t *testing.T) {
+	remoteDir, _ := createRemoteRepoWithTag(t, "v1")
+	cacheDir := filepath.Join(t.TempDir(), "cache")
+
+	_, err := New("git").Sync(fileURL(remoteDir), cacheDir, "main", SyncOptions{FullHistory: true})
+	assert.NoErr(t, err)
+	assert.Eq(t, "false", runGit(t, cacheDir, "rev-parse", "--is-shallow-repository"))
+	assert.Contains(t, runGit(t, cacheDir, "tag"), "v1")
+}
+
+func TestClient_SyncSwitchesRefOnShallowCache(t *testing.T) {
+	repo := newGitRemoteFixture(t)
+	_ = repo.commitFile(t, "README.md", "first\n", "initial commit")
+
+	// a feature branch with its own commit
+	runGit(t, repo.workDir, "checkout", "-b", "feat")
+	writeFile(t, filepath.Join(repo.workDir, "FEAT.md"), "feat\n")
+	runGit(t, repo.workDir, "add", "FEAT.md")
+	runGit(t, repo.workDir, "commit", "-m", "feat commit")
+	runGit(t, repo.workDir, "push", "origin", "feat")
+	featHead := gitHead(t, repo.workDir)
+	runGit(t, repo.workDir, "checkout", "main")
+
+	cacheDir := filepath.Join(t.TempDir(), "cache")
+	client := New("git")
+
+	_, err := client.Sync(fileURL(repo.remoteDir), cacheDir, "main", SyncOptions{})
+	assert.NoErr(t, err)
+
+	resolved, err := client.Sync(fileURL(repo.remoteDir), cacheDir, "feat", SyncOptions{})
+	assert.NoErr(t, err)
+	assert.Eq(t, featHead, resolved)
+	assert.Eq(t, featHead, gitHead(t, cacheDir))
+	assertFileContent(t, filepath.Join(cacheDir, "FEAT.md"), "feat\n")
 }
 
 type gitRemoteFixture struct {

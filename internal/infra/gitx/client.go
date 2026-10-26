@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 )
 
@@ -15,7 +16,25 @@ type SyncOptions struct {
 	Progress io.Writer
 	Quiet    bool
 	Verbose  bool
+
+	// Depth limits how much history is cloned and fetched. 0 means the default(1),
+	// which keeps only the newest commit of the branch/tag that is needed.
+	Depth int
+	// FullHistory disables the shallow clone and fetch: the whole history and all the
+	// tags of the remote are downloaded. Use it when a source needs the git history.
+	FullHistory bool
 }
+
+// depth returns the history depth for the clone and fetch.
+func (o SyncOptions) depth() int {
+	if o.Depth > 0 {
+		return o.Depth
+	}
+	return 1
+}
+
+// shallow reports whether the clone and fetch should be shallow.
+func (o SyncOptions) shallow() bool { return !o.FullHistory }
 
 type Client struct {
 	bin string
@@ -132,14 +151,25 @@ func (c *Client) canReuseCache(url, dir string) (bool, error) {
 }
 
 func (c *Client) syncExisting(dir, ref string, opts SyncOptions) (string, error) {
-	if err := c.runCommand(c.fetchCommand(dir, opts), "git fetch failed"); err != nil {
+	if err := c.runCommand(c.fetchCommand(dir, ref, opts), "git fetch failed"); err != nil {
 		return "", err
 	}
 
 	target, err := c.resolveTarget(dir, ref)
+	if err != nil && opts.shallow() {
+		// 浅拉取时目标 ref 可能不在已拉取的范围内(比如直接给的 commit id)，
+		// 退回完整 fetch 再试一次。
+		full := opts
+		full.FullHistory = true
+		if fErr := c.runCommand(c.fetchCommand(dir, ref, full), "git fetch failed"); fErr != nil {
+			return "", fErr
+		}
+		target, err = c.resolveTarget(dir, ref)
+	}
 	if err != nil {
 		return "", err
 	}
+
 	if _, err := c.runQuiet(dir, "reset", "--hard", target); err != nil {
 		return "", fmt.Errorf("git reset failed: %s", err.Error())
 	}
@@ -172,6 +202,11 @@ func (c *Client) cloneCommand(url, dir, ref string, opts SyncOptions) *exec.Cmd 
 	if opts.Progress != nil {
 		args = append(args, "--progress")
 	}
+	if opts.shallow() {
+		// 工具仓库的历史和 tag 往往很大，而 skillc 只用工作区文件(不做 log/blame)，
+		// 所以只拉当前需要的那个分支/标签的最近一次提交。
+		args = append(args, "--depth", strconv.Itoa(opts.depth()), "--single-branch", "--no-tags")
+	}
 	if ref != "" {
 		args = append(args, "--branch", ref)
 	}
@@ -188,12 +223,19 @@ func (c *Client) cloneCommand(url, dir, ref string, opts SyncOptions) *exec.Cmd 
 	return cmd
 }
 
-func (c *Client) fetchCommand(dir string, opts SyncOptions) *exec.Cmd {
-	args := []string{"-C", dir, "fetch", "--prune"}
+func (c *Client) fetchCommand(dir, ref string, opts SyncOptions) *exec.Cmd {
+	args := []string{"-C", dir, "fetch"}
 	if opts.Progress != nil {
 		args = append(args, "--progress")
 	}
-	args = append(args, "origin")
+	if opts.shallow() {
+		args = append(args, "--depth", strconv.Itoa(opts.depth()), "--no-tags")
+	}
+	args = append(args, "--prune", "origin")
+	if opts.shallow() && ref != "" {
+		// 只拉需要的那个分支/标签，不拉远端的全部 ref
+		args = append(args, ref)
+	}
 
 	cmd := exec.Command(c.bin, args...)
 	if len(opts.ProxyURL) > 0 {

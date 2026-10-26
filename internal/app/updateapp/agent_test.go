@@ -5,7 +5,7 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/gookit/goutil/testutil/assert"
+	"github.com/gookit/goutil/x/assert"
 	"github.com/inhere/skillc/internal/app/installapp"
 	"github.com/inhere/skillc/internal/domain/agent"
 	cfg "github.com/inhere/skillc/internal/domain/config"

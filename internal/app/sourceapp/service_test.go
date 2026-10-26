@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gookit/goutil/testutil/assert"
+	"github.com/gookit/goutil/x/assert"
 	"github.com/inhere/skillc/internal/app/configapp"
 	"github.com/inhere/skillc/internal/app/searchapp"
 	"github.com/inhere/skillc/internal/domain/source"

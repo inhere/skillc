@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gookit/goutil/testutil/assert"
+	"github.com/gookit/goutil/x/assert"
 	"github.com/inhere/skillc/internal/domain/agent"
 	"github.com/inhere/skillc/internal/domain/config"
 	lockpkg "github.com/inhere/skillc/internal/domain/lock"

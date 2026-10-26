@@ -3,7 +3,7 @@ package install
 import (
 	"testing"
 
-	"github.com/gookit/goutil/testutil/assert"
+	"github.com/gookit/goutil/x/assert"
 )
 
 func TestDetectConflict_ReportsExistingTarget(t *testing.T) {

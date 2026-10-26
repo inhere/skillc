@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/gookit/goutil/testutil/assert"
+	"github.com/gookit/goutil/x/assert"
 	"github.com/inhere/skillc/internal/app/apputil"
 	"github.com/inhere/skillc/internal/app/installapp"
 	"github.com/inhere/skillc/internal/domain/agent"

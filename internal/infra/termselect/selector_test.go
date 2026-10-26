@@ -6,7 +6,7 @@ import (
 
 	"github.com/gookit/cliui/interact"
 	"github.com/gookit/cliui/interact/backend"
-	"github.com/gookit/goutil/testutil/assert"
+	"github.com/gookit/goutil/x/assert"
 )
 
 func TestCliUISelectorSelectMultiWithFilter(t *testing.T) {

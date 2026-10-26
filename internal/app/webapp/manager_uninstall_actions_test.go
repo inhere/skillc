@@ -3,7 +3,7 @@ package webapp
 import (
 	"testing"
 
-	"github.com/gookit/goutil/testutil/assert"
+	"github.com/gookit/goutil/x/assert"
 )
 
 func TestManager_PlanUninstall(t *testing.T) {

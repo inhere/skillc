@@ -3,7 +3,7 @@ package profile
 import (
 	"testing"
 
-	"github.com/gookit/goutil/testutil/assert"
+	"github.com/gookit/goutil/x/assert"
 )
 
 func TestValidateName(t *testing.T) {

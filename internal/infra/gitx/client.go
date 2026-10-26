@@ -1,6 +1,7 @@
 package gitx
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -223,20 +224,34 @@ func (c *Client) resolveTarget(dir, ref string) (string, error) {
 
 // DiffNoIndex 用 `git diff --no-index` 生成两个文件/目录的统一 diff。
 // 两边内容不同时 git 的退出码是 1，这里视为正常结果。
+//
+// NOTE: stdout(补丁)与 stderr(警告)需分开收集：core.autocrlf=true 时 git 会向
+// stderr 输出 “LF will be replaced by CRLF” 类警告，混进补丁里就是脏数据。
 func (c *Client) DiffNoIndex(left string, right string) (string, error) {
 	if _, err := exec.LookPath(c.bin); err != nil {
 		return "", fmt.Errorf("git executable not found: %w", err)
 	}
 	cmd := exec.Command(c.bin, "diff", "--no-index", "--no-color", "--unified=3", "--", left, right)
-	out, err := cmd.CombinedOutput()
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
 	if err != nil {
 		var exitErr *exec.ExitError
+		// the two files are different, git exits with 1, it's a normal result
 		if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 {
-			return string(out), nil
+			return stdout.String(), nil
 		}
-		return "", fmt.Errorf("git diff failed: %s", strings.TrimSpace(string(out)))
+
+		msg := strings.TrimSpace(stderr.String())
+		if msg == "" {
+			msg = strings.TrimSpace(stdout.String())
+		}
+		return "", fmt.Errorf("git diff failed: %s", msg)
 	}
-	return string(out), nil
+	return stdout.String(), nil
 }
 
 // Pull runs `git pull` in the given directory and returns the resolved HEAD.

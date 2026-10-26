@@ -422,6 +422,26 @@ func TestClient_DiffNoIndexReturnsEmptyForIdenticalFiles(t *testing.T) {
 	assert.Eq(t, "", patch)
 }
 
+// the windows CI runner sets core.autocrlf=true, git then prints a warning to stderr.
+// the warning must not leak into the returned patch.
+func TestClient_DiffNoIndexIgnoresStderrWarnings(t *testing.T) {
+	requireGit(t)
+	t.Setenv("GIT_CONFIG_COUNT", "1")
+	t.Setenv("GIT_CONFIG_KEY_0", "core.autocrlf")
+	t.Setenv("GIT_CONFIG_VALUE_0", "true")
+
+	baseDir := t.TempDir()
+	left := filepath.Join(baseDir, "left.md")
+	right := filepath.Join(baseDir, "right.md")
+	writeFile(t, left, "same\n")
+	writeFile(t, right, "same\n")
+
+	patch, err := New("git").DiffNoIndex(left, right)
+	assert.NoErr(t, err)
+	assert.Eq(t, "", patch)
+	assert.NotContains(t, patch, "warning:")
+}
+
 func TestClient_DiffNoIndexWithoutGitBinary(t *testing.T) {
 	_, err := New("__missing_git__").DiffNoIndex("a", "b")
 	assert.Error(t, err)

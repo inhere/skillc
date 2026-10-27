@@ -340,11 +340,20 @@ func (c *Client) runQuiet(dir string, args ...string) (string, error) {
 	cmdArgs = append(cmdArgs, args...)
 
 	cmd := exec.Command(c.bin, cmdArgs...)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return "", fmt.Errorf("%s", string(out))
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		// 只用 stderr 作为错误信息，stdout 是要解析的值(会被警告污染)
+		msg := strings.TrimSpace(stderr.String())
+		if msg == "" {
+			msg = strings.TrimSpace(stdout.String())
+		}
+		return "", fmt.Errorf("%s", msg)
 	}
-	return trimOutput(string(out)), nil
+	return trimOutput(stdout.String()), nil
 }
 
 func (c *Client) runCommand(cmd *exec.Cmd, prefix string) error {

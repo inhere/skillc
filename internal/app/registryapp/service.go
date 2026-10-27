@@ -252,7 +252,7 @@ func (s *Service) MaterializeSkill(selector string) (skill.Skill, error) {
 		return skill.Skill{}, err
 	}
 	targetDir := filepath.Join(data.RegistryCacheDir, "skills", entry.RegistryID, entry.ID, safeVersion(entry.Version))
-	return newMaterializer(nil).Materialize(entry, targetDir, gitx.SyncOptions{ProxyURL: data.ProxyURL})
+	return newMaterializer(nil).Materialize(entry, targetDir, gitx.SyncOptions{ProxyURL: data.ProxyURL, FullHistory: data.GitFullHistory})
 }
 
 func (s *Service) AddSource(req AddSourceReq) (source.Source, error) {

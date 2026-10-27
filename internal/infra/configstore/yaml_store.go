@@ -50,6 +50,8 @@ type registryRecord struct {
 
 type rawConfig struct {
 	ProxyURL string `yaml:"proxy_url"`
+	// GitFullHistory 关闭默认的浅克隆。
+	GitFullHistory bool `yaml:"git_full_history"`
 	// AgentTools is the agent tools config.
 	AgentTools  map[string]cfg.AgentToolConfig `yaml:"agent_tools"`
 	InstallMode string                         `yaml:"install_mode"`
@@ -129,6 +131,7 @@ func (s *YAMLStore) Save(path string, data cfg.Config, runtimeBaseDir ...string)
 	loader := newYamlLoader()
 	out := map[string]any{
 		"proxy_url":          persisted.ProxyURL,
+		"git_full_history":   persisted.GitFullHistory,
 		"agent_tools":        persisted.AgentTools,
 		"install_mode":       persisted.InstallMode,
 		"lock_file":          persisted.LockFile,
@@ -554,6 +557,7 @@ func fromRawConfig(raw rawConfig) (cfg.Config, error) {
 	}
 	return cfg.Config{
 		ProxyURL:         raw.ProxyURL,
+		GitFullHistory:   raw.GitFullHistory,
 		AgentTools:       raw.AgentTools,
 		InstallMode:      raw.InstallMode,
 		LockFile:         raw.LockFile,

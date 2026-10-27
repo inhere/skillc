@@ -2,6 +2,8 @@ package configapp
 
 import (
 	"errors"
+	"strconv"
+	"strings"
 
 	cfg "github.com/inhere/skillc/internal/domain/config"
 	"github.com/inhere/skillc/internal/infra/configstore"
@@ -42,6 +44,11 @@ func (s *Service) Get(key string) (string, error) {
 	switch key {
 	case "proxy_url":
 		return data.ProxyURL, nil
+	case "git_full_history":
+		if data.GitFullHistory {
+			return "true", nil
+		}
+		return "false", nil
 	case "lock_file":
 		return data.LockFile, nil
 	case "repo_cache_dir":
@@ -68,6 +75,12 @@ func (s *Service) Set(key string, value string) error {
 	switch key {
 	case "proxy_url":
 		data.ProxyURL = value
+	case "git_full_history":
+		enabled, err := strconv.ParseBool(strings.TrimSpace(value))
+		if err != nil {
+			return errors.New("git_full_history must be a bool value(eg: true), got: " + value)
+		}
+		data.GitFullHistory = enabled
 	case "lock_file":
 		data.LockFile = value
 	case "repo_cache_dir":

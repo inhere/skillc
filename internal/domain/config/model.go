@@ -16,6 +16,8 @@ const (
 
 type Config struct {
 	ProxyURL string `yaml:"proxy_url"`
+	// GitFullHistory 关闭默认的浅克隆，拉取完整历史与 tag(自建 git 服务不支持浅拉取时使用)。
+	GitFullHistory bool `yaml:"git_full_history"`
 	// AgentTools is the agent tools config.
 	//  - 通用的key universal 必定存在
 	AgentTools map[string]AgentToolConfig `yaml:"agent_tools"`

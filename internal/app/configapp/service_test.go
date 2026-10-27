@@ -41,6 +41,20 @@ func TestService_InitShowGetSet(t *testing.T) {
 	assert.NoErr(t, err)
 	assert.Eq(t, "http://localhost:7890", proxyURL)
 
+	// the default shallow clone can be turned off through the config
+	fullHistory, err := service.Get("git_full_history")
+	assert.NoErr(t, err)
+	assert.Eq(t, "false", fullHistory)
+
+	assert.NoErr(t, service.Set("git_full_history", "true"))
+	fullHistory, err = service.Get("git_full_history")
+	assert.NoErr(t, err)
+	assert.Eq(t, "true", fullHistory)
+
+	err = service.Set("git_full_history", "maybe")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "git_full_history must be a bool value")
+
 	err = service.Set("index_file", filepath.Join(baseDir, "custom-index.json"))
 	assert.NoErr(t, err)
 

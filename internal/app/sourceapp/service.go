@@ -352,7 +352,7 @@ func (s *Service) Sync(id string) error {
 }
 
 func (s *Service) gitSyncOptions(data cfg.Config) gitx.SyncOptions {
-	opts := gitx.SyncOptions{ProxyURL: data.ProxyURL}
+	opts := gitx.SyncOptions{ProxyURL: data.ProxyURL, FullHistory: data.GitFullHistory}
 	if s.isInteractive != nil && s.isInteractive() {
 		opts.Progress = s.progressWriter
 	}

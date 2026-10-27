@@ -284,6 +284,52 @@ func TestClient_SyncReusesCacheForTagRef(t *testing.T) {
 // 直接用本地路径 clone 时 git 会忽略 --depth。
 func fileURL(path string) string { return "file://" + filepath.ToSlash(path) }
 
+func TestCloneCommandSparse(t *testing.T) {
+	client := New("git")
+	cmd := client.cloneCommand("https://example.com/big-repo.git", "/tmp/repo", "main", SyncOptions{Paths: []string{"skills/demo"}})
+
+	assert.Contains(t, cmd.Args, "--no-checkout")
+	assert.Contains(t, cmd.Args, "--sparse")
+	assert.Contains(t, cmd.Args, "--filter=blob:none")
+
+	// a server without partial clone support: the retry drops the blob filter
+	full := SyncOptions{Paths: []string{"skills/demo"}, noBlobFilter: true}
+	retry := client.cloneCommand("https://example.com/big-repo.git", "/tmp/repo", "main", full)
+	assert.NotContains(t, retry.Args, "--filter=blob:none")
+	assert.Contains(t, retry.Args, "--sparse")
+}
+
+func TestClient_SyncSparseChecksOutOnlyPaths(t *testing.T) {
+	repo := newGitRemoteFixture(t)
+	_ = repo.commitFile(t, "skills/demo/SKILL.md", "demo\n", "add demo skill")
+	_ = repo.commitFile(t, "skills/other/SKILL.md", "other\n", "add other skill")
+	cacheDir := filepath.Join(t.TempDir(), "cache")
+
+	_, err := New("git").Sync(fileURL(repo.remoteDir), cacheDir, "main", SyncOptions{Paths: []string{"skills/demo"}})
+	assert.NoErr(t, err)
+	assertFileContent(t, filepath.Join(cacheDir, "skills", "demo", "SKILL.md"), "demo\n")
+	// the other sub dir is not materialized
+	assertPathMissing(t, filepath.Join(cacheDir, "skills", "other"))
+	assert.Contains(t, runGit(t, cacheDir, "sparse-checkout", "list"), "skills/demo")
+}
+
+func TestClient_SyncSparseUpdatesOnIncrementalSync(t *testing.T) {
+	repo := newGitRemoteFixture(t)
+	_ = repo.commitFile(t, "skills/demo/SKILL.md", "demo\n", "add demo skill")
+	cacheDir := filepath.Join(t.TempDir(), "cache")
+	client := New("git")
+	opts := SyncOptions{Paths: []string{"skills/demo"}}
+
+	_, err := client.Sync(fileURL(repo.remoteDir), cacheDir, "main", opts)
+	assert.NoErr(t, err)
+
+	want := repo.commitFile(t, "skills/demo/SKILL.md", "demo v2\n", "update demo skill")
+	resolved, err := client.Sync(fileURL(repo.remoteDir), cacheDir, "main", opts)
+	assert.NoErr(t, err)
+	assert.Eq(t, want, resolved)
+	assertFileContent(t, filepath.Join(cacheDir, "skills", "demo", "SKILL.md"), "demo v2\n")
+}
+
 func TestClient_SyncShallowCloneKeepsOneCommit(t *testing.T) {
 	repo := newGitRemoteFixture(t)
 	_ = repo.commitFile(t, "README.md", "first\n", "initial commit")

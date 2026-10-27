@@ -23,6 +23,13 @@ type SyncOptions struct {
 	// FullHistory disables the shallow clone and fetch: the whole history and all the
 	// tags of the remote are downloaded. Use it when a source needs the git history.
 	FullHistory bool
+	// Paths lists the sub directories to check out(sparse checkout). Empty checks out the
+	// whole worktree. Use it when only one skill dir of a big repo is needed.
+	Paths []string
+
+	// noBlobFilter disables the --filter=blob:none flag of the clone, used to retry
+	// when a git server does not support the partial clone.
+	noBlobFilter bool
 }
 
 // depth returns the history depth for the clone and fetch.
@@ -35,6 +42,9 @@ func (o SyncOptions) depth() int {
 
 // shallow reports whether the clone and fetch should be shallow.
 func (o SyncOptions) shallow() bool { return !o.FullHistory }
+
+// sparse reports whether only a part of the worktree should be checked out.
+func (o SyncOptions) sparse() bool { return len(o.Paths) > 0 }
 
 type Client struct {
 	bin string
@@ -155,6 +165,13 @@ func (c *Client) syncExisting(dir, ref string, opts SyncOptions) (string, error)
 		return "", err
 	}
 
+	if opts.sparse() {
+		// 缓存可能是之前全量检出的，reset 之前先收敛到需要的子目录
+		if err := c.sparseCheckoutSet(dir, opts.Paths); err != nil {
+			return "", err
+		}
+	}
+
 	target, err := c.resolveTarget(dir, ref)
 	if err != nil && opts.shallow() {
 		// 浅拉取时目标 ref 可能不在已拉取的范围内(比如直接给的 commit id)，
@@ -185,9 +202,30 @@ func (c *Client) syncExisting(dir, ref string, opts SyncOptions) (string, error)
 }
 
 func (c *Client) cloneAndResolve(url, dir, ref string, opts SyncOptions) (string, error) {
-	cmd := c.cloneCommand(url, dir, ref, opts)
-	if err := c.runCommand(cmd, "git clone failed"); err != nil {
-		return "", err
+	if err := c.runCommand(c.cloneCommand(url, dir, ref, opts), "git clone failed"); err != nil {
+		if !opts.sparse() || opts.noBlobFilter {
+			return "", err
+		}
+
+		// 有些自建 git 服务不支持 partial clone(--filter)，去掉后再试一次
+		if rmErr := os.RemoveAll(dir); rmErr != nil {
+			return "", rmErr
+		}
+		retry := opts
+		retry.noBlobFilter = true
+		if rErr := c.runCommand(c.cloneCommand(url, dir, ref, retry), "git clone failed"); rErr != nil {
+			return "", rErr
+		}
+	}
+
+	if opts.sparse() {
+		// clones with --no-checkout --sparse, materialize the wanted sub paths
+		if err := c.sparseCheckoutSet(dir, opts.Paths); err != nil {
+			return "", err
+		}
+		if _, err := c.runQuiet(dir, "checkout"); err != nil {
+			return "", fmt.Errorf("git checkout failed: %s", err.Error())
+		}
 	}
 
 	resolved, err := c.revParseHead(dir)
@@ -206,6 +244,14 @@ func (c *Client) cloneCommand(url, dir, ref string, opts SyncOptions) *exec.Cmd 
 		// 工具仓库的历史和 tag 往往很大，而 skillc 只用工作区文件(不做 log/blame)，
 		// 所以只拉当前需要的那个分支/标签的最近一次提交。
 		args = append(args, "--depth", strconv.Itoa(opts.depth()), "--single-branch", "--no-tags")
+	}
+	if opts.sparse() {
+		// 只检出需要的子目录：--no-checkout 待 sparse-checkout set 之后再 checkout
+		args = append(args, "--no-checkout", "--sparse")
+		if !opts.noBlobFilter {
+			// 不要一开始就下载全部 blob，checkout 时按需再拉
+			args = append(args, "--filter=blob:none")
+		}
 	}
 	if ref != "" {
 		args = append(args, "--branch", ref)
@@ -354,6 +400,16 @@ func (c *Client) runQuiet(dir string, args ...string) (string, error) {
 		return "", fmt.Errorf("%s", msg)
 	}
 	return trimOutput(stdout.String()), nil
+}
+
+// sparseCheckoutSet 设置要检出的子目录(cone 模式)。
+// 它会替换已有的列表，所以同一缓存再次同步时直接传入最新的路径即可。
+func (c *Client) sparseCheckoutSet(dir string, paths []string) error {
+	args := append([]string{"sparse-checkout", "set", "--cone"}, paths...)
+	if _, err := c.runQuiet(dir, args...); err != nil {
+		return fmt.Errorf("git sparse-checkout failed: %s", err.Error())
+	}
+	return nil
 }
 
 func (c *Client) runCommand(cmd *exec.Cmd, prefix string) error {

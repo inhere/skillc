@@ -66,3 +66,11 @@ func TestMaterializer_MaterializeDownloadURLArchive(t *testing.T) {
 	assert.Eq(t, archivePath, got.DownloadURL)
 	assert.FileExists(t, filepath.Join(targetRoot, "skills", "go-pro", "SKILL.md"))
 }
+
+func TestSparsePaths(t *testing.T) {
+	assert.Nil(t, sparsePaths(""))
+	assert.Nil(t, sparsePaths("."))
+	assert.Nil(t, sparsePaths("/"))
+	assert.Eq(t, []string{"skills/go-pro"}, sparsePaths("skills/go-pro"))
+	assert.Eq(t, []string{"skills/go-pro"}, sparsePaths("/skills/go-pro/"))
+}

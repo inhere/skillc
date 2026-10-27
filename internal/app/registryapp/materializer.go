@@ -32,6 +32,11 @@ func (m *materializer) Materialize(entry registry.SkillEntry, targetDir string, 
 	resolvedRef := ""
 	if strings.TrimSpace(entry.SourceURL) != "" {
 		if sourceapp.IsGitURL(entry.SourceURL) {
+			// 工具仓库往往很大，只检出 skill 所在的子目录
+			if paths := sparsePaths(entry.InstallEntry); len(paths) > 0 {
+				opts.Paths = paths
+			}
+
 			ref, err := m.git.Sync(entry.SourceURL, targetDir, entry.SourceRef, opts)
 			if err != nil {
 				return skill.Skill{}, err
@@ -58,6 +63,15 @@ func (m *materializer) Materialize(entry registry.SkillEntry, targetDir string, 
 	}
 	item.SourceResolvedRef = resolvedRef
 	return item, nil
+}
+
+// sparsePaths 返回只需要检出的子目录。skill 位于仓库根目录时返回 nil，需要整个工作区。
+func sparsePaths(installEntry string) []string {
+	entry := strings.Trim(strings.TrimSpace(installEntry), "/")
+	if entry == "" || entry == "." {
+		return nil
+	}
+	return []string{entry}
 }
 
 func copyLocalSourceSnapshot(sourceURL string, targetDir string) error {

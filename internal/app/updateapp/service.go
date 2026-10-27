@@ -174,7 +174,7 @@ func (s *Service) Run(req UpdateReq) (Result, error) {
 	result.Candidates, result.UpdateFailed = s.collectCandidates(selected, items, result.SyncFailed)
 	result.Failed = append(result.Failed, failedFromSync(selected, result.SyncFailed)...)
 	for _, item := range result.UpdateFailed {
-		result.Failed = append(result.Failed, FailedItem{SkillID: item.SkillID, Reason: item.Reason})
+		result.Failed = append(result.Failed, FailedItem(item))
 	}
 
 	worker := s.newInstaller(config.LockFile, config, req.Force)

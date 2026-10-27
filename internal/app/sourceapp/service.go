@@ -27,12 +27,6 @@ type localPuller interface {
 	Pull(dir string, opts gitx.SyncOptions) (string, error)
 }
 
-type gitRunnerFunc func(url, dir, ref string, opts gitx.SyncOptions) (string, error)
-
-func (f gitRunnerFunc) Sync(url, dir, ref string, opts gitx.SyncOptions) (string, error) {
-	return f(url, dir, ref, opts)
-}
-
 type Service struct {
 	configFile     string
 	baseDir        string

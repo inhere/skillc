@@ -408,28 +408,9 @@ func createRemoteRepoWithTag(t *testing.T, tag string) (string, string) {
 	return remoteDir, head
 }
 
-func advanceRemoteMain(t *testing.T, remoteDir string, content string) string {
-	t.Helper()
-	workDir := filepath.Join(t.TempDir(), "work")
-	runGit(t, t.TempDir(), "clone", remoteDir, workDir)
-	runGit(t, workDir, "checkout", "main")
-	runGit(t, workDir, "config", "user.name", "Test User")
-	runGit(t, workDir, "config", "user.email", "test@example.com")
-	writeFile(t, filepath.Join(workDir, "README.md"), content+"\n")
-	runGit(t, workDir, "add", "README.md")
-	runGit(t, workDir, "commit", "-m", content)
-	runGit(t, workDir, "push", "origin", "main")
-	return gitHead(t, workDir)
-}
-
 func gitHead(t *testing.T, dir string) string {
 	t.Helper()
 	return trimOutput(runGit(t, dir, "rev-parse", "HEAD"))
-}
-
-func gitRemoteURL(t *testing.T, dir string) string {
-	t.Helper()
-	return trimOutput(runGit(t, dir, "remote", "get-url", "origin"))
 }
 
 func assertPathExists(t *testing.T, path string) {

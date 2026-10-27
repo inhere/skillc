@@ -294,23 +294,6 @@ func resolveCollectionTargets(items []skill.Skill, target string) ([]skill.Skill
 	return matches, nil
 }
 
-func resolveSkillIDPrefix(items []skill.Skill, prefix string, target string) ([]skill.Skill, error) {
-	if prefix == "" {
-		return nil, fmt.Errorf("skill not found: %s", target)
-	}
-
-	matches := make([]skill.Skill, 0)
-	for _, item := range items {
-		if strings.HasPrefix(item.ID, prefix) {
-			matches = append(matches, item)
-		}
-	}
-	if len(matches) == 0 {
-		return nil, fmt.Errorf("skill not found: %s", target)
-	}
-	return matches, nil
-}
-
 func skillIdentityKey(item skill.Skill) string {
 	if item.SourceQualifiedName != "" {
 		return item.SourceQualifiedName

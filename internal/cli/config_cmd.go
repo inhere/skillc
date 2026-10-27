@@ -1,16 +1,15 @@
 package cli
 
 import (
-	"github.com/gookit/gcli/v3"
 	"github.com/gookit/cliui/show"
+	"github.com/gookit/gcli/v3"
 	"github.com/gookit/goutil/x/ccolor"
 )
 
-
 func buildConfigCommand() *gcli.Command {
 	cmd := &gcli.Command{
-		Name: "config",
-		Desc: "Manage Skillc configuration",
+		Name:    "config",
+		Desc:    "Manage Skillc configuration",
 		Aliases: []string{"cfg"},
 	}
 

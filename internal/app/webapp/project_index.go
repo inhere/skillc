@@ -236,28 +236,6 @@ func projectInstallKey(item ProjectInstall) string {
 	return item.SkillID
 }
 
-func latestVersionByInstallKey(index []skill.Skill) map[string]string {
-	latestSkills := latestSkillByInstallKey(index)
-	result := make(map[string]string, len(latestSkills))
-	for alias, item := range latestSkills {
-		if item.Version != "" {
-			result[alias] = item.Version
-		}
-	}
-	return result
-}
-
-func latestSkillByInstallKey(index []skill.Skill) map[string]skill.Skill {
-	resolver := newInstallIdentityResolver(index)
-	result := make(map[string]skill.Skill, len(resolver.canonicalByAlias))
-	for alias, primaryKey := range resolver.canonicalByAlias {
-		if latest, ok := resolver.latestByPrimary[primaryKey]; ok {
-			result[alias] = latest
-		}
-	}
-	return result
-}
-
 func compareVersionParts(current string, next string) int {
 	if current == next {
 		return 0

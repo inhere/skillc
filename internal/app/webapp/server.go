@@ -103,7 +103,7 @@ func (s *Server) Serve(item skill.Skill, port int) error {
 			return
 		}
 
-    // read file content
+		// read file content
 		content, err := os.ReadFile(abs)
 		if err != nil {
 			resp.Error = err.Error()

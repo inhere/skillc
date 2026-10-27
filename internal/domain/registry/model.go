@@ -53,11 +53,11 @@ type SkillEntry struct {
 	SourceRef       string   `json:"source_ref,omitempty"`
 	DownloadURL     string   `json:"download_url,omitempty"`
 	InstallEntry    string   `json:"install_entry,omitempty"`
-	Checksum         string   `json:"checksum,omitempty"`
+	Checksum        string   `json:"checksum,omitempty"`
 	Tags            []string `json:"tags,omitempty"`
-	Homepage         string   `json:"homepage,omitempty"`
-	RegistryID       string   `json:"registry_id,omitempty"`
-	RegistryURL      string   `json:"registry_url,omitempty"`
+	Homepage        string   `json:"homepage,omitempty"`
+	RegistryID      string   `json:"registry_id,omitempty"`
+	RegistryURL     string   `json:"registry_url,omitempty"`
 }
 
 func New(id string, name string, value string) (Registry, error) {

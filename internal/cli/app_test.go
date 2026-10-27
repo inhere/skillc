@@ -13,7 +13,6 @@ import (
 
 	"github.com/gookit/gcli/v3"
 	"github.com/gookit/goutil/x/assert"
-	xassert "github.com/gookit/goutil/x/assert"
 	"github.com/gookit/goutil/x/ccolor"
 	"github.com/inhere/skillc/internal/app/installapp"
 	"github.com/inhere/skillc/internal/app/projectupdateapp"
@@ -1634,22 +1633,22 @@ func TestSourceAddUsesGlobalConfigWhenLocalMissing(t *testing.T) {
 	homeDir := filepath.Join(baseDir, "home")
 	workDir := filepath.Join(baseDir, "work")
 	sourceDir := filepath.Join(baseDir, "skills")
-	xassert.NoErr(t, os.MkdirAll(homeDir, 0o755))
-	xassert.NoErr(t, os.MkdirAll(workDir, 0o755))
-	xassert.NoErr(t, os.MkdirAll(sourceDir, 0o755))
+	assert.NoErr(t, os.MkdirAll(homeDir, 0o755))
+	assert.NoErr(t, os.MkdirAll(workDir, 0o755))
+	assert.NoErr(t, os.MkdirAll(sourceDir, 0o755))
 	t.Setenv("HOME", homeDir)
 	t.Setenv("USERPROFILE", homeDir)
 
 	output := runAppInDirWithStdout(t, workDir, []string{"source", "add", "--id", "gstack", sourceDir})
 
-	xassert.Contains(t, output, "gstack added")
+	assert.Contains(t, output, "gstack added")
 	_, err := os.Stat(filepath.Join(workDir, "skillc.yaml"))
-	xassert.True(t, os.IsNotExist(err))
+	assert.True(t, os.IsNotExist(err))
 	config, err := configstore.NewYAMLStore().Load(filepath.Join(homeDir, ".config", "skillc", "config.yaml"), workDir)
-	xassert.NoErr(t, err)
-	xassert.Len(t, config.Sources, 1)
+	assert.NoErr(t, err)
+	assert.Len(t, config.Sources, 1)
 	if len(config.Sources) == 1 {
-		xassert.Eq(t, "gstack", config.Sources[0].ID)
+		assert.Eq(t, "gstack", config.Sources[0].ID)
 	}
 }
 
@@ -2072,26 +2071,26 @@ func TestRegistryCommandInstallInstallsSkillWithoutAddingSource(t *testing.T) {
 	writeLocalTestConfig(t, baseDir)
 	catalogPath := filepath.Join(baseDir, "registry.json")
 	sourceRoot := filepath.Join(baseDir, "repo")
-	xassert.NoErr(t, os.MkdirAll(filepath.Join(sourceRoot, "skills", "go-pro"), 0o755))
-	xassert.NoErr(t, os.WriteFile(filepath.Join(sourceRoot, "skills", "go-pro", "SKILL.md"), []byte("# Go Pro"), 0o644))
-	xassert.NoErr(t, os.WriteFile(catalogPath, []byte(fmt.Sprintf(`{"skills":[{"id":"go-pro","name":"Go Pro","version":"1.0.0","source_url":"%s","install_entry":"skills/go-pro","supported_agents":["universal"]}]}`, filepath.ToSlash(sourceRoot))), 0o644))
+	assert.NoErr(t, os.MkdirAll(filepath.Join(sourceRoot, "skills", "go-pro"), 0o755))
+	assert.NoErr(t, os.WriteFile(filepath.Join(sourceRoot, "skills", "go-pro", "SKILL.md"), []byte("# Go Pro"), 0o644))
+	assert.NoErr(t, os.WriteFile(catalogPath, []byte(fmt.Sprintf(`{"skills":[{"id":"go-pro","name":"Go Pro","version":"1.0.0","source_url":"%s","install_entry":"skills/go-pro","supported_agents":["universal"]}]}`, filepath.ToSlash(sourceRoot))), 0o644))
 
 	runAppInDirWithStdout(t, baseDir, []string{"registry", "add", "--id", "team", "--name", "Team", catalogPath})
 	runAppInDirWithStdout(t, baseDir, []string{"registry", "sync", "team"})
 	output := runAppInDirWithStdout(t, baseDir, []string{"registry", "install", "team/go-pro", "--agent", "universal", "--scope", "project", "--yes"})
 
-	xassert.Contains(t, output, "installed go-pro")
-	xassert.FileExists(t, filepath.Join(baseDir, ".agents", "skills", "go-pro", "SKILL.md"))
+	assert.Contains(t, output, "installed go-pro")
+	assert.FileExists(t, filepath.Join(baseDir, ".agents", "skills", "go-pro", "SKILL.md"))
 	config, err := configstore.NewYAMLStore().Load(filepath.Join(baseDir, "skillc.yaml"), baseDir)
-	xassert.NoErr(t, err)
-	xassert.Len(t, config.Sources, 0)
+	assert.NoErr(t, err)
+	assert.Len(t, config.Sources, 0)
 }
 
 func TestRegistryCommandSearchDefaultsToSkills(t *testing.T) {
 	baseDir := t.TempDir()
 	writeLocalTestConfig(t, baseDir)
 	catalogPath := filepath.Join(baseDir, "registry.json")
-	xassert.NoErr(t, os.WriteFile(catalogPath, []byte(`{
+	assert.NoErr(t, os.WriteFile(catalogPath, []byte(`{
 		"skills":[{"id":"go-pro","name":"Go Pro","version":"1.0.0","source_url":"https://example.com/skills.git","install_entry":"skills/go-pro","tags":["go"]}],
 		"sources":[{"id":"gstack","name":"GStack Skills","type":"git","url":"https://example.com/gstack.git","tags":["go"]}]
 	}`), 0o644))
@@ -2100,16 +2099,16 @@ func TestRegistryCommandSearchDefaultsToSkills(t *testing.T) {
 
 	output := runAppInDirWithStdout(t, baseDir, []string{"registry", "search", "go"})
 
-	xassert.Contains(t, output, "go-pro")
-	xassert.Contains(t, output, "Go Pro")
-	xassert.NotContains(t, output, "gstack")
+	assert.Contains(t, output, "go-pro")
+	assert.Contains(t, output, "Go Pro")
+	assert.NotContains(t, output, "gstack")
 }
 
 func TestRegistryCommandSearchKindSourceStillShowsSourceCatalog(t *testing.T) {
 	baseDir := t.TempDir()
 	writeLocalTestConfig(t, baseDir)
 	catalogPath := filepath.Join(baseDir, "registry.json")
-	xassert.NoErr(t, os.WriteFile(catalogPath, []byte(`{
+	assert.NoErr(t, os.WriteFile(catalogPath, []byte(`{
 		"skills":[{"id":"go-pro","name":"Go Pro","version":"1.0.0","source_url":"https://example.com/skills.git","install_entry":"skills/go-pro","tags":["go"]}],
 		"sources":[{"id":"gstack","name":"GStack Skills","type":"git","url":"https://example.com/gstack.git","tags":["go"]}]
 	}`), 0o644))
@@ -2118,10 +2117,10 @@ func TestRegistryCommandSearchKindSourceStillShowsSourceCatalog(t *testing.T) {
 
 	output := runAppInDirWithStdout(t, baseDir, []string{"registry", "search", "gstack", "--kind", "source"})
 
-	xassert.Contains(t, output, "gstack")
-	xassert.Contains(t, output, "GStack Skills")
-	xassert.Contains(t, output, "git")
-	xassert.NotContains(t, output, "go-pro")
+	assert.Contains(t, output, "gstack")
+	assert.Contains(t, output, "GStack Skills")
+	assert.Contains(t, output, "git")
+	assert.NotContains(t, output, "go-pro")
 }
 
 func TestRegistryCommandAddProviderSkillsMP(t *testing.T) {
@@ -2130,33 +2129,33 @@ func TestRegistryCommandAddProviderSkillsMP(t *testing.T) {
 
 	output := runAppInDirWithStdout(t, baseDir, []string{"registry", "add", "https://skillsmp.com", "--id", "skillsmp", "--name", "SkillsMP", "--provider", "skillsmp"})
 
-	xassert.Contains(t, output, "registry added: skillsmp")
+	assert.Contains(t, output, "registry added: skillsmp")
 	config, err := configstore.NewYAMLStore().Load(filepath.Join(baseDir, "skillc.yaml"), baseDir)
-	xassert.NoErr(t, err)
-	xassert.Len(t, config.Registries, 1)
-	xassert.Eq(t, registry.TypeProvider, config.Registries[0].Type)
-	xassert.Eq(t, "skillsmp", config.Registries[0].Provider)
+	assert.NoErr(t, err)
+	assert.Len(t, config.Registries, 1)
+	assert.Eq(t, registry.TypeProvider, config.Registries[0].Type)
+	assert.Eq(t, "skillsmp", config.Registries[0].Provider)
 }
 
 func TestRegistryCommandAddUsesGlobalConfigWhenLocalMissing(t *testing.T) {
 	baseDir := t.TempDir()
 	homeDir := filepath.Join(baseDir, "home")
 	workDir := filepath.Join(baseDir, "work")
-	xassert.NoErr(t, os.MkdirAll(homeDir, 0o755))
-	xassert.NoErr(t, os.MkdirAll(workDir, 0o755))
+	assert.NoErr(t, os.MkdirAll(homeDir, 0o755))
+	assert.NoErr(t, os.MkdirAll(workDir, 0o755))
 	t.Setenv("HOME", homeDir)
 	t.Setenv("USERPROFILE", homeDir)
 
 	output := runAppInDirWithStdout(t, workDir, []string{"registry", "add", "https://example.com/registry.json", "--id", "official"})
 
-	xassert.Contains(t, output, "registry added: official")
+	assert.Contains(t, output, "registry added: official")
 	_, err := os.Stat(filepath.Join(workDir, "skillc.yaml"))
-	xassert.True(t, os.IsNotExist(err))
+	assert.True(t, os.IsNotExist(err))
 	config, err := configstore.NewYAMLStore().Load(filepath.Join(homeDir, ".config", "skillc", "config.yaml"), workDir)
-	xassert.NoErr(t, err)
-	xassert.Len(t, config.Registries, 1)
+	assert.NoErr(t, err)
+	assert.Len(t, config.Registries, 1)
 	if len(config.Registries) == 1 {
-		xassert.Eq(t, "official", config.Registries[0].ID)
+		assert.Eq(t, "official", config.Registries[0].ID)
 	}
 }
 
@@ -2171,8 +2170,8 @@ func TestRegistryCommandSearchProviderSkillsMP(t *testing.T) {
 
 	output := runAppInDirWithStdout(t, baseDir, []string{"registry", "search", "go", "--registry", "skillsmp"})
 
-	xassert.Contains(t, output, "owner-repo-skills-go-skill-md")
-	xassert.Contains(t, output, "https://github.com/Owner/Repo.git")
+	assert.Contains(t, output, "owner-repo-skills-go-skill-md")
+	assert.Contains(t, output, "https://github.com/Owner/Repo.git")
 }
 
 func writeLocalTestConfig(t *testing.T, baseDir string) {
@@ -2184,7 +2183,7 @@ func writeLocalTestConfig(t *testing.T, baseDir string) {
 	config.IndexFile = filepath.Join(baseDir, "cache", "skillc-index.json")
 	config.BackupDir = filepath.Join(baseDir, "cache", "backups")
 	config.LockFile = filepath.Join(baseDir, "skillc-install.lock")
-	xassert.NoErr(t, configstore.NewYAMLStore().Save(filepath.Join(baseDir, "skillc.yaml"), config, baseDir))
+	assert.NoErr(t, configstore.NewYAMLStore().Save(filepath.Join(baseDir, "skillc.yaml"), config, baseDir))
 }
 
 func findCommandByName(app *gcli.App, name string) *gcli.Command {
